@@ -110,3 +110,17 @@ Quality controls were visible. This is layout validation, not a physical phone t
 - Google OAuth upload setup is still missing, as documented in GOOGLE-SETUP.md.
   No upload, folder-sharing change, paid-service activation or main-branch change
   is part of this replacement.
+
+Live branch verification after the 0.4 deploy:
+- GitHub web check completed successfully for d4fa247.
+- Public Salsa 0058 loaded 58.44-second metadata, sought by five seconds, looped
+  from A=10s to B=15s, and entered/exited fullscreen through the custom controls.
+- Media inspection identified that original as HEVC/AAC (1920×1080). The cloud
+  browser exposed only its audio track (videoWidth=0). A metadata guard now pauses
+  audio-only decoding and explains how to use Drive preview; unsupported originals
+  are not reported as working video. Native controls are hidden so mirroring flips
+  only the picture rather than reversing a second control strip.
+- Salsa 0071 decoded a visible 464×832 picture with a 26.12-second duration and
+  played in the live HTML5 player at 0.5× with mirror enabled, without sign-in.
+- Four additional originals were inspected: Salsa 0071/0079 and Bachata 0100/0084
+  contain H.264/AAC video tracks. These avoid the HEVC browser-decoder limitation.

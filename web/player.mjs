@@ -65,7 +65,7 @@ export class StudioPlayer {
           if (!navigator.serviceWorker.controller) await new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('Reload once to enable connected streaming.')), 5000); navigator.serviceWorker.addEventListener('controllerchange', () => { clearTimeout(timeout); resolve(undefined); }, { once: true }); });
         }
         if (generation !== this.generation) return;
-        const media = document.createElement('video'); media.controls = true; media.playsInline = true; media.preload = 'metadata';
+        const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'metadata';
         media.src = localUrl || (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`);
         media.setAttribute('aria-label', `${video.title} video`);
         this.media = media; this.kind = 'native'; this.frame.replaceChildren(media);
@@ -78,7 +78,13 @@ export class StudioPlayer {
         }, 22000); this.loadingTimer = loading;
         media.addEventListener('loadedmetadata', () => {
           if (generation !== this.generation || media !== this.media) return;
-          clearTimeout(loading); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true);
+          clearTimeout(loading); this.frame.setAttribute('aria-busy', 'false');
+          if (!media.videoWidth || !media.videoHeight) {
+            media.pause(); this.setAvailable(false);
+            this.status('This browser cannot show the original video format. Choose Drive preview or open the original below.');
+            return;
+          }
+          this.setAvailable(true);
           this.status(localUrl ? 'Local preview · changes affect playback only' : 'Drive original · BailaCue player · speed, mirror and practice loops');
         });
         media.addEventListener('error', () => {
