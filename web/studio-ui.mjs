@@ -24,7 +24,7 @@ export function labelPicker(container, { labels, selected = [], title, artists =
   details.addEventListener('toggle', () => { search.setAttribute('aria-expanded', String(details.open)); if (details.open) search.focus(); });
   search.addEventListener('keydown', event => {
     const options = [...list.querySelectorAll('button')];
-    if (event.key === 'Escape') { details.open = false; details.querySelector('summary').focus(); }
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); details.open = false; details.querySelector('summary').focus(); }
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); if (!details.open) details.open = true; active = Math.max(0, Math.min(options.length - 1, active + (event.key === 'ArrowDown' ? 1 : -1))); search.setAttribute('aria-activedescendant', options[active]?.id || ''); options.forEach((el, i) => el.classList.toggle('keyboard-active', i === active)); options[active]?.scrollIntoView({ block: 'nearest' }); }
     if (event.key === 'Enter') { event.preventDefault(); options[active]?.click(); }
   });

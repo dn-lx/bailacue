@@ -38,3 +38,27 @@ and keyboard interaction. Applies to the develop web app; no data migration.
 - No all-video codec compatibility claim: Drive original playback still depends
   on browser codecs. Unsupported originals keep the explicit Drive preview option.
 - Upload OAuth configuration remains a separate pre-existing requirement.
+
+
+## Live review follow-up
+
+- Verified the centered main button with a bounding-box calculation: 0px error,
+  58×58px target. Verified the triangle/pause state and decoded video picture.
+- Verified speaker mute/unmute, 0.5× speed, five-second seeking, A/B creation and
+  resetting an existing loop by setting a new A. Controls retain accessible names.
+- Verified the label manager uses 14px labels and 12px hints on the deployed page.
+- Reviewed phone-width screenshots at 390px (upload) and 360px (library). Optional
+  markers remain inline and the filter stack wraps without a horizontal scrollbar.
+- The phone screenshots caught a too-tall header action: minimum height had leaked
+  onto the inner text span. Reset the span and give the button one 44px height.
+- Kept the player title/close row sticky while scrolling long metadata on phones.
+- Removed the duplicate full-screen exit row; the normal fullscreen icon changes
+  its accessible name to Exit full screen and remains enabled in preview mode.
+- Added spacing before the label-form hint so it does not collide with Create.
+
+Limit: screenshot checks exercise responsive CSS, not physical Android hardware.
+
+- Keyboard review found Escape in the label search also closing the parent player.
+  The picker now consumes Escape, closes its own dropdown and returns focus to its
+  summary; a later Escape can close the player normally. First Down selects the
+  first result, confirmed by matching aria-activedescendant to the first option.

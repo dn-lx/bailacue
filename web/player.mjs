@@ -60,7 +60,6 @@ export class StudioPlayer {
     this.$('#media-save-loop').onclick = () => { if (!this.loop) { this.toast('Set A and B before saving a loop.'); return; } this.saveLoop({ ...this.loop }); };
     this.$('#media-mirror').onclick = () => { if (!this.media) return; const active = this.media.classList.toggle('mirrored'); this.$('#media-mirror').setAttribute('aria-pressed', String(active)); };
     document.querySelector('#fullscreen-button').addEventListener('click', () => this.fullscreen());
-    const exit = document.createElement('button'); exit.type = 'button'; exit.className = 'fullscreen-exit'; exit.textContent = 'Exit full screen'; exit.addEventListener('click', () => this.fullscreen()); this.controls.append(exit);
     document.querySelector('#player').addEventListener('cancel', event => { if (document.querySelector('#player').classList.contains('fullscreen-mode')) { event.preventDefault(); this.fullscreen(); } });
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); });
     document.addEventListener('keydown', event => {

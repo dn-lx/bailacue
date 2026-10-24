@@ -90,3 +90,8 @@ button:disabled{cursor:not-allowed}
 }
 @media(max-width:380px){.mobile-brand{font-size:21px}.topbar{padding-inline:10px}.header-actions{gap:2px}.header-actions .button{padding-inline:8px}.header-actions .button span:last-child{font-size:12px}main{padding-inline:14px}.advanced-filters{flex-direction:column}.advanced-filters>div{width:100%;max-width:none}.card-labels{gap:6px}.card-bottom{flex-wrap:wrap}#media-controls #media-volume{display:none}#media-controls .player-utilities{grid-template-columns:44px minmax(0,1fr) 44px}#media-controls .speed-label{justify-self:center}#media-controls #media-time{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* Follow-up visual checks: compact header and an always reachable modal close. */
+.editor-panel>form+.helper-text{margin-top:16px}
+.player-top{position:sticky;top:0;z-index:5;background:var(--surface);padding:10px 0;margin-top:-10px}
+@media(max-width:720px){.header-actions .button span:last-child{min-height:0}.header-actions .button{height:44px;padding-block:10px}}
