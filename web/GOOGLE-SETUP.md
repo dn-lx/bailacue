@@ -1,6 +1,6 @@
 # Google Drive connection setup
 
-Browsing, labels, YouTube and local previews require no BailaCue account. Uploads
+Browsing, shared-original playback, labels, YouTube and local previews require no BailaCue account. Uploads
 and connected Drive playback require the visitor's Google authorization.
 No client secret is used in the browser.
 

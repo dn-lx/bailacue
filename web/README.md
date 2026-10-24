@@ -1,4 +1,4 @@
-# BailaCue web · 0.3.0
+# BailaCue web · 0.4.0
 
 Account-free browser companion to BailaCue mobile. This update lives on `develop`;
 mobile implementation and `main` remain unchanged. The web interface uses text
@@ -6,7 +6,7 @@ branding without the previous logo.
 
 ## Run and check
 
-Node 24; TypeScript 6.0.3 checks the code; hls.js 1.7.3 is the pinned adaptive-player dependency.
+Node 24; TypeScript 6.0.3 checks the code. The player uses native HTML5 video.
 
 ```sh
 cd web
@@ -21,14 +21,12 @@ Serve `web/dist` with a static server. Netlify reads root `netlify.toml`, builds
 `web` and publishes `dist`. Keep node_modules, dist, .netlify and local identity files
 out of Git. Native Expo dependencies are outside this web build.
 
-## Playback copies · 0.3
+## Drive originals · 0.4
 
-The approved architecture keeps Drive originals and syncs playback copies to
-Cloudflare Stream for the in-page HTML5 player. The public playback index is a
-read-only Netlify function; owner credentials stay server-side. A separate scheduled
-Worker supplies develop-compatible automatic sync and a bounded manual workflow
-supports backfill. It ships disabled until account, read access and budget setup.
-See [STREAMING-SETUP.md](STREAMING-SETUP.md). No real library copy is ready yet.
+Shared Drive originals play through a bounded, same-origin Netlify range proxy into
+BailaCue's HTML5 player. No streaming-provider account, playback copies or viewer
+sign-in is needed. Google quota/permission errors have an explicit preview fallback.
+See [STREAMING-SETUP.md](STREAMING-SETUP.md).
 
 ## Collections and uploads
 
@@ -88,14 +86,15 @@ Every source offers Compact/Comfortable/Wide sizes, height adjustment, theater v
 and Full screen. A full-window layout and Exit button work when native fullscreen
 is unavailable. Escape exits that layout before closing the player.
 
-YouTube uses its official IFrame API. Ready Cloudflare playback copies, local previews and authorized Drive streams
+YouTube uses its official IFrame API. Shared Drive originals, local previews and authorized Drive streams
 use HTML5 video. Controls include play/pause, seek, speed, mute and A–B loops;
 native video also has mirror. Saved loops are metadata, not edited video files.
 A service worker forwards authorized Drive range streams without caching media or
 persisting tokens.
 
-Drive files without a ready playback copy retain Google's preview and its own controls. Its cross-origin iframe
-cannot use BailaCue's custom seek/speed/loops; Connect Google enables the HTML5 path.
+If an original cannot play, choose Drive preview and its own controls. Its cross-origin
+iframe cannot use BailaCue's custom seek/speed/loops. Connected Drive playback can
+also read newly uploaded videos before a catalogue redeploy.
 Drive processing/quota/permissions, provider restrictions, codecs or expired tokens
 can prevent playback. Open original remains available. No trimming, re-encoding or
 automatic watch tracking is claimed.
@@ -109,4 +108,4 @@ The primary `https://bailacue.netlify.app` retains the initial tested 0.1 build;
 updating develop does not merge main or republish production.
 
 See [VERIFICATION.md](VERIFICATION.md) and [DESIGN-REVIEW-0.2.md](DESIGN-REVIEW-0.2.md).
-No retired mobile Supabase table or Me+ database is used. The selected paid streaming integration is prepared but has not been activated.
+No retired mobile Supabase table or Me+ database is used. The previous Cloudflare integration has been removed.

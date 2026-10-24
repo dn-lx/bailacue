@@ -1,6 +1,6 @@
 {
   "name": "bailacue-web",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -9,15 +9,11 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "typecheck": "tsc -p jsconfig.json",
-    "lint": "node --check app.js && node --check core.mjs && node --check drive.mjs && node --check player.mjs && node --check studio-ui.mjs && node --check studio-model.mjs && node --check media-worker.js && node --check scripts/build.mjs && node --check stream-model.mjs && node --check stream-provider.mjs && node --check stream-sync.mjs && node --check scripts/stream-sync.mjs && node --check worker/stream-sync.mjs && node --check netlify/functions/stream-library.mjs",
-    "test": "node --test tests/*.test.mjs",
-    "stream:plan": "node scripts/stream-sync.mjs --plan",
-    "stream:sync": "node scripts/stream-sync.mjs --apply"
+    "lint": "node --check app.js && node --check core.mjs && node --check drive.mjs && node --check player.mjs && node --check studio-ui.mjs && node --check studio-model.mjs && node --check media-worker.js && node --check scripts/build.mjs && node --check drive-stream.mjs && node --check netlify/functions/drive-media.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "devDependencies": {
     "typescript": "6.0.3"
   },
-  "dependencies": {
-    "hls.js": "1.7.3"
-  }
+  "dependencies": {}
 }

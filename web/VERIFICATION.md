@@ -93,3 +93,20 @@ mobile remain unchanged. Setup and operational limits are in STREAMING-SETUP.md.
 The adaptive controls also fit 390px and 320px browser frames: measured document
 scroll widths equalled client widths (390/320px); player widths were 376/306px.
 Quality controls were visible. This is layout validation, not a physical phone test.
+
+## 0.4 Drive-only replacement
+
+- Removed the Cloudflare provider, HLS dependency, copy worker, sync CLI and workflow.
+- Added a catalogue-restricted, same-origin Netlify byte-range proxy with 4 MiB
+  windows, strict upstream range/body validation and an 18-second request timeout.
+- Guests use native HTML5 video; connected owners retain the authenticated bridge.
+  Metadata loading has a 22-second deadline and explicit preview/original fallbacks.
+- Lint, TypeScript checks, all 26 automated tests and the static production build pass.
+  Function import and route registration were checked locally.
+- A real public Salsa original returned HTTP 206, video/mp4, an exact 32-byte
+  Content-Range and a valid MP4 ftyp header without Google authorization.
+- Local Chromium received real first/tail/middle ranges through the proxy. Full
+  browser playback and deployed range handling are checked after the branch build.
+- Google OAuth upload setup is still missing, as documented in GOOGLE-SETUP.md.
+  No upload, folder-sharing change, paid-service activation or main-branch change
+  is part of this replacement.
