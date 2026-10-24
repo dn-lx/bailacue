@@ -15,7 +15,7 @@ if (!counts.Salsa || !counts.Bachata) throw new Error('Both fixed collections mu
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const name of ['index.html', 'app.js', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
+for (const name of ['index.html', 'app.js', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
 const { writeFile } = await import('node:fs/promises');
 const configuredId = process.env.BAILACUE_GOOGLE_CLIENT_ID || '';
 if (configuredId && !/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(configuredId)) throw new Error('BAILACUE_GOOGLE_CLIENT_ID must be a public web client ID.');

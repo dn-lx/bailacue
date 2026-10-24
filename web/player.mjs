@@ -1,5 +1,16 @@
 import { embedUrl } from './core.mjs';
 import { formatTime } from './studio-model.mjs';
+const paths = {
+  play: '<path d="m9 5 12 9-12 9Z" fill="currentColor" stroke="none"/>',
+  pause: '<path d="M9 5v18M19 5v18" stroke-width="4"/>',
+  back: '<path d="M7 9H2V4m0 5a11 11 0 1 1-1 11"/><text x="14" y="19" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-family="system-ui" font-weight="600">5</text>',
+  forward: '<path d="M21 9h5V4m0 5a11 11 0 1 0 1 11"/><text x="14" y="19" text-anchor="middle" fill="currentColor" stroke="none" font-size="11" font-family="system-ui" font-weight="600">5</text>',
+  volume: '<path d="M3 11h5l6-5v16l-6-5H3Z"/><path d="M19 9a8 8 0 0 1 0 10m4-14a14 14 0 0 1 0 18"/>',
+  muted: '<path d="M3 11h5l6-5v16l-6-5H3Z"/><path d="m20 10 6 8m0-8-6 8"/>',
+  expand: '<path d="M10 3H3v7m15-7h7v7M3 18v7h7m15-7v7h-7"/>',
+  mirror: '<path d="M14 2v24M10 7 3 21h7Zm8 0 7 14h-7Z"/>',
+};
+function mediaIcon(name) { return `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`; }
 let youtubePromise;
 function loadYoutube() {
   if ((/** @type {any} */ (window)).YT?.Player) return Promise.resolve();
@@ -16,16 +27,34 @@ export class StudioPlayer {
     this.token = token; this.allowedFile = allowedFile; this.toast = toast; this.saveLoop = saveLoop;
     this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.loop = null; this.generation = 0; this.timer = null; this.kind = 'preview'; this.a = null;
-    this.controls.innerHTML = `<div class="transport"><button type="button" id="media-play" aria-label="Play or pause video">Play</button><button type="button" id="media-back" aria-label="Seek back 5 seconds">−5s</button><button type="button" id="media-forward" aria-label="Seek forward 5 seconds">+5s</button><span id="media-time">0:00 / 0:00</span><label class="sr-only" for="media-seek">Video position</label><input type="range" id="media-seek" min="0" max="1000" value="0"><label class="speed-label">Speed<select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label><label class="speed-label volume-label">Volume<input type="range" id="media-volume" aria-label="Volume" min="0" max="100" value="100"></label><button type="button" id="media-mute" aria-label="Mute or unmute video">Mute</button></div><div class="practice-tools"><button type="button" id="media-a">Set A</button><button type="button" id="media-b">Set B</button><button type="button" id="media-loop" aria-pressed="false">Loop off</button><button type="button" id="media-save-loop">Save loop</button><button type="button" id="media-mirror" aria-pressed="false">Mirror</button><span id="loop-info">Choose the start (A) and end (B) of a move.</span></div>`;
+    this.controls.innerHTML = `
+      <div class="timeline"><input type="range" id="media-seek" aria-label="Video position" min="0" max="1000" step="1" value="0" aria-valuetext="0:00 of 0:00"><span id="media-time">0:00 / 0:00</span></div>
+      <div class="transport" role="group" aria-label="Playback controls">
+        <button type="button" id="media-back" class="media-icon media-skip" aria-label="Back 5 seconds" title="Back 5 seconds">${mediaIcon('back')}</button>
+        <button type="button" id="media-play" class="media-icon media-play" aria-label="Play video" title="Play video">${mediaIcon('play')}</button>
+        <button type="button" id="media-forward" class="media-icon media-skip" aria-label="Forward 5 seconds" title="Forward 5 seconds">${mediaIcon('forward')}</button>
+      </div>
+      <div class="player-utilities">
+        <div class="volume-control"><button type="button" id="media-mute" class="media-icon" aria-label="Mute" title="Mute">${mediaIcon('volume')}</button><input type="range" id="media-volume" aria-label="Volume" min="0" max="100" value="100"></div>
+        <label class="speed-label" for="media-speed">Speed<select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        <div class="media-display-actions"></div>
+      </div>
+      <details class="practice-tools"><summary>Practice tools<span>Loop & mirror</span></summary><div class="practice-tools-body">
+        <div class="loop-controls"><button type="button" id="media-a">Set start A</button><button type="button" id="media-b">Set end B</button><button type="button" id="media-loop" aria-pressed="false">Loop off</button><button type="button" id="media-save-loop">Save loop</button><button type="button" id="media-mirror" aria-pressed="false">${mediaIcon('mirror')}Mirror</button></div>
+        <p id="loop-info">Set A and B to repeat a move.</p>
+      </div></details>`;
+    const fullscreen = document.querySelector('#fullscreen-button');
+    fullscreen.className = 'media-icon'; fullscreen.innerHTML = mediaIcon('expand'); fullscreen.setAttribute('aria-label', 'Enter full screen'); fullscreen.setAttribute('title', 'Enter full screen');
+    this.$('.media-display-actions').append(fullscreen);
     document.getElementById('drive-preview-button').onclick = () => { if (this.video?.provider === 'drive') { clearTimeout(this.loadingTimer); this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.media = null; this.preview(this.video); } };
     this.$('#media-play').onclick = () => this.playPause();
     this.$('#media-back').onclick = () => this.seek(this.current() - 5);
     this.$('#media-forward').onclick = () => this.seek(this.current() + 5);
     this.$('#media-seek').oninput = e => this.seek(Number(e.target.value) / 1000 * this.duration());
     this.$('#media-speed').onchange = e => { const value = Number(e.target.value); if (this.media) this.media.playbackRate = value; if (this.youtube) this.youtube.setPlaybackRate(value); };
-    this.$('#media-volume').oninput = e => { const value = Number(e.target.value); if (this.media) { this.media.volume = value / 100; this.media.muted = value === 0; } if (this.youtube) { this.youtube.setVolume(value); value === 0 ? this.youtube.mute() : this.youtube.unMute(); } this.$('#media-mute').textContent = value === 0 ? 'Unmute' : 'Mute'; };
-    this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.$('#media-mute').textContent = (this.media?.muted || this.youtube?.isMuted()) ? 'Unmute' : 'Mute'; };
-    this.$('#media-a').onclick = () => { this.a = this.current(); this.loop = null; this.$('#loop-info').textContent = `A ${formatTime(this.a)} — choose B after this point.`; };
+    this.$('#media-volume').oninput = e => { const value = Number(e.target.value); if (this.media) { this.media.volume = value / 100; this.media.muted = value === 0; } if (this.youtube) { this.youtube.setVolume(value); value === 0 ? this.youtube.mute() : this.youtube.unMute(); } this.updateVolume(); };
+    this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.updateVolume(); };
+    this.$('#media-a').onclick = () => { this.a = this.current(); this.loop = null; this.$('#media-loop').setAttribute('aria-pressed', 'false'); this.$('#media-loop').textContent = 'Loop off'; this.$('#loop-info').textContent = `A ${formatTime(this.a)} — choose B after this point.`; };
     this.$('#media-b').onclick = () => { if (this.a === null || this.current() <= this.a + 0.2) { this.toast('Set A first, then choose B after the start.'); return; } this.loop = { start: this.a, end: this.current() }; this.$('#media-loop').setAttribute('aria-pressed', 'true'); this.$('#media-loop').textContent = 'Loop on'; this.$('#loop-info').textContent = `${formatTime(this.loop.start)} → ${formatTime(this.loop.end)}`; };
     this.$('#media-loop').onclick = () => { const enabled = this.$('#media-loop').getAttribute('aria-pressed') !== 'true'; if (!this.loop) { this.toast('Set A and B to create a practice loop.'); return; } this.$('#media-loop').setAttribute('aria-pressed', String(enabled)); this.$('#media-loop').textContent = enabled ? 'Loop on' : 'Loop off'; };
     this.$('#media-save-loop').onclick = () => { if (!this.loop) { this.toast('Set A and B before saving a loop.'); return; } this.saveLoop({ ...this.loop }); };
@@ -33,7 +62,7 @@ export class StudioPlayer {
     document.querySelector('#fullscreen-button').addEventListener('click', () => this.fullscreen());
     const exit = document.createElement('button'); exit.type = 'button'; exit.className = 'fullscreen-exit'; exit.textContent = 'Exit full screen'; exit.addEventListener('click', () => this.fullscreen()); this.controls.append(exit);
     document.querySelector('#player').addEventListener('cancel', event => { if (document.querySelector('#player').classList.contains('fullscreen-mode')) { event.preventDefault(); this.fullscreen(); } });
-    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.querySelector('#player').classList.remove('fullscreen-mode'); });
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); });
     document.addEventListener('keydown', event => {
       if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof Element && event.target.closest('input,select,textarea,button,[contenteditable=true]'))) return;
       if ([' ', 'k', 'ArrowLeft', 'ArrowRight', 'f'].includes(event.key)) event.preventDefault();
@@ -52,8 +81,9 @@ export class StudioPlayer {
   async open(video, localUrl = '') {
     this.stop(); const generation = this.generation; this.video = video;
     document.getElementById('drive-preview-button').hidden = true;
-    this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.$('#media-play').textContent = 'Play'; this.$('#media-mute').textContent = 'Mute'; this.$('#media-seek').value = '0';
-    this.$('#media-speed').value = '1'; this.$('#media-loop').textContent = 'Loop off'; this.$('#media-loop').setAttribute('aria-pressed', 'false'); this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.$('#loop-info').textContent = 'Choose the start (A) and end (B) of a move.';
+    this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
+    this.$('#media-speed').value = '1'; this.$('#media-loop').textContent = 'Loop off'; this.$('#media-loop').setAttribute('aria-pressed', 'false'); this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.$('#loop-info').textContent = 'Set A and B to repeat a move.';
+    this.controls.classList.remove('preview-mode'); this.$('.practice-tools').open = false;
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
@@ -92,7 +122,7 @@ export class StudioPlayer {
           clearTimeout(loading); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
           this.status('This Drive video could not play here. Choose Drive preview or open the original below.');
         });
-        for (const type of ['play', 'pause', 'timeupdate', 'durationchange']) media.addEventListener(type, () => this.tick());
+        for (const type of ['play', 'pause', 'ended', 'timeupdate', 'durationchange', 'volumechange']) media.addEventListener(type, () => this.tick());
       } catch (error) { if (generation === this.generation) { this.preview(video); this.status(error.message); } }
     } else if (video.provider === 'youtube') {
       try {
@@ -108,12 +138,32 @@ export class StudioPlayer {
   }
   preview(video) {
     const isDrive = video.provider === 'drive';
-    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture'; frame.allowFullscreen = true; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => this.frame.setAttribute('aria-busy', 'false'); this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
+    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture'; frame.allowFullscreen = true; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => this.frame.setAttribute('aria-busy', 'false'); this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
     document.getElementById('drive-preview-button').hidden = true;
     this.status(isDrive ? 'Drive preview · use Google’s controls. Full screen and player sizing remain available.' : 'Provider preview · use its controls, or open the original video.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }
-  setAvailable(available) { this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit')) (/** @type {any} */ (el)).disabled = !available; }); this.$('#media-mirror').disabled = !available || !this.media; this.controls.classList.toggle('preview-mode', !available); }
+  setAvailable(available) {
+    this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
+    this.$('#media-mirror').disabled = !available || !this.media;
+    this.controls.classList.toggle('controls-unavailable', !available);
+  }
+  updatePlay(playing) {
+    const button = this.$('#media-play'), label = playing ? 'Pause video' : 'Play video';
+    if (button.getAttribute('aria-label') === label) return;
+    button.innerHTML = mediaIcon(playing ? 'pause' : 'play'); button.setAttribute('aria-label', label); button.title = label;
+  }
+  updateVolume() {
+    const muted = !!(this.media?.muted || this.youtube?.isMuted?.());
+    const button = this.$('#media-mute'); button.innerHTML = mediaIcon(muted ? 'muted' : 'volume');
+    button.setAttribute('aria-label', muted ? 'Unmute' : 'Mute'); button.title = muted ? 'Unmute' : 'Mute';
+    const volume = this.media ? Math.round(this.media.volume * 100) : this.youtube?.getVolume?.();
+    if (Number.isFinite(volume)) this.$('#media-volume').value = muted ? 0 : volume;
+  }
+  updateFullscreen() {
+    const active = document.querySelector('#player').classList.contains('fullscreen-mode');
+    const button = this.$('#fullscreen-button'), label = active ? 'Exit full screen' : 'Enter full screen'; button.setAttribute('aria-label', label); button.title = label;
+  }
   current() { return this.media?.currentTime || this.youtube?.getCurrentTime?.() || 0; }
   duration() { return this.media?.duration || this.youtube?.getDuration?.() || 0; }
   seek(time) { const value = Math.max(0, Math.min(time, this.duration() || time)); if (this.media) this.media.currentTime = value; if (this.youtube) this.youtube.seekTo(value, true); }
@@ -121,10 +171,12 @@ export class StudioPlayer {
   tick() {
     const current = this.current(), duration = this.duration(); this.$('#media-time').textContent = `${formatTime(current)} / ${formatTime(duration)}`;
     if (document.activeElement !== this.$('#media-seek')) this.$('#media-seek').value = duration ? Math.round(current / duration * 1000) : 0;
-    this.$('#media-play').textContent = (this.media && !this.media.paused) || this.youtube?.getPlayerState?.() === 1 ? 'Pause' : 'Play';
+    this.updatePlay(!!((this.media && !this.media.paused && !this.media.ended) || this.youtube?.getPlayerState?.() === 1));
+    this.updateVolume();
+    this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
     if (this.loop && this.$('#media-loop').getAttribute('aria-pressed') === 'true' && current >= this.loop.end) this.seek(this.loop.start);
   }
-  useLoop(loop) { this.a = loop.start; this.loop = { start: loop.start, end: loop.end }; this.$('#media-loop').setAttribute('aria-pressed', 'true'); this.$('#media-loop').textContent = 'Loop on'; this.$('#loop-info').textContent = `${formatTime(loop.start)} → ${formatTime(loop.end)}`; this.seek(loop.start); }
-  async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
-  stop() { this.generation++; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.loop = null; this.a = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); }
+  useLoop(loop) { this.$('.practice-tools').open = true; this.a = loop.start; this.loop = { start: loop.start, end: loop.end }; this.$('#media-loop').setAttribute('aria-pressed', 'true'); this.$('#media-loop').textContent = 'Loop on'; this.$('#loop-info').textContent = `${formatTime(loop.start)} → ${formatTime(loop.end)}`; this.seek(loop.start); }
+  async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); this.updateFullscreen(); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
+  stop() { this.generation++; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.loop = null; this.a = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
 }
