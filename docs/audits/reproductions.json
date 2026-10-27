@@ -1,0 +1,19 @@
+{
+  "method": "Synthetic metadata and mocked filesystem failure; real production functions were invoked without real user data, provider credentials, production API calls or file deletion.",
+  "restore": {
+    "localOnlyRestore": {
+      "originalCount": 1,
+      "restoredCount": 0,
+      "localOnlyDropped": true
+    },
+    "malformedSnapshot": "Cannot read properties of undefined (reading 'map')"
+  },
+  "logout": {
+    "error": "Injected filesystem failure",
+    "calls": [
+      "reminders-disabled",
+      "delete-attempt"
+    ],
+    "logoutReached": false
+  }
+}

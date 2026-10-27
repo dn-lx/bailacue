@@ -1,0 +1,55 @@
+name: Recover a built Android preview
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing preview tag with a prepared draft release
+        required: true
+      build_run:
+        description: Completed preview build run with successful ARTEMIS acceptance
+        required: true
+      acceptance_run:
+        description: Optional separate successful ARTEMIS run testing these exact APK bytes
+        required: false
+permissions:
+  contents: write
+  actions: read
+jobs:
+  attach:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wait for existing build and retrieve its artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+          ACCEPTANCE_RUN: ${{ inputs.acceptance_run }}
+        run: |
+          gh run watch "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --interval 15
+          gh run download "$BUILD_RUN" --repo "$GITHUB_REPOSITORY" --name BailaCue-published-preview --dir artifacts
+          (cd artifacts && sha256sum --check *.sha256)
+          test_run="${ACCEPTANCE_RUN:-$BUILD_RUN}"
+          native_passes=$(gh run view "$test_run" --repo "$GITHUB_REPOSITORY" --json jobs --jq '[.jobs[] | select((.name == "ARTEMIS Android device tests" or .name == "device") and .conclusion == "success")] | length')
+          test "$native_passes" -ge 1
+          if [ -n "$ACCEPTANCE_RUN" ]; then
+            gh run download "$ACCEPTANCE_RUN" --repo "$GITHUB_REPOSITORY" --name BailaCue-ARTEMIS-acceptance-evidence --dir acceptance
+            python3 -c 'import glob,hashlib,json; r=json.load(open("acceptance/report.json")); p=glob.glob("artifacts/*.apk"); assert len(p)==1 and r["status"]=="passed" and r["apk_sha256"]==hashlib.sha256(open(p[0],"rb").read()).hexdigest(), "Acceptance must pass against these exact APK bytes"'
+          fi
+      - name: Attach APK to the prepared draft and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PREVIEW_TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          is_draft=$(gh release view "$PREVIEW_TAG" --json isDraft --jq .isDraft)
+          if [ "$is_draft" != true ]; then
+            echo 'Release already published; preserving immutable assets.'
+            exit 0
+          fi
+          gh release upload "$PREVIEW_TAG" artifacts/*.apk artifacts/*.sha256 --clobber
+          cp "docs/releases/$PREVIEW_TAG.md" /tmp/bailacue-release-notes.md
+          printf '\nActual uploaded APK SHA-256:\n\n```text\n' >> /tmp/bailacue-release-notes.md
+          cat artifacts/*.sha256 >> /tmp/bailacue-release-notes.md
+          printf '```\n' >> /tmp/bailacue-release-notes.md
+          gh release edit "$PREVIEW_TAG" --draft=false --prerelease --notes-file /tmp/bailacue-release-notes.md

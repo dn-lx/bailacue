@@ -1,0 +1,42 @@
+{
+  "source": "9bc627d1c6aff5918938d506e1cbdf8a03ab2914",
+  "concept": "05 — b + centered play",
+  "exportCount": 70,
+  "allChecksumsMatch": true,
+  "checks": [
+    {
+      "path": "assets/brand/symbol-color-transparent.png",
+      "width": 1024,
+      "height": 1024,
+      "hasTransparency": true
+    },
+    {
+      "path": "assets/brand/symbol-color-dark-transparent.png",
+      "width": 1024,
+      "height": 1024,
+      "hasTransparency": true
+    },
+    {
+      "path": "assets/adaptive-icon.png",
+      "width": 1024,
+      "height": 1024,
+      "hasTransparency": true,
+      "visiblePixels": 97883,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "path": "assets/adaptive-monochrome.png",
+      "width": 1024,
+      "height": 1024,
+      "hasTransparency": true,
+      "visiblePixels": 97883,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "path": "assets/brand/ios-app-store.png",
+      "width": 1024,
+      "height": 1024,
+      "hasTransparency": false
+    }
+  ]
+}

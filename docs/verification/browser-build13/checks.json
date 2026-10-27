@@ -1,0 +1,18 @@
+{
+  "version": "0.2.9",
+  "build": 13,
+  "unitTests": 135,
+  "unitSuites": 16,
+  "typecheck": "passed",
+  "lint": "passed",
+  "webExport": "passed",
+  "browserJourneys": 6,
+  "providerMode": "mocked",
+  "changes": [
+    "number-only titles and provider filenames",
+    "incremental external discovery",
+    "editable labels and readonly source number",
+    "both source daily picks"
+  ],
+  "liveProviderVerified": false
+}

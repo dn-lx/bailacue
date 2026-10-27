@@ -1,0 +1,589 @@
+{
+  "concept": "05 — b + centered play",
+  "sources": [
+    "docs/brand/round-2-selected-concept-05-board.jpg",
+    "assets/brand/b-play-approved-preview.png"
+  ],
+  "masters": [
+    "assets/brand/symbol-master.svg",
+    "assets/brand/wordmark-master.svg"
+  ],
+  "sourceChecksums": [
+    {
+      "path": "assets/brand/symbol-master.svg",
+      "sha256": "da33095b90830722414555cfd0662fa853998b2dbc808c357b9a7b97e2a14d70"
+    },
+    {
+      "path": "assets/brand/wordmark-master.svg",
+      "sha256": "562062540e4dc0729daf44a3fc310eb8c71ce9689e95d0e9ee0f20c25ba331ec"
+    },
+    {
+      "path": "assets/brand/b-play-approved-preview.png",
+      "sha256": "1c79a8e64dfacf743ea567a0abf1d96b2f5139b5ba73e77b43dd03fd922c353f"
+    }
+  ],
+  "formatNote": "Symbols and logo lockups contain SVG paths, including outlined Outfit typography. PNG exports preserve alpha except opaque app/store tiles. Badge and social-tagline text is editable SVG text.",
+  "assets": [
+    {
+      "path": "assets/brand/symbol-white-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "cd4501eff4c771fe4bde62de2c8399869f9c7e80baffba2b3e4e2986695476f8"
+    },
+    {
+      "path": "assets/brand/symbol-white-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "c0b21f064274ac6a9c7899e69a2d49a8ebde36808de288fc32029828894c2a01"
+    },
+    {
+      "path": "assets/brand/symbol-black-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "b363e4e427b8983b0c4678f157500fb8a7cf022184b6959ff06dd02bd994214c"
+    },
+    {
+      "path": "assets/brand/symbol-black-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "684568b1f647625020a78fd8c6fa894f88520c8169d953416fc0b10fc13b8f1b"
+    },
+    {
+      "path": "assets/brand/symbol-blue-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "a00302f2535018f25b5973e45a6d26bb787ef4a0d69022bc2c57227de3c23762"
+    },
+    {
+      "path": "assets/brand/symbol-blue-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "5b1e38f8af7285c17a79d28bba5cec54bd3f71159c6bb3e8d3ee12f547afd659"
+    },
+    {
+      "path": "assets/brand/symbol-color-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "17e3dd1f954b429a97101e30da7384cd0e66b20ef12acc7a8dd9cf9906ec7073"
+    },
+    {
+      "path": "assets/brand/symbol-color-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "916e0f7cc8615d907b46b3a90bc377f9f8b3dfb6ff38a7dda187b0aab4ffd727"
+    },
+    {
+      "path": "assets/brand/symbol-color-dark-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "7cb707c4377413f95ad53eaf3fe7db9d2bb2876df1156ce90b6968995125ce65"
+    },
+    {
+      "path": "assets/brand/symbol-color-dark-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "b5e60f255c6fe22daf27f85a59276dc1e692e97d4d3c6390958089674b193dc2"
+    },
+    {
+      "path": "assets/icon.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "82ba9327ebc0b5579acafae8dbe7633108db4ad49a2e02615f1a18e307e312ce"
+    },
+    {
+      "path": "assets/icon.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "ed14423de7293195113207756bcfbde388ba2d52792049314bb8aeed5ec3e848"
+    },
+    {
+      "path": "assets/adaptive-icon.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "efeaa9f5bd5e51602a86e279f16ec688ff11ccb0e1d283bd8238cf6049409f4c"
+    },
+    {
+      "path": "assets/adaptive-monochrome.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "8a28352f5b79f1dc854eaa6e708242fc54c630dd3e20bd6b24f9fe1506f2d4b6"
+    },
+    {
+      "path": "assets/splash-icon.png",
+      "format": "png",
+      "width": 512,
+      "height": 512,
+      "alpha": true,
+      "sha256": "47ad33e2b824de561d671283071bd2540f65b35469f2ff34b78be465ad317f25"
+    },
+    {
+      "path": "assets/brand/icon-black.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "abfe3307506c181dbf7caf28dd0ceb85dae62678fac4645b37d0aa8cfffd7fd4"
+    },
+    {
+      "path": "assets/brand/icon-black.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": true,
+      "sha256": "c76cd54866e3b6ae354ec200a0dde2823db57e9280aa129ab97cd8428d9ce7a8"
+    },
+    {
+      "path": "assets/favicon.png",
+      "format": "png",
+      "width": 64,
+      "height": 64,
+      "alpha": false,
+      "sha256": "ad5be61c0b497b4a4b79fac3ef3c4b0bc5d65e0219b10664587d1852dc19b67e"
+    },
+    {
+      "path": "assets/brand/favicon-16.png",
+      "format": "png",
+      "width": 16,
+      "height": 16,
+      "alpha": false,
+      "sha256": "3925ecfc54943da8ef2e33149ab81899810be91416677f628a03996591d9b743"
+    },
+    {
+      "path": "assets/brand/favicon-32.png",
+      "format": "png",
+      "width": 32,
+      "height": 32,
+      "alpha": false,
+      "sha256": "9c018ca18ed238e23040b3295429f06ccb5582f0b867c5910fbf266afdff06c6"
+    },
+    {
+      "path": "assets/brand/apple-touch-icon.png",
+      "format": "png",
+      "width": 180,
+      "height": 180,
+      "alpha": false,
+      "sha256": "c7e260be3e0eb34a881de7c97169c448f67ec122821946e5ed828f84e20688ee"
+    },
+    {
+      "path": "assets/brand/android-icon-192.png",
+      "format": "png",
+      "width": 192,
+      "height": 192,
+      "alpha": false,
+      "sha256": "2f1a64ca6542465e6c793584d08ac55ea9fdf4c544a9cdc41417f55ace4a8ccb"
+    },
+    {
+      "path": "assets/brand/android-icon-512.png",
+      "format": "png",
+      "width": 512,
+      "height": 512,
+      "alpha": false,
+      "sha256": "662af960db8f2020d3ab82ad3f80068c0d79428359308158c36c4f5bdca77e46"
+    },
+    {
+      "path": "assets/brand/ios-app-store.png",
+      "format": "png",
+      "width": 1024,
+      "height": 1024,
+      "alpha": false,
+      "sha256": "fb55b720138cbc1b20a255c829670f5ab7473b2a567317d4f437d5514e9b8b38"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-light.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "863423bbf25c7409f6dbf0b569b0c251a6ffe166d2147189cef43d8f441afc84"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-light.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "405a4f4e39514b55cb8a0a44854b6c2871fbd8cce6676d58203b7b65bc02e8c4"
+    },
+    {
+      "path": "assets/brand/logo-stacked-light.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "302f95dd0643a6315216830009906ee8a7de5d7e30e9ff4d91d5d132ca3574a2"
+    },
+    {
+      "path": "assets/brand/logo-stacked-light.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "58a725422d87fbf501cf5f9c03cf466fe9c04d86c9575dcc8bb7b0f930c3079a"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-light-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "39cb700f001778886dedfbd8870d30472cfa64aac7bf2f293b843a08a6110702"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-light-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "62f4c503b842af985d029595f3ad53559c788c56990ae09af159cba34eac4fca"
+    },
+    {
+      "path": "assets/brand/logo-stacked-light-transparent.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "b723e95eeb542f792d57a473564e4da461b48066ccae411bb6d4ab5dbe62bab1"
+    },
+    {
+      "path": "assets/brand/logo-stacked-light-transparent.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "598f738dd41ae98cd86f9106abf67418f4631e25cfd319092c479f3ee2c2b3e2"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-dark.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "916671f1d605bbaf9b119bd3cd38cb797bfa6bc96392749cff183ece782aa629"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-dark.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "b446c52cbc668ec1d7d6487912724cd2a5ed7b864c19b58423fb6b0d44841bd7"
+    },
+    {
+      "path": "assets/brand/logo-stacked-dark.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "8d889010303ea25b83abe3fcc12f28de0dad91c5fbb9ee3727bf6a16c51d284b"
+    },
+    {
+      "path": "assets/brand/logo-stacked-dark.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "389862960d19a41630f022f6b41a70e5c4fb4543a08369affab3d8bd30586524"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-dark-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "2130d7412f8f55162e49f0c0f2d80df56dfc2ad849ec8c994e6e809f5a88af80"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-dark-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "95711fecfa02658ae9a8f5c78cf52c279e11f51daf39d7a7c2f12068fbee004e"
+    },
+    {
+      "path": "assets/brand/logo-stacked-dark-transparent.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "791b4107d90f5e6a5e8f3961625780834619c4146e037ada24af4a42dcfe0a3c"
+    },
+    {
+      "path": "assets/brand/logo-stacked-dark-transparent.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "2ea74bd9ab9a0c45a9278f09170381690f7a5ec5daa8d4a52e0c694ce5e5d8b6"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-white.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "72fac9d439e58543fede5b7f76e99828ff732589edfece3331665fc1fd6797bb"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-white.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "877e7962ab38ca2f0daefbf5cc4998526cfa5a415c5afb0e10672a9318216b1e"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-white.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "b9bc24fe56c3c91e16664f419f07ea0220a5dc1f4952c61c8d3f914dfec6666d"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-white.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "8274bce366513cdbe1a0b537d0319fa53ce82125f4a4ef57bc4cc2be1229ba2f"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-white-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "6e9b910eef1dd46a89b99cd7176cac6de7ad4b6e823ad9c4814ca4d701e4d611"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-white-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "3f1a3e7bd5cd1489f610a2c55de442ab704fb7a77396cd37b037ef6695952a3a"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-white-transparent.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "3d661d92ed08886fb72ed94afa50b00a8e1fe8e849fbeb0b12d3c35604d7189e"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-white-transparent.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "ca47b6915a65ad3d119a5679e718e180f6bffb559e3aa9c342de7ec9ce5cb1a9"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-black.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "5e6d9b88f2b5e5d7ddb2181790f62663a34ef335112acd64cc8cec1f33e7cf56"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-black.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "bab22801371872903a68b3352673200f8637a723450adfc7ff66bf3e02fe073c"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-black.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "aeef0f4afd16ac8e0bdcb24343814435d399181aa2f19797ba0a4e8f28e74c9d"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-black.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "71b74f9ce48cc4de40b1841a20959da2e7a12a739b71fbff306c6844df8752ae"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-black-transparent.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "adb6137f0522f9137e1c0f1128ece28dbf6002a4cc5aaa11275406299df283d6"
+    },
+    {
+      "path": "assets/brand/logo-horizontal-mono-black-transparent.png",
+      "format": "png",
+      "width": 1024,
+      "height": 256,
+      "alpha": true,
+      "sha256": "3b3f00348393adac5728978b23e92f05ddf316d8bf20fd88b8514244981bfa60"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-black-transparent.svg",
+      "format": "svg",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "87bdf092ecef7aca03b8b2817a0be864817fca9f09d96b3185ed0cccee11a356"
+    },
+    {
+      "path": "assets/brand/logo-stacked-mono-black-transparent.png",
+      "format": "png",
+      "width": 640,
+      "height": 640,
+      "alpha": true,
+      "sha256": "07a99df306960d8e51a6598b90907216691becd4398418fb3203a9995c2d6717"
+    },
+    {
+      "path": "docs/brand/badge-salsa.svg",
+      "format": "svg",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "60e1fee21248e0bbe18951b323e518bfd351c4a71f367248f47dd416677fb8bb"
+    },
+    {
+      "path": "docs/brand/badge-salsa.png",
+      "format": "png",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "ffe6beece0be7deae1a53affc754f513765dead190186aa8e943ad18e692da80"
+    },
+    {
+      "path": "docs/brand/badge-bachata.svg",
+      "format": "svg",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "b2ca314f6ea378eb08195aa0983b28f6328e03953df4566cde327c25c956f442"
+    },
+    {
+      "path": "docs/brand/badge-bachata.png",
+      "format": "png",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "ed439ca581e8ebc52a40ad62440a39f63cfb90bc1cca29f534f9709aa43467ff"
+    },
+    {
+      "path": "docs/brand/badge-practice.svg",
+      "format": "svg",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "233be05b7d3ff1f8e52f0af85615dc13d1084d951d37623b0a41642e81e41fc9"
+    },
+    {
+      "path": "docs/brand/badge-practice.png",
+      "format": "png",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "5a1ed2068b238cbf7b6d24a592d32447f5c79aa9af37b3e8d85a0951910249e9"
+    },
+    {
+      "path": "docs/brand/badge-youtube.svg",
+      "format": "svg",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "1a15887e02fd26372811c8f61e830fa3434a780444e93314c99aea11f5119cd8"
+    },
+    {
+      "path": "docs/brand/badge-youtube.png",
+      "format": "png",
+      "width": 240,
+      "height": 64,
+      "alpha": true,
+      "sha256": "4d4714ad1e3d581ecaa7c6617eb34fcfb89c2848978045463bcbe32969750248"
+    },
+    {
+      "path": "docs/brand/identity.svg",
+      "format": "svg",
+      "width": 1200,
+      "height": 720,
+      "alpha": true,
+      "sha256": "1db3fb09885b95557eb1ada363b1eeeecd9db689f01cb4bc8497db6c43c41da2"
+    },
+    {
+      "path": "docs/brand/identity.png",
+      "format": "png",
+      "width": 1200,
+      "height": 720,
+      "alpha": true,
+      "sha256": "cdf623abc3b0533692903f5eaeea9bdd8fe96d13188a6e4aacfa2b0046716f1f"
+    },
+    {
+      "path": "assets/brand/social-1200x630.svg",
+      "format": "svg",
+      "width": 1200,
+      "height": 630,
+      "alpha": true,
+      "sha256": "616bad7dfa64f48919e483f561a34b2763cc5c5b543c621cf3782fbc0f6b9a1b"
+    },
+    {
+      "path": "assets/brand/social-1200x630.png",
+      "format": "png",
+      "width": 1200,
+      "height": 630,
+      "alpha": true,
+      "sha256": "a834374352593f3065279b96cf326c8786d46ce423321fae29828e9444a18bc4"
+    },
+    {
+      "path": "assets/brand/play-feature-1024x500.svg",
+      "format": "svg",
+      "width": 1024,
+      "height": 500,
+      "alpha": true,
+      "sha256": "976771c88c2d415ecc3cc3f01cd5d66b37bc1e700b301cbc0ef363b9b886aa04"
+    },
+    {
+      "path": "assets/brand/play-feature-1024x500.png",
+      "format": "png",
+      "width": 1024,
+      "height": 500,
+      "alpha": true,
+      "sha256": "12b0342ddba9c8839caa9c0e959b1ebca05563dec296b514b2bbc0d1dc5de2bf"
+    }
+  ],
+  "pending": []
+}

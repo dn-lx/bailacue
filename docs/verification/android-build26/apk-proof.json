@@ -1,0 +1,20 @@
+{
+  "apk": "BailaCue-v0.2.21-build26-preview.apk",
+  "bytes": 69269107,
+  "sha256": "3101235f761f09afdf43b77c462a7cc88ae32dbd35ca546c0558cf8f41e7e07c",
+  "signatureScheme": "v2",
+  "signatureVerified": true,
+  "contentDigestVerified": true,
+  "signerSha1": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625",
+  "signerSha256": "fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c",
+  "package": "app.bailacue.mobile",
+  "version": "0.2.21",
+  "versionCode": 26,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "architectures": ["arm64-v8a", "x86_64"],
+  "acceptedArtifactMatchesPublic": true,
+  "buildRun": 39504561447,
+  "acceptanceRun": 39508298270,
+  "publicationRun": 39509452362
+}

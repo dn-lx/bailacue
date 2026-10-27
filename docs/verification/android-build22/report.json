@@ -1,0 +1,76 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native player drag resizing and accessible height",
+      "result": "passed",
+      "dragged_height": 304
+    },
+    {
+      "check": "Native TextureView Mirror reverses asymmetric rendered pixels and restores original",
+      "result": "passed",
+      "unmirrored_error": 195.8829365079365,
+      "mirrored_error": 0.30144618910782706
+    },
+    {
+      "check": "Native start and end trim handles dragged on playback timeline",
+      "result": "passed"
+    },
+    {
+      "check": "Native document import and video detail",
+      "result": "passed"
+    },
+    {
+      "check": "Native named section and loop control",
+      "result": "passed"
+    },
+    {
+      "check": "Native Media3 new-file export, original checksum preserved",
+      "result": "passed",
+      "duration": 3.017075,
+      "original_sha256": "64dc7ee92da8cc1b4e104b6493d68faf61d781774c148c634fd9d4c2951f7e50"
+    },
+    {
+      "check": "Explicit native Save new clip to Photos",
+      "result": "passed"
+    },
+    {
+      "check": "Native artist label creation, saved reuse and case-insensitive selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native rated imports produce one Bachata and one Salsa Daily Pick",
+      "result": "passed"
+    },
+    {
+      "check": "Native continuous Practice counts playback, excludes pause and returns from background paused",
+      "result": "passed",
+      "active_seconds_before_pause": 9
+    }
+  ],
+  "status": "passed",
+  "apk_file": "BailaCue-v0.2.17-build22-preview.apk",
+  "apk_sha256": "5249c1458f2719fbb4bcdb45497d418e150c7f28e3e092af25b9b78b463e173d",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  }
+}

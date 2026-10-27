@@ -1,0 +1,22 @@
+{
+  "environment": "Node v24.19.0 managed workspace; not a phone benchmark",
+  "method": "One fresh-library reconciliation per size, no provider I/O; illustrative timing, not a latency guarantee",
+  "results": [
+    {
+      "videos": 100,
+      "initialScanMs": 1.93
+    },
+    {
+      "videos": 1000,
+      "initialScanMs": 9.11
+    },
+    {
+      "videos": 5000,
+      "initialScanMs": 97.84
+    },
+    {
+      "videos": 10000,
+      "initialScanMs": 403.6
+    }
+  ]
+}

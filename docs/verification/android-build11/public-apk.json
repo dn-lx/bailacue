@@ -1,0 +1,26 @@
+{
+  "tag": "v0.2.8-preview.11",
+  "sourceCommit": "11c796165917e7b376a3591784cd2bdd0d04a4cb",
+  "buildRun": 39164214724,
+  "acceptanceRun": 39166069113,
+  "harnessCommit": "a41f5491e98132b17ef7fc57a928529ef3af1474",
+  "publicationRun": 39166585417,
+  "nativeChecksPassed": 12,
+  "apk": "BailaCue-v0.2.8-build11-preview.apk",
+  "bytes": 70229381,
+  "sha256": "b3db5adec0b0590bd87a79387c2e2b8bec21c8540294ec8837ed4f9826b5f2ba",
+  "publicBuiltAndNativeReportMatch": true,
+  "signature": "APK v2 verified",
+  "signerSha1": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625",
+  "package": "app.bailacue.mobile",
+  "versionName": "0.2.8",
+  "versionCode": 11,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "abis": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "exportDurationSeconds": 3.017075,
+  "originalBeforeAfterSha256": "ba9ae8ea60f222465b2d9af337fa267734a9c15fc10a9d11d53f9f3ff60c68c2"
+}

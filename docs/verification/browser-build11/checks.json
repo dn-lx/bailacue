@@ -1,0 +1,37 @@
+{
+  "sourceCommit": "11c796165917e7b376a3591784cd2bdd0d04a4cb",
+  "unitDatabaseTests": 130,
+  "unitSuites": 16,
+  "browserJourneys": 6,
+  "layoutWidthsCssPx": [
+    320,
+    360,
+    412
+  ],
+  "layoutScreens": [
+    "Settings",
+    "Storage",
+    "Library",
+    "Practice",
+    "Upload",
+    "Account",
+    "Sharing"
+  ],
+  "nativeUploadRegression": {
+    "providerHttp": "mocked",
+    "fileHandles": "mocked",
+    "bytes": 120061952,
+    "maxChunkBytes": 2097152,
+    "interruption": "lost first acknowledgement; resumes same job",
+    "reactNativeBlobConstraint": "constructor deliberately rejects buffers"
+  },
+  "screenshots": "Original Playwright PNG bytes. Synthetic media and accounts only. Layout screenshots scroll to the relevant source cards.",
+  "notVerified": [
+    "Live Drive/Dropbox consent, transfers and renames",
+    "Physical-device accessibility and notifications",
+    "iOS native compilation/signing"
+  ],
+  "githubChecksRun": 39164210653,
+  "githubChecksResult": "success",
+  "expoDoctor": "20/20 passed"
+}

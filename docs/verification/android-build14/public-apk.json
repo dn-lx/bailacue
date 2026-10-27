@@ -1,0 +1,29 @@
+{
+  "tag": "v0.2.9-preview.14",
+  "appSource": "f3885fa595b7802ad094de9e7cd70482b28e7831",
+  "buildRun": 39172854949,
+  "checksRun": 39172852220,
+  "buildJob": 117809362702,
+  "artemisJob": 117813225224,
+  "publishJob": 117814373821,
+  "apk": "BailaCue-v0.2.9-build14-preview.apk",
+  "bytes": 70231089,
+  "sha256": "18ade8ba0e623e9f8f871cecb2d39e9e9edee8f7634add7433d9b828389aa7bf",
+  "builtAndPublicBytesEqual": true,
+  "nativeReportMatchesPublic": true,
+  "signatureScheme": "v2",
+  "signerSha1": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625",
+  "package": "app.bailacue.mobile",
+  "version": "0.2.9",
+  "versionCode": 14,
+  "minSdk": 24,
+  "targetSdk": 36,
+  "architectures": [
+    "arm64-v8a",
+    "x86_64"
+  ],
+  "unitTests": 140,
+  "browserJourneys": 6,
+  "nativeChecks": 12,
+  "liveProviderVerified": false
+}

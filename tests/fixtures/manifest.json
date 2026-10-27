@@ -1,0 +1,20 @@
+{
+  "kind": "owned synthetic fixtures, no private videos",
+  "files": [
+    {
+      "name": "bailacue-cloud-test.mp4",
+      "bytes": 212514,
+      "sha256": "11a03f3a03f9a93f7911822785b0a80929dceeb473d3c6d931870b6f8aa980d8"
+    },
+    {
+      "name": "bailacue-flow-test.mp4",
+      "bytes": 106167,
+      "sha256": "9bb0667bb058e9aa863c557b655255d963f96291b69b9f3aa829b6ebfac53129"
+    },
+    {
+      "name": "bailacue-test-video.mp4",
+      "bytes": 268161,
+      "sha256": "16c8ef3b6dbb36a87467e9b721036fff7eba1c5be7999ee4d04583ad4b31a3bb"
+    }
+  ]
+}

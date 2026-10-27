@@ -1,0 +1,12 @@
+{
+  "appVersion": "0.2.17",
+  "build": 22,
+  "unitTests": 185,
+  "unitSuites": 18,
+  "browserJourneys": 10,
+  "status": "passed",
+  "scope": "Chromium browser journeys, synthetic files and mocked official provider/YouTube endpoints; not native or live-provider acceptance",
+  "source": "30bbe30b30c69e866d4d13118f99652fb29b35e0",
+  "githubRun": 39444650316,
+  "artifactId": 12274739865
+}

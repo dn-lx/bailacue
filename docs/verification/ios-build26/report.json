@@ -1,0 +1,10 @@
+{
+  "status": "passed",
+  "source": "9bc627d1c6aff5918938d506e1cbdf8a03ab2914",
+  "workflowRun": 39504563536,
+  "artifact": 12303418922,
+  "artifactSha256": "564214ff43dc8405b14417e6181381e3ae33d40ac8548cc49bd1c735d986ca54",
+  "bundleIdentifier": "app.bailacue.mobile",
+  "version": "0.2.21",
+  "scope": "Fresh unsigned Xcode simulator compilation; separate current-source Hermes export passed. No physical-iPhone playback, signing, provisioning or App Store acceptance."
+}

@@ -1,0 +1,11 @@
+{
+  "source": "9bc627d1c6aff5918938d506e1cbdf8a03ab2914",
+  "githubRun": 39504555287,
+  "artifact": 12302613839,
+  "artifactZipSha256": "210ef60891f93126ded7b6ccf3887b0b89453234899e2383b55a3105b7181a4f",
+  "unitTests": 190,
+  "unitSuites": 19,
+  "browserJourneys": 14,
+  "status": "passed",
+  "scope": "CI browser screenshots and controlled official YouTube/provider endpoints; not live-player acceptance"
+}

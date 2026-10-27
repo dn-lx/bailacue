@@ -1,0 +1,28 @@
+{
+  "version": "0.2.12",
+  "build": 17,
+  "date": "2026-10-20",
+  "unitDatabaseTests": 153,
+  "testSuites": 16,
+  "browserJourneys": 6,
+  "expoDoctor": "20/20 passed",
+  "viewportWidths": [
+    320,
+    360,
+    412
+  ],
+  "layoutScreenCount": 7,
+  "generatedBrandAssets": 20,
+  "minimumCheckedTextContrast": 4.84,
+  "packages": {
+    "expo": "58.0.16",
+    "expo-file-system": "58.0.10",
+    "expo-font": "58.0.9",
+    "expo-media-library": "58.0.11",
+    "expo-router": "58.0.24",
+    "expo-video": "58.0.12"
+  },
+  "sourceProviderTests": "mocked",
+  "media": "synthetic",
+  "nativeAcceptance": "pending"
+}

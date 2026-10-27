@@ -1,0 +1,57 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native player size preset and drag resizing",
+      "result": "passed",
+      "dragged_height": 220
+    },
+    {
+      "check": "Native start and end trim handles dragged on playback timeline",
+      "result": "passed"
+    },
+    {
+      "check": "Native document import and video detail",
+      "result": "passed"
+    },
+    {
+      "check": "Native named section and loop control",
+      "result": "passed"
+    },
+    {
+      "check": "Native Media3 new-file export, original checksum preserved",
+      "result": "passed",
+      "duration": 3.017075,
+      "original_sha256": "d3d6879a81686c3812fbea54fcec3d86e6f7226b9578a66cd00e54344b9ce435"
+    },
+    {
+      "check": "Explicit native Save new clip to Photos",
+      "result": "passed"
+    },
+    {
+      "check": "Native artist label creation, saved reuse and case-insensitive selection",
+      "result": "passed"
+    }
+  ],
+  "status": "passed",
+  "apk_file": "BailaCue-v0.2.5-build8-preview.apk",
+  "apk_sha256": "1a7c65aca5c0c7097b7af0b30746a9980a1915989408417443dbe44ebe7a1bba",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  }
+}

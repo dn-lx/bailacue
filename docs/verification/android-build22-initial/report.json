@@ -1,0 +1,31 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    }
+  ],
+  "status": "blocked-or-failed",
+  "apk_file": "BailaCue-v0.2.17-build22-preview.apk",
+  "apk_sha256": "5249c1458f2719fbb4bcdb45497d418e150c7f28e3e092af25b9b78b463e173d",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  },
+  "error": "Native journey could not locate Video title"
+}

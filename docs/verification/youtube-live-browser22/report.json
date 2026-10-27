@@ -1,0 +1,17 @@
+{
+  "scope": "Live public YouTube browser attempt; no account, private media, API key or mocked endpoints",
+  "status": "environment-blocked",
+  "requests": [],
+  "failures": [
+    {
+      "url": "https://www.youtube.com/iframe_api",
+      "error": "net::ERR_TUNNEL_CONNECTION_FAILED"
+    }
+  ],
+  "text": "YouTube library\nPublic videos and playlists, alongside your own practice videos.\nDone\nA place to begin\nSuggestions are optional. Preview first, add only what you like, or use your own links.\nBachata Tutorials\nRoberto & Magdalena Bachata \u00b7 Bachata \u00b7 Beginner \u00b7 Language: Not specified\nAn optional starting point selected by BailaCue\u2019s owner. Preview it and decide whether to add it to your library.\nPreview beginner Bachata playlist\nSkip suggestions\nYouTube video or public playlist URL\nPreview link\nYouTube videos stay online. Downloads, trimming, exporting, cloud uploads and source renaming apply to your own files only.\nPreview before adding\nOpen in YouTube\nLibrary name\nDance type\nSalsa\nBachata\nAdd dance type\nLabels\nTag video types, artists, or anything you want to find later.\nBeginner \u00d7\nTutorial \u00d7\nChoose or create labels \u25be\nPlay or cue the playlist below to read its visible video list. For complete paginated imports, configure a YouTube Data API key in Advanced setup.\nYouTube is unreachable. Check your connection.\nYour saved library is unchanged. Check the connection, playlist visibility or API setup, then preview again.\nYour YouTube playlists\nRefresh previews changes before saving. Disconnect keeps your videos and personal notes in the library.\nAdvanced setup \u00b7 YouTube Data API\nYouTube Data API key (optional)\nA key enables full playlist pagination. It is stored only on this device and excluded from account sync. Restrict its API access to YouTube Data API v3 in Google Cloud. A key is not needed to preview or play a video.\nSave YouTube setup",
+  "frames": [
+    "http://127.0.0.1:4173/youtube",
+    "about:srcdoc"
+  ],
+  "result": "The execution network could not tunnel to youtube.com/iframe_api. BailaCue showed an unreachable/retry state and kept the library unchanged. This is not live-player acceptance."
+}

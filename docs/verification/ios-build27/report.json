@@ -1,0 +1,11 @@
+{
+  "run": "https://github.com/dn-lx/BailaCue/actions/runs/39789409753",
+  "app_source": "568002863e5b8a057cec2fc5b117d3700ccb1924",
+  "version": "0.3.0",
+  "bundle_id": "app.bailacue.mobile",
+  "unsigned_simulator_compile": "passed",
+  "ios_hermes_export": "passed",
+  "physical_iphone_runtime": "not performed",
+  "signing_distribution": "not configured",
+  "acceptance_scope": "Unsigned simulator compilation succeeded. No physical-device, playback, signing or App Store acceptance is implied."
+}

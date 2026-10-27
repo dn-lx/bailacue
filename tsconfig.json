@@ -1,0 +1,11 @@
+{
+  "extends": "./node_modules/expo/tsconfig.base.json",
+  "compilerOptions": {
+    "strict": true
+  },
+  "exclude": [
+    "node_modules",
+    "supabase/functions",
+    "archive"
+  ]
+}

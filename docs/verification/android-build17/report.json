@@ -1,0 +1,65 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native player size preset and drag resizing",
+      "result": "passed",
+      "dragged_height": 221
+    },
+    {
+      "check": "Native start and end trim handles dragged on playback timeline",
+      "result": "passed"
+    },
+    {
+      "check": "Native document import and video detail",
+      "result": "passed"
+    },
+    {
+      "check": "Native named section and loop control",
+      "result": "passed"
+    },
+    {
+      "check": "Native Media3 new-file export, original checksum preserved",
+      "result": "passed",
+      "duration": 3.017075,
+      "original_sha256": "d3d6879a81686c3812fbea54fcec3d86e6f7226b9578a66cd00e54344b9ce435"
+    },
+    {
+      "check": "Explicit native Save new clip to Photos",
+      "result": "passed"
+    },
+    {
+      "check": "Native artist label creation, saved reuse and case-insensitive selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native rated imports produce one Bachata and one Salsa Daily Pick",
+      "result": "passed"
+    }
+  ],
+  "status": "passed",
+  "apk_file": "BailaCue-v0.2.12-build17-preview.apk",
+  "apk_sha256": "d6f9960daf86dc27a8ee008f93a5270e98b661cd9ab876187b8a2b3c61223508",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  }
+}

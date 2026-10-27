@@ -1,0 +1,129 @@
+{
+  "source": "9bc627d1c6aff5918938d506e1cbdf8a03ab2914",
+  "apkSha256": "3101235f761f09afdf43b77c462a7cc88ae32dbd35ca546c0558cf8f41e7e07c",
+  "status": "passed",
+  "results": [
+    {
+      "file": "ic_launcher_foreground-160.webp",
+      "width": 108,
+      "height": 108,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_foreground-240.webp",
+      "width": 162,
+      "height": 162,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_foreground-320.webp",
+      "width": 216,
+      "height": 216,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_foreground-480.webp",
+      "width": 324,
+      "height": 324,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_foreground-640.webp",
+      "width": 432,
+      "height": 432,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_monochrome-160.webp",
+      "width": 108,
+      "height": 108,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_monochrome-240.webp",
+      "width": 162,
+      "height": 162,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_monochrome-320.webp",
+      "width": 216,
+      "height": 216,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_monochrome-480.webp",
+      "width": 324,
+      "height": 324,
+      "outside66dpSafeZone": 0
+    },
+    {
+      "file": "ic_launcher_monochrome-640.webp",
+      "width": 432,
+      "height": 432,
+      "outside66dpSafeZone": 0
+    }
+  ],
+  "resources": [
+    {
+      "resource": "ic_launcher_foreground",
+      "density": 160,
+      "pathInApk": "res/Nt.webp",
+      "file": "ic_launcher_foreground-160.webp"
+    },
+    {
+      "resource": "ic_launcher_foreground",
+      "density": 240,
+      "pathInApk": "res/13.webp",
+      "file": "ic_launcher_foreground-240.webp"
+    },
+    {
+      "resource": "ic_launcher_foreground",
+      "density": 320,
+      "pathInApk": "res/9Q.webp",
+      "file": "ic_launcher_foreground-320.webp"
+    },
+    {
+      "resource": "ic_launcher_foreground",
+      "density": 480,
+      "pathInApk": "res/iE.webp",
+      "file": "ic_launcher_foreground-480.webp"
+    },
+    {
+      "resource": "ic_launcher_foreground",
+      "density": 640,
+      "pathInApk": "res/5c.webp",
+      "file": "ic_launcher_foreground-640.webp"
+    },
+    {
+      "resource": "ic_launcher_monochrome",
+      "density": 160,
+      "pathInApk": "res/_l.webp",
+      "file": "ic_launcher_monochrome-160.webp"
+    },
+    {
+      "resource": "ic_launcher_monochrome",
+      "density": 240,
+      "pathInApk": "res/mJ.webp",
+      "file": "ic_launcher_monochrome-240.webp"
+    },
+    {
+      "resource": "ic_launcher_monochrome",
+      "density": 320,
+      "pathInApk": "res/Yu.webp",
+      "file": "ic_launcher_monochrome-320.webp"
+    },
+    {
+      "resource": "ic_launcher_monochrome",
+      "density": 480,
+      "pathInApk": "res/ae.webp",
+      "file": "ic_launcher_monochrome-480.webp"
+    },
+    {
+      "resource": "ic_launcher_monochrome",
+      "density": 640,
+      "pathInApk": "res/IG.webp",
+      "file": "ic_launcher_monochrome-640.webp"
+    }
+  ]
+}

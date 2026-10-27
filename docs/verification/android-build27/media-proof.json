@@ -1,0 +1,9 @@
+{
+  "original_before_sha256": "64dc7ee92da8cc1b4e104b6493d68faf61d781774c148c634fd9d4c2951f7e50",
+  "original_after_sha256": "64dc7ee92da8cc1b4e104b6493d68faf61d781774c148c634fd9d4c2951f7e50",
+  "original_unchanged": true,
+  "clip_sha256": "eb1e44c7ba3ac211cbcf21a32eeca3c00ef372e41321bb0063f270402e16d4a5",
+  "clip_duration_seconds": 3.017075,
+  "expected_seconds": 3,
+  "separate_new_file": true
+}

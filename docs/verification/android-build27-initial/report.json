@@ -1,0 +1,64 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native player drag resizing and accessible height",
+      "result": "passed",
+      "dragged_height": 303
+    },
+    {
+      "check": "Native TextureView Mirror reverses asymmetric rendered pixels and restores original",
+      "result": "passed",
+      "unmirrored_error": 187.39302605021894,
+      "mirrored_error": 0.2705938697318008
+    },
+    {
+      "check": "Native start and end trim handles dragged on playback timeline",
+      "result": "passed"
+    },
+    {
+      "check": "Native document import and video detail",
+      "result": "passed"
+    },
+    {
+      "check": "Native named section and loop control",
+      "result": "passed"
+    },
+    {
+      "check": "Native Media3 new-file export, original checksum preserved",
+      "result": "passed",
+      "duration": 3.017075,
+      "original_sha256": "c7726a3db2c42789a1d1d95c82c40d3229fb9a4a4eaa10897ca0b99040f6cfe7"
+    },
+    {
+      "check": "Explicit native Save new clip to Photos",
+      "result": "passed"
+    }
+  ],
+  "status": "blocked-or-failed",
+  "apk_file": "BailaCue-v0.3.0-build27-preview.apk",
+  "apk_sha256": "f9fb5d66e3b82cbc606ee5668cc629be9c076ae8e2741f0677eb3f580bcce821",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  },
+  "error": "Could not verify the entered value for Search labels"
+}

@@ -1,0 +1,10 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+group = 'app.bailacue'
+version = '0.1.0'
+android { namespace 'expo.modules.bailamedia' }
+dependencies {
+  implementation 'androidx.media3:media3-transformer:1.9.1'
+}

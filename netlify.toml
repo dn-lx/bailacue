@@ -1,0 +1,42 @@
+[build]
+  base = "web"
+  command = "npm run lint && npm run typecheck && npm test && npm run build"
+  publish = "dist"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "24"
+
+[context.branch-deploy]
+  command = "npm run lint && npm run typecheck && npm test && npm run build"
+
+[context.develop]
+  command = "npm run lint && npm run typecheck && npm test && npm run build"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Cross-Origin-Opener-Policy = "same-origin-allow-popups"
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com; style-src 'self' https://fonts.googleapis.com https://accounts.google.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https://drive.google.com https://*.googleusercontent.com https://i.ytimg.com data:; frame-src https://drive.google.com https://www.youtube.com https://www.youtube-nocookie.com https://accounts.google.com; connect-src 'self' https://oauth2.googleapis.com https://www.googleapis.com https://content.googleapis.com https://accounts.google.com https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob:; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+
+[[headers]]
+  for = "/catalogue.json"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/media-worker.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"

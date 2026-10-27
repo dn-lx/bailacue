@@ -1,0 +1,36 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native player drag resizing and accessible height",
+      "result": "passed",
+      "dragged_height": 304
+    }
+  ],
+  "status": "blocked-or-failed",
+  "apk_file": "BailaCue-v0.2.15-build20-preview.apk",
+  "apk_sha256": "a92890cf488e1b37f9d9d9268d850d614779fb3182f2edf922cd3f8e38d645f8",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  },
+  "error": "Mirror did not reverse native video pixels: normal=0.00, reversed=0.01"
+}

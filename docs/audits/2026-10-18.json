@@ -1,0 +1,331 @@
+{
+  "date": "2026-10-18",
+  "baseline": "a95daef525ea18cf1e1b89185c3b9206dc237cf6 / Android 0.2.5 build8",
+  "scope": "Source and UX review, prior native screenshots, current unit/browser checks and synthetic failure reproductions; no production database writes or private user media access.",
+  "priorities": [
+    "Protect device-only clips and metadata during restore",
+    "Make logout and cleanup failure-safe",
+    "Make confirmed online saves durable before deleting the phone file",
+    "Preserve pending imports and editor drafts when device lock activates",
+    "Then simplify player/onboarding and scale large libraries"
+  ],
+  "naming": {
+    "current": "BailaCue",
+    "alternative": "BailaQue",
+    "assessment": "Cue expresses a practice prompt in English. Que is generally read keh in Spanish and may need pronunciation/spelling reinforcement. This is a naming recommendation, not a trademark or store-availability search.",
+    "migration": "A display-name change can preserve the installed package, signing certificate, OAuth registration and existing local data; do not rename internal identifiers merely for branding.",
+    "decision": "Owner chose Keep BailaCue; no display-name, package, OAuth or database renaming."
+  },
+  "icon": "Modern geometric dancing-partners mark; opaque source packaged for launcher, adaptive foreground, splash, favicon and in-app mark.",
+  "findings": [
+    {
+      "id": "A01",
+      "priority": "High",
+      "area": "Sync",
+      "title": "Cloud restore can hide local-only clips",
+      "evidence": [
+        "src/core/sync.ts:66",
+        "src/app/account.tsx:215"
+      ],
+      "impact": "Restoring an older cloud snapshot replaces the entire video list. A local-only clip absent from that snapshot disappears from the library even though its phone file remains. No merge preview or undo is offered.",
+      "recommendation": "Keep local-only entries or archive them, show a restore preview and create a recoverable local backup before replacing metadata.",
+      "status": "open",
+      "verification": "Reproduced with the real restoreSnapshot function and synthetic metadata: one local entry became zero."
+    },
+    {
+      "id": "A02",
+      "priority": "High",
+      "area": "Accounts",
+      "title": "A cleanup failure can prevent sign-out",
+      "evidence": [
+        "src/app/account.tsx:54",
+        "src/services/account.tsx:102"
+      ],
+      "impact": "Sign-out is reached only after reminders, file deletions, provider disconnects and library removal. A filesystem/provider error aborts cleanup before clearing the app session.",
+      "recommendation": "Make session teardown unconditional, track cleanup failures separately and retry leftover file removal. Explicitly identify unsynced/local-only material before destructive account cleanup.",
+      "status": "open",
+      "verification": "Injected a filesystem failure into the actual cleanup function; account.logout was never reached. No real account or file was deleted."
+    },
+    {
+      "id": "A03",
+      "priority": "High",
+      "area": "Uploads",
+      "title": "Online-only cleanup runs before durable metadata commit",
+      "evidence": [
+        "src/app/transfer/[id].tsx:127",
+        "src/services/store.tsx:56"
+      ],
+      "impact": "The provider has the completed video, but React state updates are persisted later through a queued effect. A force-stop or storage write failure after local file deletion can leave stale local references or lose recent metadata. This does not mean the confirmed cloud MP4 is deleted.",
+      "recommendation": "Persist a confirmed-upload receipt and the new library entry before removing the local file. Make cleanup a recoverable transaction with a journal.",
+      "status": "open",
+      "verification": "Ordering confirmed in source. The force-stop/storage-failure scenario has not been reproduced on a physical phone."
+    },
+    {
+      "id": "A04",
+      "priority": "Medium",
+      "area": "Sync",
+      "title": "Snapshots lack structural runtime validation",
+      "evidence": [
+        "supabase/functions/bailacue-api/handler.ts:315",
+        "src/core/sync.ts:60"
+      ],
+      "impact": "Server validation checks object size and forbidden keys, but an incomplete/version-incompatible object can be saved. Restore assumes arrays exist and can throw.",
+      "recommendation": "Validate snapshots against a versioned runtime schema on both sides; reject malformed payloads before changing the device library and retain a last-known-good copy.",
+      "status": "open",
+      "verification": "The real restoreSnapshot({version:1}, local) threw a missing-map error. Production was not queried or modified."
+    },
+    {
+      "id": "A05",
+      "priority": "Medium",
+      "area": "Offline storage",
+      "title": "Expired authentication is treated like revoked file permission",
+      "evidence": [
+        "src/services/cloud/playback.ts:55"
+      ],
+      "impact": "Provider reauth errors enter the same download-deletion path as missing/restricted files. A temporary login problem can remove a useful offline download.",
+      "recommendation": "Distinguish expired sign-in from confirmed permission revocation. Request reconnect without deleting the file solely because of token expiry; keep explicit provider restriction handling.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A06",
+      "priority": "Medium",
+      "area": "Performance",
+      "title": "Large libraries render every card and scans repeatedly search arrays",
+      "evidence": [
+        "src/app/(tabs)/library.tsx:110",
+        "src/components/ui.tsx:343",
+        "src/core/sources.ts:39"
+      ],
+      "impact": "The library uses ScrollView with map, and reconciliation repeatedly uses findIndex. Work grows with the full library rather than visible items.",
+      "recommendation": "Use a virtualized list, indexed maps for provider identities, memoized search and bounded thumbnail caches. Benchmark 100, 1000 and 10000 videos before setting performance claims.",
+      "status": "open",
+      "verification": "Source scaling finding plus an illustrative Node workspace benchmark:100=1.93ms,1000=9.11ms,5000=97.84ms,10000=403.60ms for fresh-library reconciliation without provider I/O. Single runs, not phone/render/memory performance guarantees."
+    },
+    {
+      "id": "A07",
+      "priority": "Medium",
+      "area": "Library",
+      "title": "Online videos miss useful thumbnail previews",
+      "evidence": [
+        "src/core/sources.ts:57",
+        "src/components/VideoCard.tsx:39"
+      ],
+      "impact": "Provider thumbnails are available in mapped metadata but not assigned when a new remote library video is created. Many online cards show the generic play placeholder.",
+      "recommendation": "Fetch/cache authenticated thumbnails securely, preserve placeholders on failure and avoid persisting tokens or expiring media links.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A08",
+      "priority": "Medium",
+      "area": "Onboarding",
+      "title": "Provider registration and reconnect flows need a simpler user journey",
+      "evidence": [
+        "src/app/storage.tsx:237",
+        "src/services/cloud/accounts.ts:62"
+      ],
+      "impact": "The app still requires one-time app-level OAuth registration and users can encounter app-key/setup terminology. Multiple Google connections also require careful account switching: token lookup explicitly refuses the wrong current Google user.",
+      "recommendation": "Finish app-owner registration, guide users through connect, select Salsa/Bachata folders and upload permission in one flow, and show the account identity on every reconnect. Test real consent and expiry with both folders.",
+      "status": "open",
+      "verification": "Source review and existing mocked tests only; real Google/Dropbox transfers remain unverified here."
+    },
+    {
+      "id": "A09",
+      "priority": "Medium",
+      "area": "Player design",
+      "title": "Player, trim, storage and notes compete in one long page",
+      "evidence": [
+        "src/app/video/[id].tsx:257"
+      ],
+      "impact": "Common playback actions and less frequent settings share the same scrolling surface. Editing or adding notes can push the video out of view.",
+      "recommendation": "Keep a compact player/control dock visible and organize Practice, Trim and Notes into focused panels. Use a bottom sheet for storage/destination selection rather than repeated tall cards.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A10",
+      "priority": "Medium",
+      "area": "Daily Picks",
+      "title": "Ratings should lead and Salsa/Bachata need separate daily slots",
+      "evidence": [
+        "src/core/recommendations.ts:1",
+        "src/app/(tabs)/settings.tsx:1"
+      ],
+      "impact": "The previous score allowed label/feedback bonuses to outweigh star ratings, and a single total count did not guarantee one video of each style.",
+      "recommendation": "Use rating-first ranking within each style, independent cooldown fallback, a minimum rating, explicit refresh and empty slots when no eligible video exists.",
+      "status": "implemented and verified in published 0.2.6/build9",
+      "verification": "Ten new unit cases and a browser journey cover rating priority, one-per-style, thresholds, cooldown, persistence and explicit refresh. Google ARTEMIS build9 also passed actual rated imports and both native style picks."
+    },
+    {
+      "id": "A11",
+      "priority": "Medium",
+      "area": "Local media",
+      "title": "Unfinished imports need recovery and cleanup",
+      "evidence": [
+        "src/services/media.native.ts:16",
+        "src/app/(tabs)/upload.tsx:27"
+      ],
+      "impact": "A picked/recorded video is retained in owned storage before its metadata is saved. An interrupted import can leave an unreferenced file, and there is no startup recovery journal.",
+      "recommendation": "Persist import drafts and recover or remove abandoned owned files after a safe grace period. Include exports and partial transfers in the same storage manager.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A12",
+      "priority": "Low",
+      "area": "Labels",
+      "title": "Preference labels use a different input model",
+      "evidence": [
+        "src/app/(tabs)/settings.tsx:74",
+        "src/components/LabelPicker.tsx:1"
+      ],
+      "impact": "Import, folder and video labels have a searchable picker, while favorite labels use comma-separated text. Artist names containing commas are awkward and suggestions are inconsistent.",
+      "recommendation": "Reuse the existing label picker for preferences and offer searchable artist/type filters in Library.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A13",
+      "priority": "Medium",
+      "area": "Accessibility",
+      "title": "Weekday labels and large-text layouts need device review",
+      "evidence": [
+        "src/app/(tabs)/settings.tsx:148",
+        "src/components/ui.tsx:139"
+      ],
+      "impact": "Weekday chips expose repeated S/T letters without full weekday accessibility names. Several horizontal rows depend on compact text. A physical TalkBack/Dynamic Type review has not been done.",
+      "recommendation": "Give weekdays full accessible names, test large system text/landscape and announce upload/export state changes. Test all critical controls with TalkBack and VoiceOver.",
+      "status": "open",
+      "verification": "Weekday naming confirmed in source; screen-reader and large-text device outcomes are not claimed."
+    },
+    {
+      "id": "A14",
+      "priority": "Medium",
+      "area": "Practice timer",
+      "title": "Active sessions are not recovered after process termination",
+      "evidence": [
+        "src/app/(tabs)/practice.tsx:23",
+        "src/app/(tabs)/practice.tsx:41"
+      ],
+      "impact": "Running state and elapsed time live in component memory. Delayed timer callbacks can also add more than the intended focus interval.",
+      "recommendation": "Persist an active-session record, cap elapsed time at its deadline and offer resume/discard after interruption. Add interruption/clock-change cases.",
+      "status": "open",
+      "verification": "Source review"
+    },
+    {
+      "id": "A15",
+      "priority": "Medium",
+      "area": "Privacy",
+      "title": "App-switcher and screenshot privacy need explicit validation",
+      "evidence": [
+        "src/components/PrivacyGate.tsx:13"
+      ],
+      "impact": "The lock resets on background only. Inactive transitions and app-switcher snapshots require platform-specific checking; current tests do not demonstrate their protection.",
+      "recommendation": "Review inactive-state masking and platform snapshot protection, with a clear user setting and physical-device validation.",
+      "status": "open",
+      "verification": "Validation gap, not a demonstrated privacy leak."
+    },
+    {
+      "id": "A16",
+      "priority": "Medium",
+      "area": "Dependencies",
+      "title": "Dependency audit requires SDK-compatible triage",
+      "evidence": [
+        "package-lock.json:1"
+      ],
+      "impact": "npm audit --omit=dev reported 29 affected dependency entries (20 high, 9 moderate) linked to three underlying advisories. Build-tool dependencies are included by the package tree; this is not evidence of 29 exploitable mobile-app flaws.",
+      "recommendation": "Trace each advisory to shipped/runtime use versus tooling, update within Expo SDK compatibility, and review a native dependency inventory. Do not apply the suggested force downgrade to old Expo/React Native majors.",
+      "status": "open",
+      "verification": "Actual npm audit and dependency-path inspection. No exploit was attempted."
+    },
+    {
+      "id": "A17",
+      "priority": "Medium",
+      "area": "Account security",
+      "title": "Shared-identity password resets need scoped-session revocation validation",
+      "evidence": [
+        "supabase/functions/bailacue-api/handler.ts:235",
+        "supabase/functions/bailacue-api/handler.ts:254",
+        "supabase/functions/bailacue-api/handler.ts:292"
+      ],
+      "impact": "BailaCue opaque sessions live for 30 days and are checked against their own session table. The in-app password action deletes them, but this source does not show a hook invalidating them after a password reset/change performed elsewhere in shared Me+.",
+      "recommendation": "Verify any existing server-side identity/session-version hook, then ensure external password recovery and security revocation invalidate BailaCue sessions too. Add an integration case without changing unrelated health/auth policies.",
+      "status": "open",
+      "verification": "Source-level validation gap. The existing production Me+ reset/hook behavior was not inspected and no real account recovery was performed."
+    },
+    {
+      "id": "A18",
+      "priority": "High",
+      "area": "Device lock and import recovery",
+      "title": "Background locking can unmount a pending import or editor",
+      "evidence": [
+        "src/components/PrivacyGate.tsx:13",
+        "src/components/PrivacyGate.tsx:31",
+        "src/app/(tabs)/upload.tsx:27",
+        "https://reactnative.dev/docs/appstate"
+      ],
+      "impact": "With device lock enabled, background changes replace the routed screen tree with the lock UI. Android can report background while a system picker/camera activity is open. Local component state can therefore be discarded while that operation is pending, and returning/unlocking can mount a fresh empty form.",
+      "recommendation": "Preserve the routed tree behind a privacy overlay, and persist import/edit drafts. Lock on appropriate transitions without destroying pending operation state. Validate picker, camera and OAuth round-trips with device lock enabled.",
+      "status": "open",
+      "verification": "Conditional source risk supported by official AppState documentation. Not reproduced on a physical phone or an emulator with biometrics configured."
+    }
+  ],
+  "checks": {
+    "baseline": "Fresh TypeScript, lint and all 100 existing tests passed before the new feature work.",
+    "newFeature": "110 tests /11 suites, five Chromium journeys, type/lint, Expo Doctor and web export passed. Build9 passed all11 ARTEMIS checks and published; public bytes match the tested APK.",
+    "nativeBaseline": "Historical build8 passed ten ARTEMIS checks. The current build9 independently passed all11 checks.",
+    "dependencyAudit": {
+      "affectedEntries": 29,
+      "high": 20,
+      "moderate": 9,
+      "critical": 0,
+      "rootAdvisories": [
+        "GHSA-vfj7-8cjw-p6xm",
+        "GHSA-86w9-cpqp-85rv",
+        "GHSA-w5hq-g745-h8pq"
+      ]
+    },
+    "scanBenchmark": {
+      "environment": "Node v24.19.0 managed workspace; not a phone benchmark",
+      "method": "One fresh-library reconciliation per size, no provider I/O; illustrative timing, not a latency guarantee",
+      "results": [
+        {
+          "videos": 100,
+          "initialScanMs": 1.93
+        },
+        {
+          "videos": 1000,
+          "initialScanMs": 9.11
+        },
+        {
+          "videos": 5000,
+          "initialScanMs": 97.84
+        },
+        {
+          "videos": 10000,
+          "initialScanMs": 403.6
+        }
+      ]
+    },
+    "publishedAndroid": {
+      "tag": "v0.2.6-preview.9",
+      "run": 39120175502,
+      "sha256": "1bbd27d402e047f1dfa0f677d239e17ae221837b4274a387ed7bb04792d78c66",
+      "nativeChecks": 11,
+      "publicBytesMatch": true
+    }
+  },
+  "unverified": [
+    "Real Drive/Dropbox consent, upload, expiry and interrupted large-file transfers",
+    "Real two-user Me+ acceptance",
+    "Physical camera, notifications, screen readers and app-switcher privacy",
+    "iOS native compilation/signing/device behavior"
+  ],
+  "strengths": [
+    "Provider/account/file identity and explicit folder selection preserve separate Salsa/Bachata sources and prevent silent upload redirection.",
+    "Native trims create new files; existing Android evidence verifies output duration, original-byte preservation and explicit Photos saving.",
+    "App-scoped sessions, server-derived owner IDs and metadata-only sync limit the credentials and device paths exposed to the app or sync store.",
+    "The release workflow gates APK publication on native acceptance, with public-byte checks recorded separately."
+  ]
+}

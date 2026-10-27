@@ -1,0 +1,35 @@
+node_modules/
+.expo/
+dist/
+/android/
+/ios/
+artifacts/
+playwright-report/
+test-results/
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.mobileprovision
+*.p12
+*.log
+.DS_Store
+
+/supabase/.temp/
+
+/modules/**/build/
+/modules/**/.cxx/
+/modules/**/.gradle/
+
+# Python test-runner bytecode
+__pycache__/
+
+# Archived CLI cache is not application source
+/archive/meplus/supabase/.temp/
+
+# Netlify local state and separate static web output
+.netlify/
+/web/dist/
+/.openai/
+

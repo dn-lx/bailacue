@@ -1,0 +1,425 @@
+{
+  "source": "9bc627d1c6aff5918938d506e1cbdf8a03ab2914",
+  "scope": "Actual exported web UI chip group geometry; no mocked provider calls or native-platform acceptance",
+  "status": "passed",
+  "results": [
+    {
+      "width": 320,
+      "route": "library",
+      "groups": [
+        {
+          "groupWidth": 272,
+          "rows": [
+            {
+              "labels": ["All dances", "Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 272,
+          "rows": [
+            {
+              "labels": ["Match any label", "Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "route": "settings",
+      "groups": [
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Match any label"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["One per dance"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["One per selected source"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["All sources"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["1★ or higher", "2★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["3★ or higher", "4★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["5★ or higher"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["30 min", "60 min"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["90 min", "120 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Match device", "Light"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["Dark"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["S", "M", "T", "W"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["T", "F", "S"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Practice", "Daily Picks"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 320,
+      "route": "practice",
+      "groups": [
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["5 min", "10 min", "15 min"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["20 min", "30 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["No break", "1 min"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["2 min", "5 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["All sources", "On my phone"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["Match any label"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 230,
+          "rows": [
+            {
+              "labels": ["1★ or higher", "2★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["3★ or higher", "4★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["5★ or higher"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 412,
+      "route": "library",
+      "groups": [
+        {
+          "groupWidth": 364,
+          "rows": [
+            {
+              "labels": ["All dances", "Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 364,
+          "rows": [
+            {
+              "labels": ["Match any label", "Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 412,
+      "route": "settings",
+      "groups": [
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Match any label", "Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["One per dance", "One per selected source"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["All sources"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["1★ or higher", "2★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["3★ or higher", "4★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["5★ or higher"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["30 min", "60 min", "90 min"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["120 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Match device", "Light", "Dark"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["S", "M", "T", "W", "T", "F"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["S"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Practice", "Daily Picks"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "width": 412,
+      "route": "practice",
+      "groups": [
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["5 min", "10 min", "15 min", "20 min"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["30 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["No break", "1 min", "2 min", "5 min"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Salsa", "Bachata"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["All sources", "On my phone"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["Match any label", "Match all label"],
+              "centerErrorPx": 0
+            }
+          ]
+        },
+        {
+          "groupWidth": 322,
+          "rows": [
+            {
+              "labels": ["1★ or higher", "2★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["3★ or higher", "4★ or higher"],
+              "centerErrorPx": 0
+            },
+            {
+              "labels": ["5★ or higher"],
+              "centerErrorPx": 0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+{
+  "framework": "google/artemis",
+  "mode": "controller-driven assertions; no autonomous model invocation",
+  "checks": [
+    {
+      "check": "Native APK launch and branded home",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Settings",
+      "result": "passed"
+    },
+    {
+      "check": "Native tab navigation to Library",
+      "result": "passed"
+    },
+    {
+      "check": "Native import preview plays before classification and destination selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native player drag resizing and accessible height",
+      "result": "passed",
+      "dragged_height": 303
+    },
+    {
+      "check": "Native TextureView Mirror reverses asymmetric rendered pixels and restores original",
+      "result": "passed",
+      "unmirrored_error": 195.97087417042965,
+      "mirrored_error": 0.2319301193897099
+    },
+    {
+      "check": "Native start and end trim handles dragged on playback timeline",
+      "result": "passed"
+    },
+    {
+      "check": "Native document import and video detail",
+      "result": "passed"
+    },
+    {
+      "check": "Native named section and loop control",
+      "result": "passed"
+    },
+    {
+      "check": "Native Media3 new-file export, original checksum preserved",
+      "result": "passed",
+      "duration": 3.017075,
+      "original_sha256": "c7726a3db2c42789a1d1d95c82c40d3229fb9a4a4eaa10897ca0b99040f6cfe7"
+    },
+    {
+      "check": "Explicit native Save new clip to Photos",
+      "result": "passed"
+    },
+    {
+      "check": "Native artist label creation, saved reuse and case-insensitive selection",
+      "result": "passed"
+    },
+    {
+      "check": "Native rated imports produce one Bachata and one Salsa Daily Pick",
+      "result": "passed"
+    },
+    {
+      "check": "Native continuous Practice counts playback, excludes pause and returns from background paused",
+      "result": "passed",
+      "active_seconds_before_pause": 11
+    }
+  ],
+  "status": "passed",
+  "apk_file": "BailaCue-v0.2.21-build26-preview.apk",
+  "apk_sha256": "3101235f761f09afdf43b77c462a7cc88ae32dbd35ca546c0558cf8f41e7e07c",
+  "observation_backend": {
+    "backend": "helper",
+    "helper_version": "1.2.0",
+    "switches": []
+  },
+  "live_youtube": {
+    "status": "blocked-or-unverified",
+    "error": "The public player did not expose addable playlist contents within the bounded live attempt",
+    "configuration": "public playlist without an API key; no mocked responses"
+  }
+}

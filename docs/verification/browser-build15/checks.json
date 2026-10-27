@@ -1,0 +1,21 @@
+{
+  "version": "0.2.10",
+  "build": 15,
+  "unitTests": 153,
+  "unitSuites": 16,
+  "typecheck": "passed",
+  "lint": "passed",
+  "webExport": "passed",
+  "browserJourneys": 6,
+  "providerMode": "mocked",
+  "scope": [
+    "read-only connection and refresh",
+    "new-upload numbering default off",
+    "preview and cancel without mutations",
+    "explicit per-source rename",
+    "visible per-file failure and successful retry",
+    "original title before actual rename",
+    "source Daily Picks and narrow layouts"
+  ],
+  "liveMutationsVerified": false
+}
