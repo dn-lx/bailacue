@@ -107,3 +107,14 @@ body:not(.is-admin) [data-admin-only] { display: none !important; }
 footer { flex-wrap: wrap; gap: 12px; }
 footer .button { white-space: normal; text-align: center; }
 @media (max-width: 600px) { .mix-options { flex-direction: column; } .mix-options .button { width: 100%; } footer .button { width: 100%; } }
+
+/* Owner-only adaptive video publishing controls. */
+.stream-publisher { margin-top: 22px; padding: 20px; border: 1px solid var(--border, #cbd5e1); border-radius: 16px; background: var(--surface, transparent); }
+.stream-publisher h3 { margin: 0 0 12px; }
+.stream-publisher .field { margin: 12px 0; max-width: 520px; }
+.stream-publisher .field input { display: block; max-width: 100%; }
+.stream-delivery-state { font-weight: 600; }
+.stream-buttons { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+#stream-progress { display: block; width: 100%; margin: 14px 0; accent-color: var(--accent, #316dbf); }
+#stream-progress[hidden] { display: none; }
+#stream-message { overflow-wrap: anywhere; }
