@@ -6,6 +6,7 @@ import { StudioPlayer } from '../player.mjs';
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../interface.css', import.meta.url), 'utf8');
+const favicon = readFileSync(new URL('../assets/dance-favicon.svg', import.meta.url), 'utf8');
 
 test('public authentication uses Sign in without exposing administrator controls', () => {
   assert.match(html, /id="admin-login"[^>]*>Sign in<\/button>/);
@@ -106,4 +107,13 @@ test('mix play button has explicit text contrast in both themes and responsive t
   assert.match(css, /\.mix-options \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
   assert.match(css, /@media \(max-width: 650px\)/);
   assert.match(css, /\.practice-start \.mix-options \.button \{[^}]*min-height: 52px/);
+});
+
+test('browser tab uses the new accessible dancing-partners icon', () => {
+  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/dance-favicon\.svg\?v=1">/);
+  assert.match(favicon, /viewBox="0 0 64 64"/);
+  assert.match(favicon, /aria-label="Two dancing partners"/);
+  assert.match(favicon, /#E5F0FF/);
+  assert.match(favicon, /#FF7DAA/);
+  assert.doesNotMatch(favicon, /<script|https?:\/\//i);
 });
