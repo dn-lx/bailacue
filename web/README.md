@@ -6,13 +6,16 @@ mobile app is separate and has not been changed in this version.
 
 ## Experience
 - Public video library, search, artist/style labels and the fixed Salsa/Bachata collections.
-- Create a Salsa mix, Bachata mix or combined Salsa + Bachata mix of up to ten videos.
+- Create a Salsa mix, Bachata mix or combined Salsa + Bachata mix of up to ten videos. Native HTML5 and individual YouTube videos advance automatically to the next mix item when a video ends, where autoplay is permitted; iframe fallback and adaptive Stream copies retain manual Next/Previous controls.
 - No favourites tab, learning status, BPM entry or saved A–B practice loops.
 - Footer: "Create your own BailaCue with your own videos", opening
   `https://wa.me/491796932923`.
 - Video uses the existing native HTML5 player (Drive originals), or YouTube's
   official iframe player. HTML5 video now requests early buffering
   (`preload="auto"`) and waits until it is playable to enable controls.
+
+## Public navigation and accessibility
+The header shows **Sign in** instead of administrator terminology, with password visibility and remembered owner access. Mobile viewers have a dedicated Settings shortcut, large touch targets, and accessible video result counts. See [UI-UX-AUDIT.md](UI-UX-AUDIT.md) for the latest refinements.
 
 ## Administration and authentication
 The owner signs in using the already-existing Supabase Auth email/password

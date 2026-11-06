@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -56,4 +56,30 @@ test('embeds only use validated provider URLs and calendar days use local time',
   assert.equal(embedUrl(data.videos[0]), `https://drive.google.com/file/d/${data.videos[0].providerId}/preview`);
   assert.ok(embedUrl({ provider: 'youtube', url: 'https://youtu.be/aqz-KE-bpKQ' }).startsWith('https://www.youtube-nocookie.com/'));
   assert.equal(localDay(new Date(2026, 9, 24, 0, 1)), '2026-10-24');
+});
+
+test('recently opened shows newest valid sources only and stores them locally in a bounded list', () => {
+  const a = data.videos[0], b = data.videos[1], c = data.videos[2];
+  let history = recordRecent([], a.id, '2026-11-06T08:00:00Z');
+  history = recordRecent(history, b.id, '2026-11-06T08:01:00Z');
+  history = recordRecent(history, a.id, '2026-11-06T08:02:00Z');
+  assert.deepEqual(history.map(row => row.id), [b.id, a.id]);
+  assert.deepEqual(recentOpenings(history, [a, b, c]).map(video => video.id), [a.id, b.id]);
+  assert.deepEqual(recentOpenings([{ id: 'drive:oldRemovedSource123', at: '2026-11-06' }, ...history], [a, b]).map(video => video.id), [a.id, b.id]);
+  assert.deepEqual(recordRecent(history, 'https://untrusted.test/video'), history);
+  const entries = Array.from({ length: 70 }, (_, n) => ({ id: 'drive:' + String(n).padStart(11, '0'), at: '2026-11-06T08:00:00Z' }));
+  const bounded = recordRecent(entries, c.id);
+  assert.equal(bounded.length, 50);
+  assert.equal(bounded.at(-1).id, c.id);
+  assert.deepEqual(recentOpenings(bounded, [c], 4).map(video => video.id), [c.id]);
+});
+
+test('mix reorder never loses videos or moves items outside queue bounds', () => {
+  const ids = data.videos.slice(0, 3).map(video => video.id);
+  assert.deepEqual(moveQueueItem(ids, ids[1], -1), [ids[1], ids[0], ids[2]]);
+  assert.deepEqual(moveQueueItem(ids, ids[1], 1), [ids[0], ids[2], ids[1]]);
+  assert.deepEqual(moveQueueItem(ids, ids[0], -1), ids);
+  assert.deepEqual(moveQueueItem(ids, ids[2], 1), ids);
+  assert.deepEqual(moveQueueItem(ids, 'drive:unlisted12345', 1), ids);
+  assert.deepEqual(ids, data.videos.slice(0, 3).map(video => video.id));
 });

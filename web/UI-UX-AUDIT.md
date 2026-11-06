@@ -62,3 +62,46 @@ Limit: screenshot checks exercise responsive CSS, not physical Android hardware.
   The picker now consumes Escape, closes its own dropdown and returns focus to its
   summary; a later Escape can close the player normally. First Down selects the
   first result, confirmed by matching aria-activedescendant to the first option.
+
+## Public-site UX refinement · 0.6 · 6 November 2026
+
+The current public BailaCue site is not an account-management product. Keep
+the viewer experience simple; the single-owner authorization remains enforced
+by Supabase and backend RLS.
+
+| Finding | Implementation on `develop` |
+| --- | --- |
+| Header said **Admin sign in** and the dialog title emphasized internal roles. | Public action now reads **Sign in**, dialog reads **Sign in to BailaCue** and briefly explains public viewing vs owner editing. Owner authorization is unchanged. |
+| Password field had no visibility toggle. | Keyboard-accessible Show/Hide password control with `aria-pressed`, input focus retention and reset on dialog close. |
+| Settings button was inside the desktop-only sidebar footer and disappeared on phones. | Dedicated 44px gear button in the mobile header, wired to Settings and marked active on the Settings page. |
+| Owner's header actions competed with the brand on narrow phones. | Hide redundant YouTube/add-video shortcuts in the mobile header; owner actions remain available in the bottom navigation. |
+| The **DEVELOP** badge appeared in the production HTML. | Badge starts hidden and is shown only on the develop hostname (or local development). |
+| Video cards said **Practice**, even though the public flow is a mix builder. | Changed cards, queue button, public picks and toast copy to **Add to mix**, **In mix**, and **Watch video**. |
+| Changing dance filters replaced the focused button. | The corresponding selected filter regains keyboard focus after rendering. |
+| Library count did not communicate pagination range. | Live-announced **Showing 1–20 of N videos**, updated on search/filter changes. |
+| Mixes were a manual sequence requiring Next after every video. | Native video and individual YouTube playback now advance to the next mix item after ending. The first and manually selected mix item also attempts playback. If autoplay is blocked, users get a prompt to tap Play. |
+| Adaptive Stream and Google preview players are iframe-based. | Their player completion cannot be detected without a separate provider event API. Existing visible Next/Previous mix controls remain available; automatic advancement is not claimed for these sources. |
+
+Verification: the BailaCue web workflow checks syntax, JavaScript types,
+unit tests including `tests/ux-regressions.test.mjs`, and a static build.
+Changes target **develop only**; no new users, backend policies, video
+sources, billing or cloud processing were added.
+
+Limitations: automated checks do not replace a real-device
+responsive/keyboard review. The site should be checked on a physical phone
+before promoting these changes to main.
+
+## Incremental UX update · 6 November 2026 — develop only
+
+The public header already says **Sign in** and the dialog says **Sign in to BailaCue**. This is intentional: site visitors can watch without an account and the single owner can use the same sign-in action to manage videos.
+
+| Finding | Implementation |
+| --- | --- |
+| Mix generation was simple, but custom mixes could not be reordered without rebuilding them. | Each queued video now has separately labelled **Move up** and **Move down** controls, with unavailable directions disabled. The order is saved in browser state and updates the mix immediately. Focus follows the moved video rather than disappearing after re-render. |
+| Mix row controls could crowd small mobile widths. | Grouped action buttons, 44 px tap targets and a responsive second action row below the title at narrow widths. Play and remove remain alongside reorder controls. |
+| Viewers had no quick route back to a video they had opened earlier. | **Recently opened** appears on Discover after a video has been opened. It displays up to four valid, still-available catalogue entries, most recent first. The section uses the same tested video cards. |
+| Personal viewing context should not be published to the shared catalogue. | Openings are stored only in existing browser-local history, never Supabase. Entries are deduplicated and capped at 50. Local previews are excluded; **Clear recent** deletes the local history explicitly. |
+
+Verification: tests for bounded history, removed sources, stable mix reordering, keyboard control labels and available row actions; web lint, typecheck, automated unit tests and build via GitHub Actions. These checks do not represent live Android device testing.
+
+Production `main` and backend permissions are unchanged.
