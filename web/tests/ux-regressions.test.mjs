@@ -68,7 +68,7 @@ test('mix queue supports touch and keyboard-friendly ordered editing', () => {
   assert.match(app, /data-action="mix-move-up"/);
   assert.match(app, /data-action="mix-move-down"/);
   assert.match(app, /aria-label="Move \$\{esc\(displayTitle\(v, state\.meta\)\)\} earlier"/);
-  assert.match(app, /Move video to position/);
+  assert.match(app, /Moved video to position/);
   assert.match(app, /\.focus\(\{ preventScroll: true \}\)/);
   assert.match(css, /\.queue-actions \.icon-button/);
   assert.match(css, /@media \(max-width: 620px\)/);
