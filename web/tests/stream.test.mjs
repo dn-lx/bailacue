@@ -58,6 +58,7 @@ function server(overrides = {}) {
       const details = { uid, meta:{sourceid:videoId}, status:{state:'ready',pctComplete:'100'}, readyToStream:true, playback:{hls:`https://${host}/${uid}/manifest/video.m3u8`}, ...overrides };
       return Response.json({success:true, result:details});
     }
+    if (url.includes('/rest/v1/bailacue_web_content?select=payload')) return Response.json([]);
     if (url.includes('/rest/v1/bailacue_web_content?on_conflict=key')) {
       publications.push(JSON.parse(init.body));
       return new Response(null,{status:204});
