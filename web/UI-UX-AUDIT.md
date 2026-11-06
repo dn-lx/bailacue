@@ -119,3 +119,17 @@ Screenshot observation: The **Play this mix** button had a white background and 
 | Existing mixes might be lost during reconfiguration. | Changing the desired count does not modify the existing mix; generating a new mix replaces it as before. The existing Play, reorder and remove actions are retained. |
 
 Verification: workflow syntax, typecheck, unit tests covering mix counts and the button's CSS contrast, and Netlify branch deployment. This is not equivalent to physical Android-browser validation. Production `main` is untouched.
+
+## Unified dropdown controls · 6 November 2026 — develop only
+
+Audit scope: Library source/rating/sort filters; label and artist search pickers; label manager and uploads; YouTube dance selector; player speed, player size, and metadata controls; the Library More filters disclosure; player Display settings and Practice tools; upload connection settings; and video information disclosures.
+
+| Problem | Change |
+| --- | --- |
+| Native selects displayed differing platform chevrons and sizes. | Standardized closed selects with one 18 px SVG chevron, 46 px minimum height, 16 px text, right arrow spacing, borders and corner radius. The native option popup remains controlled by the operating system for keyboard, screen-reader and touch support. |
+| Dark mode and player selects used different arrow visibility. | Theme-aware arrow assets and a high-contrast player-speed variant maintain contrast on light and dark surfaces. |
+| Label, artist and More filters disclosures used the text character `⌄`. | Removed the text arrows. All `details > summary` controls now use the same drawn CSS chevron with a consistent 45° closed state and 225° open state. |
+| Secondary disclosures showed the separate character `⌃` when expanded. | Unify the player Display settings, Practice tools, video details and upload configuration controls with the same CSS arrow and transition. |
+| Small metadata and owner-only fields could overlap select arrows. | Right padding reserves room for the chevron, including the more-specific player metadata form rules. Focus indicators, disabled states and reduced-motion preferences remain supported. |
+
+Validation: BailaCue web lint, TypeScript, regression tests and build on `develop`; Netlify branch deployment. These are automated checks and do not constitute a physical Android visual review. No backend data, account permissions or production `main` changes.
