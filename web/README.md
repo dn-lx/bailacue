@@ -28,7 +28,10 @@ Original Me+ domain and retired BailaCue tables remain untouched.
 
 Public content contains keys `labels`, `meta:<video-id>`,
 `drive:<video-id>`, and `youtube:<video-id>`. Browser legacy state is
-not copied to the shared library automatically. New metadata and new uploads
+not copied to the shared library automatically. If an older browser had private
+labels, YouTube entries or notes, a one-time backup is retained locally; once
+signed in, the administrator can export that original from Settings and decide
+whether to import it into the new shared public collection. New metadata and new uploads
 are published through the authenticated Supabase Data API. The editor still
 requires separate Google Drive OAuth to upload original video files into the
 fixed Salsa/Bachata folders.
@@ -50,10 +53,12 @@ video requires an ingestion/transcoding/storage pipeline, plus bandwidth and
 cost planning. This was not enabled or charged for.
 
 The fixed catalogue is bundled in `web/catalogue.json` and existing functions
-serve those entries without viewer authentication. Drive files newly published
-through the admin can appear in the public library; new files not yet included
-in the deployed catalogue may need the Drive preview/original link until the
-catalogue and proxy allowlist are refreshed.
+serve those entries without viewer authentication. The media handler also checks
+the public Supabase content table for newly owner-published Drive files,
+validates their IDs, fixed-folder association and size, then serves them through
+the existing bounded range proxy without requiring a catalogue redeploy.
+Playback still depends on Drive's public sharing permissions, quotas and codecs;
+Drive preview and Open original remain fallbacks.
 
 ## Build and deployment
 ```sh
