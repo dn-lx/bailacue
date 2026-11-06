@@ -60,6 +60,33 @@ export function cleanState(input) {
 export function displayTitle(video, meta = {}) {
   return meta[video.id]?.title || (/^\d+$/.test(video.title) ? `${video.dance} · ${video.title.padStart(4, '0')}` : video.title);
 }
+/** Recently opened videos are browser-local, never added to shared metadata. */
+export function recordRecent(history, id, at = new Date().toISOString()) {
+  const current = Array.isArray(history) ? history : [];
+  if (typeof id !== 'string' || !/^(drive:[A-Za-z0-9_-]{10,100}|youtube:(?:video|playlist):[A-Za-z0-9_-]{10,100})$/.test(id)) return current;
+  return [...current.filter(row => row && row.id !== id && typeof row.id === 'string' && typeof row.at === 'string'), { id, at }].slice(-50);
+}
+/** Newest first; old deleted sources and duplicate history records are ignored. */
+export function recentOpenings(history, videoList, limit = 4) {
+  const lookup = new Map(videoList.map(video => [video.id, video]));
+  const seen = new Set();
+  const output = [];
+  for (const row of (Array.isArray(history) ? history : []).slice().reverse()) {
+    if (!row || seen.has(row.id) || !lookup.has(row.id)) continue;
+    seen.add(row.id); output.push(lookup.get(row.id));
+    if (output.length >= limit) break;
+  }
+  return output;
+}
+/** Keep the selected video and its neighbours stable when editing a saved mix. */
+export function moveQueueItem(queue, id, delta) {
+  const output = Array.isArray(queue) ? [...queue] : [];
+  const index = output.indexOf(id), target = index + delta;
+  if (![-1, 1].includes(delta) || index < 0 || target < 0 || target >= output.length) return output;
+  [output[index], output[target]] = [output[target], output[index]];
+  return output;
+}
+
 export function localDay(date = new Date()) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 }
