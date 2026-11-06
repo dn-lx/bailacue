@@ -40,7 +40,7 @@ async function readBounded(response, expected) {
 }
 
 /** Only the deployed, fixed-folder catalogue can be read. No arbitrary URL proxy. */
-export function createMediaHandler(catalogue, fetcher = fetch) {
+export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile = async () => null) {
   const files = new Map();
   if (catalogue?.rootFolderId !== '1elTpDpgefwwlnrSEFc8vyREt3HUpDS8P') throw new Error('Unexpected Drive source.');
   for (const video of catalogue.videos || []) {
@@ -52,8 +52,25 @@ export function createMediaHandler(catalogue, fetcher = fetch) {
     if (!['GET', 'HEAD'].includes(request.method)) return fail(405, 'Method not allowed.', { Allow: 'GET, HEAD' });
     const url = new URL(request.url);
     const match = /^\/api\/drive-video\/([A-Za-z0-9_-]{10,100})$/.exec(url.pathname);
-    const file = match && files.get(match[1]);
-    if (!file || url.search) return fail(404, 'This video is not in the deployed dance library.');
+    let file = match && files.get(match[1]);
+    if (!file && match && !url.search) {
+      // A previously uploaded file is publicly playable only when the owner
+      // published it through the RLS-protected catalogue. Never proxy arbitrary IDs.
+      try {
+        const candidate = await loadPublishedFile(match[1]);
+        const source = SOURCES.find(s => s.dance === candidate?.dance);
+        if (candidate?.provider === 'drive' &&
+            candidate.providerId === match[1] &&
+            candidate.id === `drive:${match[1]}` &&
+            source && candidate.folderId === source.folderId &&
+            FILE_ID.test(candidate.providerId) &&
+            Number.isSafeInteger(candidate.size) && candidate.size > 0) {
+          files.set(match[1], candidate);
+          file = candidate;
+        }
+      } catch { /* Deny an unavailable or invalid dynamic catalogue record. */ }
+    }
+    if (!file || url.search) return fail(404, 'This video is not in the published dance library.');
     const range = byteRange(request.headers.get('Range'), file.size);
     if (!range && request.method !== 'HEAD') return fail(request.headers.has('Range') ? 416 : 400, 'Request one video byte range.', { 'Content-Range': `bytes */${file.size}` });
     const selected = range || { start: 0, end: file.size - 1, partial: false };

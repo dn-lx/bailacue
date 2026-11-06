@@ -68,3 +68,27 @@ test('permission, quota and timeout failures return actionable errors without ra
   }
   const handler = createMediaHandler(catalogue([file]), async () => { throw new Error('private diagnostic'); }); assert.equal((await handler(request())).status, 502);
 });
+
+test('an owner-published fixed-folder original can play before the static catalogue is rebuilt', async () => {
+  const fixed = { ...file, folderId: '1lVR5Pc-6SupJOfLIhcRE-oo69FUDM5Sm' };
+  let upstream = 0, lookedUp = 0;
+  const handler = createMediaHandler(catalogue([]), async () => { upstream++; return media(); }, async fileId => {
+    lookedUp++; assert.equal(fileId, id); return fixed;
+  });
+  const result = await handler(request());
+  assert.equal(result.status, 206);
+  assert.equal(upstream, 1);
+  assert.equal(lookedUp, 1);
+  // The exact, validated published file is cached for further byte ranges.
+  assert.equal((await handler(request('bytes=8-15'))).status, 502); // mismatched mocked upstream, not publication
+  assert.equal(lookedUp, 1);
+});
+
+test('new originals outside the locked folders remain unplayable even if a shared row exists', async () => {
+  for (const invalid of [{ ...file, folderId: 'another-folder' }, { ...file, id: 'drive:wrong-id' }, { ...file, size: -1 }, { ...file, provider: 'youtube' }]) {
+    let fetched = false;
+    const handler = createMediaHandler(catalogue([]), async () => { fetched = true; throw Error('should not download'); }, async () => invalid);
+    assert.equal((await handler(request())).status, 404);
+    assert.equal(fetched, false);
+  }
+});

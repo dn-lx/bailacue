@@ -15,9 +15,10 @@ if (!counts.Salsa || !counts.Bachata) throw new Error('Both fixed collections mu
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const name of ['index.html', 'app.js', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
+for (const name of ['index.html', 'app.js', 'admin.mjs', 'stream-admin.mjs', 'stream-delivery.mjs', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
 const { writeFile } = await import('node:fs/promises');
 const configuredId = process.env.BAILACUE_GOOGLE_CLIENT_ID || '';
+const publicDefaults = JSON.parse(await readFile(resolve(root, 'public-config.json'), 'utf8'));
 if (configuredId && !/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(configuredId)) throw new Error('BAILACUE_GOOGLE_CLIENT_ID must be a public web client ID.');
-await writeFile(resolve(dist, 'public-config.json'), JSON.stringify({ googleClientId: configuredId }));
+await writeFile(resolve(dist, 'public-config.json'), JSON.stringify({ googleClientId: configuredId, supabaseUrl: process.env.BAILACUE_SUPABASE_URL || publicDefaults.supabaseUrl || '', supabasePublishableKey: process.env.BAILACUE_SUPABASE_PUBLISHABLE_KEY || publicDefaults.supabasePublishableKey || '' }));
 console.log(`BailaCue web built: ${counts.Salsa} Salsa + ${counts.Bachata} Bachata videos. No credentials bundled.`);
