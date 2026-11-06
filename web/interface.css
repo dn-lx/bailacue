@@ -118,3 +118,63 @@ footer .button { white-space: normal; text-align: center; }
 #stream-progress { display: block; width: 100%; margin: 14px 0; accent-color: var(--accent, #316dbf); }
 #stream-progress[hidden] { display: none; }
 #stream-message { overflow-wrap: anywhere; }
+
+
+/* Public navigation and owner sign-in: deliberate hierarchy without admin jargon. */
+.header-actions .mobile-settings { display: none; }
+#admin-dialog #admin-form { max-width: 420px; }
+#admin-dialog #admin-access-note { font-size: 14px; line-height: 1.65; max-width: 42ch; }
+.password-visibility {
+  display: inline-flex; align-items: center; justify-content: center;
+  align-self: flex-start; min-height: 44px; margin: -7px 0 8px;
+  padding: 7px 12px; background: transparent; border: 1px solid var(--line);
+  border-radius: 9px; color: var(--blue); font: inherit; font-size: 13px;
+  font-weight: 600; cursor: pointer;
+}
+.password-visibility:hover { background: var(--soft); }
+.password-visibility:focus-visible { outline: 3px solid #739dff; outline-offset: 2px; }
+.header-actions #admin-login { min-height: 44px; font-size: 13px; }
+.header-actions #admin-logout { min-height: 44px; }
+
+/* Consistent feedback while searching, browsing and building a mix. */
+.filters #result-count {
+  margin-left: auto; font-variant-numeric: tabular-nums;
+  font-size: 13px; font-weight: 600; color: var(--muted);
+  min-height: 32px; display: inline-flex; align-items: center;
+}
+.video-card .queue-button {
+  padding: 6px 10px; border: 1px solid var(--line);
+  border-radius: 8px; font-weight: 600; line-height: 1.25;
+  white-space: nowrap; justify-content: center;
+}
+.video-card .queue-button:hover { background: var(--soft); color: var(--blue); }
+.video-card .queue-button.selected { background: var(--soft); border-color: var(--blue); }
+.video-card .card-bottom { gap: 8px; min-width: 0; }
+.video-card .card-bottom>span { min-width: 0; }
+.segmented button:focus-visible, .queue-button:focus-visible,
+.video-card .full-play:focus-visible { outline: 3px solid #739dff; outline-offset: 3px; }
+#mobile-settings[aria-current="page"] { background: var(--soft); color: var(--blue); }
+#mobile-settings[aria-current="page"] svg { stroke-width: 2; }
+
+@media (max-width: 720px) {
+  /* Settings was otherwise only available in the hidden desktop sidebar. */
+  .header-actions .mobile-settings { display: inline-flex; width: 44px; min-width: 44px; min-height: 44px; }
+  .header-actions #theme-toggle { width: 44px; min-width: 44px; min-height: 44px; }
+  /* Owner-only add actions live in bottom navigation on narrow screens. */
+  .header-actions #add-youtube, .header-actions a[href="#upload"] { display: none !important; }
+  .topbar { gap: 8px; }
+  .header-actions { gap: 4px; flex-shrink: 0; }
+  .filters #result-count { width: 100%; margin-left: 0; }
+  .video-card .queue-button { font-size: 12px; }
+  .sidebar nav a { min-width: 0; overflow: hidden; text-align: center; }
+}
+
+@media (max-width: 380px) {
+  .topbar { padding-inline: 10px; gap: 3px; }
+  .mobile-brand { font-size: 20px; }
+  .header-actions { gap: 1px; }
+  .header-actions #admin-login, .header-actions #admin-logout { padding-inline: 8px; font-size: 12px; }
+  .header-actions .mobile-settings, .header-actions #theme-toggle { width: 44px; min-width: 44px; }
+  .video-card .card-bottom { align-items: center; }
+  .video-card .queue-button { white-space: normal; }
+}
