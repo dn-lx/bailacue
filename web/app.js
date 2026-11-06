@@ -290,7 +290,25 @@ async function loadSharedContent() {
   }
   $('#nav-count').textContent = String(videos().length);
 }
-$('#admin-login').addEventListener('click', () => { $('#admin-error').textContent = ''; $('#admin-dialog').showModal(); });
+$('#admin-login').addEventListener('click', () => {
+  $('#admin-error').textContent = '';
+  $('#admin-dialog').showModal();
+  $('#admin-email').focus();
+});
+$('#admin-dialog').addEventListener('close', () => {
+  $('#admin-password').value = '';
+  $('#admin-password').type = 'password';
+  $('#toggle-password').textContent = 'Show password';
+  $('#toggle-password').setAttribute('aria-pressed', 'false');
+});
+$('#toggle-password').addEventListener('click', () => {
+  const password = $('#admin-password'), toggle = $('#toggle-password');
+  const show = password.type === 'password';
+  password.type = show ? 'text' : 'password';
+  toggle.textContent = show ? 'Hide password' : 'Show password';
+  toggle.setAttribute('aria-pressed', String(show));
+  password.focus({ preventScroll: true });
+});
 $('#admin-logout').addEventListener('click', async () => { await admin.signOut(); applyAccess(); if (selected) $('#player').close(); route(); toast('Signed out. Public viewing remains available.'); });
 $('#admin-form').addEventListener('submit', async event => {
   event.preventDefault();
@@ -310,7 +328,7 @@ document.addEventListener('click', async event => {
   const action = button.dataset.action, id = button.dataset.id;
   if (action === 'open') openPlayer(id);
   if (action === 'queue') toggleQueue(id);
-  if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); }
+  if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); page.querySelector('.segmented [data-dance="' + filters.dance + '"]')?.focus({ preventScroll: true }); }
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
   if (action === 'go-practice') navigate('practice');
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
