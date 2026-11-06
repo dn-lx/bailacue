@@ -62,3 +62,31 @@ Limit: screenshot checks exercise responsive CSS, not physical Android hardware.
   The picker now consumes Escape, closes its own dropdown and returns focus to its
   summary; a later Escape can close the player normally. First Down selects the
   first result, confirmed by matching aria-activedescendant to the first option.
+
+## Public-site UX refinement · 0.6 · 6 November 2026
+
+The current public BailaCue site is not an account-management product. Keep
+the viewer experience simple; the single-owner authorization remains enforced
+by Supabase and backend RLS.
+
+| Finding | Implementation on `develop` |
+| --- | --- |
+| Header said **Admin sign in** and the dialog title emphasized internal roles. | Public action now reads **Sign in**, dialog reads **Sign in to BailaCue** and briefly explains public viewing vs owner editing. Owner authorization is unchanged. |
+| Password field had no visibility toggle. | Keyboard-accessible Show/Hide password control with `aria-pressed`, input focus retention and reset on dialog close. |
+| Settings button was inside the desktop-only sidebar footer and disappeared on phones. | Dedicated 44px gear button in the mobile header, wired to Settings and marked active on the Settings page. |
+| Owner's header actions competed with the brand on narrow phones. | Hide redundant YouTube/add-video shortcuts in the mobile header; owner actions remain available in the bottom navigation. |
+| The **DEVELOP** badge appeared in the production HTML. | Badge starts hidden and is shown only on the develop hostname (or local development). |
+| Video cards said **Practice**, even though the public flow is a mix builder. | Changed cards, queue button, public picks and toast copy to **Add to mix**, **In mix**, and **Watch video**. |
+| Changing dance filters replaced the focused button. | The corresponding selected filter regains keyboard focus after rendering. |
+| Library count did not communicate pagination range. | Live-announced **Showing 1–20 of N videos**, updated on search/filter changes. |
+| Mixes were a manual sequence requiring Next after every video. | Native video and individual YouTube playback now advance to the next mix item after ending. The first and manually selected mix item also attempts playback. If autoplay is blocked, users get a prompt to tap Play. |
+| Adaptive Stream and Google preview players are iframe-based. | Their player completion cannot be detected without a separate provider event API. Existing visible Next/Previous mix controls remain available; automatic advancement is not claimed for these sources. |
+
+Verification: the BailaCue web workflow checks syntax, JavaScript types,
+unit tests including `tests/ux-regressions.test.mjs`, and a static build.
+Changes target **develop only**; no new users, backend policies, video
+sources, billing or cloud processing were added.
+
+Limitations: automated checks do not replace a real-device
+responsive/keyboard review. The site should be checked on a physical phone
+before promoting these changes to main.
