@@ -24,8 +24,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = _video => null, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.toast = toast;
+  constructor({ token, allowedFile, streamFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.controls.innerHTML = `
@@ -70,8 +70,8 @@ export class StudioPlayer {
   }
   /** @returns {any} */
   $(selector) { return this.controls.querySelector(selector); }
-  async open(video, localUrl = '') {
-    this.stop(); const generation = this.generation; this.video = video;
+  async open(video, localUrl = '', autoPlay = false) {
+    this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
     document.getElementById('drive-preview-button').hidden = true;
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false');
@@ -82,7 +82,7 @@ export class StudioPlayer {
     const deliveryUrl = !localUrl && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
     if (deliveryUrl) {
       const frame = document.createElement('iframe');
-      frame.src = deliveryUrl;
+      frame.src = autoPlay ? deliveryUrl + '&autoplay=true' : deliveryUrl;
       frame.title = video.title + ' · adaptive player';
       frame.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
       frame.allowFullscreen = true;
@@ -136,6 +136,7 @@ export class StudioPlayer {
           this.status('This Drive video could not play here. Choose Drive preview or open the original below.');
         });
         for (const type of ['play', 'pause', 'ended', 'timeupdate', 'durationchange', 'volumechange']) media.addEventListener(type, () => this.tick());
+        media.addEventListener('ended', () => { if (generation === this.generation && media === this.media) this.onEnded(video); });
       } catch (error) { if (generation === this.generation) { this.preview(video); this.status(error.message); } }
     } else if (video.provider === 'youtube') {
       try {
@@ -143,7 +144,8 @@ export class StudioPlayer {
         const mount = document.createElement('div'); this.frame.replaceChildren(mount); this.kind = 'youtube';
         const YT = (/** @type {any} */ (window)).YT;
         this.youtube = new YT.Player(mount, { videoId: video.kind === 'playlist' ? undefined : video.providerId, playerVars: { origin: location.origin, playsinline: 1, controls: 1, rel: 0, ...(video.kind === 'playlist' ? { listType: 'playlist', list: video.providerId } : {}) }, host: 'https://www.youtube-nocookie.com', events: {
-          onReady: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status('YouTube · playback controls ready'); this.timer = setInterval(() => this.tick(), 300); },
+          onReady: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status('YouTube · playback controls ready'); this.timer = setInterval(() => this.tick(), 300); if (this.autoStartPending) { this.autoStartPending = false; this.youtube?.playVideo(); } },
+          onStateChange: event => { if (generation === this.generation && video.kind !== 'playlist' && event.data === 0) this.onEnded(video); },
           onError: () => { this.setAvailable(false); this.status('YouTube cannot play this source here. Open the original to continue.'); },
         } });
       } catch (error) { if (generation === this.generation) { this.preview(video); this.status(error.message); } }
@@ -156,7 +158,7 @@ export class StudioPlayer {
     this.status(isDrive ? 'Drive preview · use Google’s controls. Full screen and player sizing remain available.' : 'Provider preview · use its controls, or open the original video.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }
-  readyToPlay(media, localUrl) { this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); }
+  readyToPlay(media, localUrl) { this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); if (this.autoStartPending) { this.autoStartPending = false; media.play().catch(() => this.status('Next video is ready. Tap Play to continue the mix.')); } }
   setAvailable(available) {
     this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
     this.$('#media-mirror').disabled = !available || !this.media;
@@ -190,5 +192,5 @@ export class StudioPlayer {
     this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
   }
   async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); this.updateFullscreen(); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
-  stop() { this.generation++; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
+  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
 }
