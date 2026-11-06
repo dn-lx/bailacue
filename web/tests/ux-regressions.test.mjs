@@ -35,6 +35,9 @@ test('browser video mix actions and accessible result counts remain consistent',
   assert.match(app, /Showing \$\{\(currentPage - 1\) \* pageSize \+ 1\}/);
   assert.match(app, /In mix' : 'Add to mix'/);
   assert.doesNotMatch(app, /practice queue/i);
+  assert.match(html, /id="nav-mix-count" class="mix-count" hidden/);
+  assert.match(app, /mixCounter.hidden = mixSize === 0/);
+  assert.match(app, /mixCounter.setAttribute\('aria-label'/);
   assert.match(app, /onEnded: video =>/);
   assert.match(app, /openPlayer\(following, playbackQueue, null, '', true\)/);
   assert.match(app, /if \(action === 'start-queue'\)/);
