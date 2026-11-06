@@ -38,6 +38,7 @@ function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="curre
 function hydrateIcons(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (el instanceof HTMLElement) el.innerHTML = icon(el.dataset.icon); }); }
 function esc(value) { return String(value ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]); }
 let state = emptyState();
+const LEGACY_BACKUP_KEY = 'bailacue:web:before-public-v1';
 let storageAvailable = true;
 let storageCorrupt = false;
 try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) state = cleanState(JSON.parse(raw)); } catch { storageCorrupt = true; }
@@ -72,13 +73,17 @@ function publishKey(key, payload) {
   return current;
 }
 function publishLabels() { return publishKey('labels', { items: state.labels }); }
+function publicMetadata(value = {}) {
+  const kept = ['title', 'notes', 'labelIds', 'artistIds', 'recordedAt', 'event', 'location', 'rating'];
+  return Object.fromEntries(kept.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
+}
 function publishDrive() {
   if (!admin.isAdmin) return;
   for (const video of state.drive) publishKey('drive:' + video.id, video);
 }
 function queueMetaPublish(id) {
   clearTimeout(publishTimers.get(id));
-  publishTimers.set(id, setTimeout(() => { publishTimers.delete(id); publishKey('meta:' + id, state.meta[id] || {}); }, 450));
+  publishTimers.set(id, setTimeout(() => { publishTimers.delete(id); publishKey('meta:' + id, publicMetadata(state.meta[id] || {})); }, 450));
 }
 function applyAccess() {
   document.body.classList.toggle('is-admin', admin.isAdmin);
@@ -170,7 +175,7 @@ function renderPractice() {
   page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Generate a Salsa-only mix, a Bachata-only mix or a mix of both.')}<div class="practice-layout"><div class="practice-start"><span class="eyebrow">MIX YOUR DANCE VIDEOS</span><h2>What are we dancing today?</h2><p>Select a mix. BailaCue chooses ten videos from the library and queues them for continuous exploration.</p><div class="mix-options"><button class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button class="button subtle" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</div><div class="timer-panel"><span class="eyebrow">OPTIONAL SESSION TIMER</span><div class="timer" id="timer">${timerText()}</div><div><button class="button subtle small" id="timer-toggle" data-action="timer">${icon(sessionStarted ? 'pause' : 'play')}${sessionStarted ? 'Pause' : 'Start timer'}</button> <button class="text-button" data-action="timer-reset">Reset</button></div><p>The timer is optional. Pause it whenever you like.</p></div></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
 }
 function renderSettings() {
-  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Only the administrator manages labels and videos.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>Only you can add Google Drive videos, publish YouTube links or edit labels and video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button><button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
+  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Only the administrator manages labels and videos.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>Only you can add Google Drive videos, publish YouTube links or edit labels and video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
 function render() {
@@ -235,7 +240,7 @@ async function importBackup(event) {
     const driveAdditions = new Map(state.drive.map(v => [v.id, v])); imported.drive.forEach(v => driveAdditions.set(v.id, v));
     const additions = new Map(state.youtube.map(v => [v.id, v])); imported.youtube.forEach(v => additions.set(v.id, v));
     state = cleanState({ ...state, meta: { ...state.meta, ...imported.meta }, drive: [...driveAdditions.values()], youtube: [...additions.values()], queue: [...new Set([...state.queue, ...imported.queue])], history: [...new Map([...state.history, ...imported.history].map(h => [`${h.id}:${h.at}`, h])).values()] });
-    save(); await publishLabels(); for (const [id, value] of Object.entries(imported.meta)) await admin.put('meta:' + id, value); for (const video of imported.youtube) await admin.put('youtube:' + video.id, video); for (const video of imported.drive) await admin.put('drive:' + video.id, video); render(); toast('Backup published to BailaCue.');
+    save(); await publishLabels(); for (const [id, value] of Object.entries(imported.meta)) await admin.put('meta:' + id, publicMetadata(value)); for (const video of imported.youtube) await admin.put('youtube:' + video.id, video); for (const video of imported.drive) await admin.put('drive:' + video.id, video); render(); toast('Backup published to BailaCue.');
   } catch (error) { toast(error.message || 'Could not import this backup.'); }
   event.target.value = '';
 }
@@ -249,19 +254,26 @@ async function loadCatalogue() {
   if (!catalogue.length) throw new Error('The fixed collections are empty.');
   $('#nav-count').textContent = String(videos().length);
 }
+function protectLegacyBrowserData() {
+  try {
+    if (localStorage.getItem(LEGACY_BACKUP_KEY)) return;
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const old = cleanState(JSON.parse(raw));
+    if (Object.keys(old.meta).length || old.drive.length || old.youtube.length || old.labels.some(x => x.id.startsWith('custom-'))) localStorage.setItem(LEGACY_BACKUP_KEY, raw);
+  } catch { /* Existing storage remains untouched when unreadable. */ }
+}
+function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; }
 async function loadSharedContent() {
   if (!admin.ready) return;
   const rows = await admin.readContent();
   // Shared content is authoritative. Legacy browser-only edits never leak to public visitors.
-  state.meta = {};
-  state.youtube = [];
-  state.drive = [];
-  state.labels = emptyState().labels;
+  resetPublicContent();
   for (const item of rows) {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
-    if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = v;
+    if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = publicMetadata(v);
     if (key?.startsWith('youtube:') && v.provider === 'youtube' && ['Salsa','Bachata'].includes(v.dance) && v.id === key.slice(8)) {
       try { if (parseYoutube(v.url).id === v.id) state.youtube.push(v); } catch { /* Ignore invalid shared URLs. */ }
     }
@@ -304,7 +316,8 @@ document.addEventListener('click', async event => {
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue); }
   if (action === 'add-youtube') openYoutube();
   if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
-  if (action === 'export') downloadJson(state, `BailaCue-backup-${localDay()}.json`);
+  if (action === 'export' && admin.isAdmin) downloadJson(state, `BailaCue-backup-${localDay()}.json`);
+  if (action === 'export-legacy' && admin.isAdmin) downloadJson(localStorage.getItem(LEGACY_BACKUP_KEY) || '{}', `BailaCue-before-public-${localDay()}.json`);
   if (action === 'import') $('#backup-file').click();
   if (action === 'export-original') downloadJson(localStorage.getItem(STORAGE_KEY) || '{}', `BailaCue-original-${localDay()}.json`);
   if (action === 'replace-original') { storageCorrupt = false; if (save()) { render(); toast('Current session saved. Your downloaded original can be recovered separately.'); } }
@@ -338,7 +351,7 @@ window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && sessionStarted) { pauseTimer(); if (activeView === 'practice') renderPractice(); } });
 setInterval(() => { const timer = $('#timer'); if (timer && sessionStarted) timer.textContent = timerText(); }, 1000);
-async function start() { try { await loadCatalogue(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
+async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 $('#player-size').addEventListener('change', event => { state.playerSize = Number(event.target.value); $('#player').classList.remove('theater'); $('#theater-button').textContent = 'Theater view'; $('#theater-button').setAttribute('aria-pressed', 'false'); $('#player').style.width = `${state.playerSize}px`; save(); });
 $('#player-height').addEventListener('input', event => $('#video-frame').style.setProperty('--video-height', `${event.target.value}px`));
 $('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
