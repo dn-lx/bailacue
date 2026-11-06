@@ -95,3 +95,15 @@ button:disabled{cursor:not-allowed}
 .editor-panel>form+.helper-text{margin-top:16px}
 .player-top{position:sticky;top:0;z-index:5;background:var(--surface);padding:10px 0;margin-top:-10px}
 @media(max-width:720px){.header-actions .button span:last-child{min-height:0}.header-actions .button{height:44px;padding-block:10px}}
+
+/* Public dance library: only the verified Supabase owner sees editing controls. */
+body:not(.is-admin) [data-admin-only] { display: none !important; }
+[hidden] { display: none !important; }
+.mix-options { display: flex; flex-wrap: wrap; gap: 10px; margin: 20px 0 16px; }
+.mix-options .button { min-width: 140px; }
+.public-video-details { padding: 12px 4px 16px; max-width: 780px; }
+.public-video-details p { overflow-wrap: anywhere; line-height: 1.6; }
+.public-detail-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+footer { flex-wrap: wrap; gap: 12px; }
+footer .button { white-space: normal; text-align: center; }
+@media (max-width: 600px) { .mix-options { flex-direction: column; } .mix-options .button { width: 100%; } footer .button { width: 100%; } }
