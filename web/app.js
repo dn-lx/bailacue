@@ -173,19 +173,61 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by style or artist, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, styles or artists" aria-label="Search videos or notes" value="${esc(filters.query)}"></label></div><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Rating <select id="rating-filter"><option value="">Any rating</option><option value="unrated">Unrated</option>${Array.from({ length: 10 }, (_, i) => `<option value="${10 - i}">${10 - i} / 10</option>`).join('')}</select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="rating">Highest rated</option><option value="recent">Recently added</option></select></label><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span></div><div class="advanced-filters"><div id="filter-labels"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by style or artist, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, styles or artists" aria-label="Search videos or notes" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span><span class="filter-chevron" aria-hidden="true">⌄</span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Rating <select id="rating-filter"><option value="">Any rating</option><option value="unrated">Unrated</option>${Array.from({ length: 10 }, (_, i) => `<option value="${10 - i}">${10 - i} / 10</option>`).join('')}</select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="rating">Highest rated</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-labels"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#rating-filter').value = filters.rating; $('#sort-filter').value = filters.sort;
+  $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.rating || filters.sort !== 'title' || filters.labelIds?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
   for (const [id, key] of [['provider-filter', 'provider'], ['rating-filter', 'rating'], ['sort-filter', 'sort']]) $(`#${id}`).addEventListener('change', e => { filters[key] = e.target.value; currentPage = 1; renderResults(); });
   labelPicker($('#filter-labels'), { title: 'Filter labels', labels: () => state.labels, selected: filters.labelIds || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.labelIds = ids; currentPage = 1; renderResults(); } });
   labelPicker($('#filter-artists'), { title: 'Filter artists', labels: () => state.labels, selected: filters.artistIds || [], artists: true, onChange: ids => { filters.artistIds = ids; currentPage = 1; renderResults(); } });
   renderResults();
 }
+
+function renderFilterChips() {
+  const chips = [];
+  if (filters.dance !== 'All') chips.push({ key: 'dance', label: filters.dance });
+  if (filters.query.trim()) chips.push({ key: 'query', label: 'Search: ' + filters.query.trim() });
+  if (filters.provider !== 'all') chips.push({ key: 'provider', label: filters.provider === 'drive' ? 'Google Drive' : 'YouTube' });
+  if (filters.rating) chips.push({ key: 'rating', label: filters.rating === 'unrated' ? 'Unrated' : 'Rated ' + filters.rating + '/10' });
+  if (filters.sort !== 'title') chips.push({ key: 'sort', label: 'Sort: ' + (filters.sort === 'rating' ? 'Top rated' : 'Newest') });
+  for (const field of ['labelIds', 'artistIds']) {
+    const ids = filters[field] || [];
+    if (!ids.length) continue;
+    const label = ids.length === 1 ? state.labels.find(item => item.id === ids[0])?.name : null;
+    chips.push({ key: field, label: label || (field === 'labelIds' ? 'Labels' : 'Artists') + ' (' + ids.length + ')' });
+  }
+  const target = $('#active-filter-chips');
+  target.replaceChildren();
+  for (const { key, label } of chips) {
+    const chip = document.createElement('button');
+    chip.type = 'button'; chip.className = 'active-filter-chip';
+    chip.dataset.action = 'clear-filter'; chip.dataset.filter = key;
+    chip.textContent = label + ' ×'; chip.title = 'Remove ' + label + ' filter';
+    chip.setAttribute('aria-label', 'Remove filter: ' + label);
+    target.append(chip);
+  }
+  if (chips.length > 1) {
+    const clear = document.createElement('button');
+    clear.type = 'button'; clear.className = 'clear-active-filters';
+    clear.dataset.action = 'reset-filters'; clear.textContent = 'Clear all';
+    target.append(clear);
+  }
+  const advanced = ['provider', 'rating', 'sort', 'labelIds', 'artistIds'].filter(key => {
+    if (key === 'provider') return filters.provider !== 'all';
+    if (key === 'rating') return Boolean(filters.rating);
+    if (key === 'sort') return filters.sort !== 'title';
+    return Boolean(filters[key]?.length);
+  }).length;
+  $('#advanced-count').hidden = advanced === 0;
+  $('#advanced-count').textContent = advanced ? advanced + ' applied' : '';
+}
 function renderResults() {
   const matches = filterVideos(videos(), state.meta, filters, state.labels);
-  const totalPages = Math.max(1, Math.ceil(matches.length / pageSize)); currentPage = Math.min(currentPage, totalPages);
-  $('#result-count').textContent = matches.length ? `Showing ${(currentPage - 1) * pageSize + 1}–${Math.min(currentPage * pageSize, matches.length)} of ${matches.length} videos` : 'No matching videos';
-  $('#library-results').innerHTML = matches.length ? `<div class="video-grid">${matches.slice((currentPage - 1) * pageSize, currentPage * pageSize).map(card).join('')}</div>${totalPages > 1 ? `<div class="pagination"><button class="button subtle small" data-action="page-prev" ${currentPage === 1 ? 'disabled' : ''}>${icon('back')} Previous</button><span>Page ${currentPage} of ${totalPages}</span><button class="button subtle small" data-action="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next ${icon('arrow')}</button></div>` : ''}` : `<div class="empty-state">${icon('search')}<h3>No videos match your filters.</h3><p>Try a different dance, artist, label or search term.</p><button class="button primary" data-action="reset-filters">Clear filters</button></div>`;
+  const displayedPageSize = window.matchMedia('(max-width: 480px)').matches ? 12 : pageSize;
+  const totalPages = Math.max(1, Math.ceil(matches.length / displayedPageSize)); currentPage = Math.min(currentPage, totalPages);
+  $('#result-count').textContent = matches.length ? `Showing ${(currentPage - 1) * displayedPageSize + 1}–${Math.min(currentPage * displayedPageSize, matches.length)} of ${matches.length} videos` : 'No matching videos';
+  $('#library-results').innerHTML = matches.length ? `<div class="video-grid">${matches.slice((currentPage - 1) * displayedPageSize, currentPage * displayedPageSize).map(card).join('')}</div>${totalPages > 1 ? `<div class="pagination"><button class="button subtle small" data-action="page-prev" ${currentPage === 1 ? 'disabled' : ''}>${icon('back')} Previous</button><span>Page ${currentPage} of ${totalPages}</span><button class="button subtle small" data-action="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next ${icon('arrow')}</button></div>` : ''}` : `<div class="empty-state">${icon('search')}<h3>No videos match your filters.</h3><p>Try a different dance, artist, label or search term.</p><button class="button primary" data-action="reset-filters">Clear filters</button></div>`;
+  renderFilterChips();
   handleImages($('#library-results'));
 }
 function renderPractice() {
@@ -209,6 +251,10 @@ function render() {
   $('#breadcrumb').textContent = titles[activeView];
   $('#mobile-settings').setAttribute('aria-current', activeView === 'settings' ? 'page' : 'false');
   document.title = `${titles[activeView]} · BailaCue`;
+  const mixCount = state.queue.filter(id => videoById(id)).length;
+  $('#nav-mix-count').textContent = String(mixCount);
+  $('#nav-mix-count').hidden = mixCount === 0;
+  $('#nav-mix-count').setAttribute('aria-label', `${mixCount} videos in mix`);
   document.querySelectorAll('#nav a').forEach(a => { if (!(a instanceof HTMLElement)) return; const active = a.dataset.view === activeView; a.classList.toggle('active', active); if (active) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   if (activeView === 'today') renderToday();
   if (activeView === 'library') renderLibrary();
@@ -339,6 +385,20 @@ $('#admin-form').addEventListener('submit', async event => {
   } catch (error) { $('#admin-error').textContent = error.message; }
   finally { button.disabled = false; }
 });
+document.addEventListener('keydown', event => {
+  if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('dialog[open]')) return;
+  if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
+  event.preventDefault();
+  if (activeView !== 'library') { navigate('library'); requestAnimationFrame(() => $('#search')?.focus({ preventScroll: true })); }
+  else $('#search')?.focus({ preventScroll: true });
+});
+for (const dialog of document.querySelectorAll('dialog')) {
+  dialog.addEventListener('click', event => {
+    if (event.target !== dialog) return;
+    const rect = dialog.getBoundingClientRect();
+    if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close();
+  });
+}
 document.addEventListener('click', async event => {
   if (!(event.target instanceof Element)) return;
   const close = event.target.closest('[data-close]'); if (close instanceof HTMLElement) { const dialog = document.getElementById(close.dataset.close); if (dialog instanceof HTMLDialogElement) dialog.close(); return; }
@@ -350,7 +410,8 @@ document.addEventListener('click', async event => {
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
   if (action === 'go-practice') navigate('practice');
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
-  if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
+  if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', rating: '', sort: 'title', query: '' }; currentPage = 1; renderLibrary(); $('#search')?.focus({ preventScroll: true }); }
+   if (action === 'clear-filter') { const field = button.dataset.filter; if (!['dance', 'query', 'provider', 'rating', 'sort', 'labelIds', 'artistIds'].includes(field)) return; filters[field] = { dance: 'All', query: '', provider: 'all', rating: '', sort: 'title', labelIds: [], artistIds: [] }[field]; currentPage = 1; renderLibrary(); if (field === 'query') $('#search')?.focus({ preventScroll: true }); }
   if (action === 'mix') { const dance = button.dataset.dance || 'Both'; const pool = videos().filter(v => dance === 'Both' || v.dance === dance); state.queue = practiceQueue(pool, state.meta).slice(0, 10); save(); render(); toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.`); }
   if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids, null, '', true); }
   if (action === 'open-queue') openPlayer(id, state.queue, null, '', true);
