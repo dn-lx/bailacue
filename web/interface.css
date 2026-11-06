@@ -287,3 +287,23 @@ body:has(dialog[open]) { overflow: hidden; }
 }
 @media (hover: none) { .video-card:hover { transform: none; } .video-card:hover .card-visual img { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .filter-chevron { transition: none; } }
+
+
+/* Recently opened is an optional, browser-only shortcut, not a public watch history. */
+.recent-helper { margin: -7px 0 16px; font-size: 13px; color: var(--muted); }
+.recent-grid { margin-bottom: 20px; }
+
+/* Mix editing: stable 44px up/down/play/remove targets, grouped to keep rows readable. */
+.queue-item .queue-info { flex: 1 1 auto; min-width: 0; }
+.queue-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: nowrap; gap: 5px; flex-shrink: 0; }
+.queue-actions .icon-button, .queue-item .queue-actions .icon-button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; }
+.queue-actions .mix-move { border: 1px solid var(--line); background: var(--bg); border-radius: 9px; }
+.queue-actions .mix-move:hover:not(:disabled) { color: var(--blue); border-color: var(--blue); }
+.queue-actions .mix-move:disabled { opacity: .35; cursor: not-allowed; }
+.queue-actions .icon-button:focus-visible { outline: 3px solid #739dff; outline-offset: 2px; }
+@media (max-width: 620px) {
+  .queue-item { flex-wrap: wrap; align-items: center; }
+  .queue-item .queue-info { flex: 1 1 calc(100% - 52px); }
+  .queue-actions { width: 100%; padding-top: 8px; border-top: 1px solid var(--line); }
+  .queue-actions .icon-button { flex-shrink: 0; }
+}
