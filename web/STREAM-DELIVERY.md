@@ -13,7 +13,8 @@ proxy whenever a ready Stream copy is not published.
    or enters its duration. This prevents accidental mismatches.
 3. `POST /api/stream/prepare` checks owner identity against
    `public.bailacue_web_admins`, confirms the locked Salsa/Bachata source,
-   checks file size and the duration reservation limit, and uses a **runtime
+   checks file size and the duration reservation limit, binds the source using
+   Cloudflare's supported **Upload-Creator** attribute, and uses a **runtime
    Cloudflare API token** to create a short-lived direct TUS upload URL.
 4. Original video bytes travel **directly from the browser to Cloudflare** in
    10 MiB resumable chunks. The API token is never returned to the browser.
