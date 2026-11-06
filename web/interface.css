@@ -307,3 +307,35 @@ body:has(dialog[open]) { overflow: hidden; }
   .queue-actions { width: 100%; padding-top: 8px; border-top: 1px solid var(--line); }
   .queue-actions .icon-button { flex-shrink: 0; }
 }
+
+
+/* Mix creator — one full-width, high-contrast panel without the unused timer. */
+.practice-layout { display: block; }
+.practice-start { padding: clamp(24px, 3.6vw, 40px); }
+.practice-start::after { z-index: 0; }
+.practice-start > * { position: relative; z-index: 1; }
+.practice-start h2 { max-width: 700px; }
+.practice-start > p { max-width: 66ch; margin: 14px 0 24px; }
+.mix-count-setting { display: grid; grid-template-columns: max-content minmax(150px, 210px) 1fr; align-items: center; gap: 12px 18px; max-width: 860px; margin: 0 0 26px; }
+.mix-count-setting label { color: #f6f8ff; font-size: 14px; font-weight: 700; line-height: 1.5; }
+.mix-count-field { display: flex; align-items: center; gap: 10px; padding: 0 12px 0 0; background: #f7f9fc; border: 1px solid #c9d4e7; border-radius: 10px; color: #182538; min-width: 0; }
+.mix-count-field:focus-within { outline: 3px solid #739dff; outline-offset: 3px; }
+.mix-count-field input { width: 85px; min-width: 0; min-height: 48px; padding: 10px 12px; border: 0; outline: 0; background: transparent; color: #182538; font-size: 18px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.mix-count-field span { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.practice-start .mix-count-setting p { max-width: 45ch; color: #c3d2e8; margin: 0; font-size: 13px; line-height: 1.55; }
+.mix-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 860px; margin: 0 0 16px; }
+.practice-start .mix-options .button { width: 100%; min-width: 0; min-height: 52px; margin: 0; padding: 11px 12px; white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
+.practice-start .mix-play-button { display: inline-flex; min-height: 48px; margin: 4px 0 0; background: var(--surface); color: var(--text); border: 1px solid var(--line); font-size: 14px; font-weight: 700; }
+.practice-start .mix-play-button:hover { background: var(--soft); color: var(--text); }
+.practice-start .mix-play-button svg { color: currentColor; }
+@media (max-width: 950px) {
+  .mix-count-setting { grid-template-columns: max-content minmax(135px, 190px); }
+  .mix-count-setting p { grid-column: 1 / -1; }
+}
+@media (max-width: 650px) {
+  .mix-options { grid-template-columns: 1fr; }
+  .mix-count-setting { grid-template-columns: 1fr; gap: 8px; }
+  .mix-count-setting p { grid-column: 1; }
+  .mix-count-field { width: min(100%, 210px); }
+  .practice-start .mix-play-button { width: 100%; justify-content: center; }
+}
