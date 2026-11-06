@@ -42,6 +42,7 @@ export interface State {
   googleClientId: string;
   playerSize: number;
   queue: string[];
+  mixSize: number;
   history: { id: string; at: string }[];
   daily: { day: string; ids: string[] } | null;
   theme: string;
