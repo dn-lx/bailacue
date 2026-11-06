@@ -65,7 +65,18 @@ const admin = new BailaCueAdmin();
 const streamMap = new Map();
 const publishTimers = new Map();
 const publishChains = new Map();
-const studioPlayer = new StudioPlayer({ token: () => connection.token(), allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id), streamFor: video => streamMap.get(video.id), toast });
+const studioPlayer = new StudioPlayer({
+  token: () => connection.token(),
+  allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
+  streamFor: video => streamMap.get(video.id),
+  onEnded: video => {
+    if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
+    const following = playbackQueue[playbackIndex + 1];
+    if (following) openPlayer(following, playbackQueue, null, '', true);
+    else toast('You have reached the end of this mix.');
+  },
+  toast,
+});
 function requireAdmin() { if (admin.isAdmin) return true; toast('Only the administrator can edit BailaCue. Sign in to continue.'); return false; }
 function publishKey(key, payload) {
   if (!admin.isAdmin) return Promise.resolve();
@@ -210,15 +221,15 @@ function updatePlayer() {
   $('#player-title').textContent = displayTitle(selected, state.meta);
   $('#player-source').textContent = `${selected.dance} / ${selected.provider === 'drive' ? 'GOOGLE DRIVE' : selected.provider === 'local' ? 'ON THIS DEVICE' : 'YOUTUBE'}`;
   $('#rating-buttons').innerHTML = admin.isAdmin ? `${Array.from({ length: 10 }, (_, i) => `<button data-action="rate" data-rating="${i + 1}" aria-label="Rate ${i + 1} out of 10" aria-pressed="${m.rating === i + 1}" class="${m.rating === i + 1 ? 'active' : ''}">${i + 1}</button>`).join('')}<button class="unrate ${!m.rating ? 'active' : ''}" data-action="rate" data-rating="0" aria-pressed="${!m.rating}">Unrated</button>` : `${m.rating ? `${m.rating} / 10` : 'Not rated'}`;
-  $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In practice queue' : 'Add to practice'}`;
+  $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In mix' : 'Add to mix'}`;
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
 }
-function openPlayer(id, queue = null, override = null, localUrl = '') {
+function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
   selected = v;
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
-  studioPlayer.open(v, localUrl);
+  studioPlayer.open(v, localUrl, autoPlay);
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`; $('#player-size').value = String(state.playerSize);
   $('#provider-link').hidden = v.provider === 'local';
@@ -229,7 +240,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '') {
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
 }
 
-function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from your practice queue' : 'Added to your practice queue'); if (selected?.id === id) updatePlayer(); refreshView(); }
+function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from mix' : 'Added to mix'); if (selected?.id === id) updatePlayer(); refreshView(); }
 function refreshView() { const position = window.scrollY; render(); window.scrollTo({ top: position }); }
 
 function elapsed() { return sessionSeconds + (sessionStarted ? Math.floor((Date.now() - sessionStarted) / 1000) : 0); }
@@ -334,13 +345,13 @@ document.addEventListener('click', async event => {
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
   if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
   if (action === 'mix') { const dance = button.dataset.dance || 'Both'; const pool = videos().filter(v => dance === 'Both' || v.dance === dance); state.queue = practiceQueue(pool, state.meta).slice(0, 10); save(); render(); toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.`); }
-  if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids); }
-  if (action === 'open-queue') openPlayer(id, state.queue);
+  if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids, null, '', true); }
+  if (action === 'open-queue') openPlayer(id, state.queue, null, '', true);
   if (action === 'clear-queue') { state.queue = []; save(); render(); toast('Mix cleared.'); }
   if (action === 'timer') { if (sessionStarted) pauseTimer(); else sessionStarted = Date.now(); render(); }
   if (action === 'timer-reset') { sessionStarted = null; sessionSeconds = 0; render(); }
   if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
-  if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue); }
+  if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue, null, '', true); }
   if (action === 'add-youtube') openYoutube();
   if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
   if (action === 'export' && admin.isAdmin) downloadJson(state, `BailaCue-backup-${localDay()}.json`);
