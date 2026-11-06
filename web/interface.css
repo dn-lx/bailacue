@@ -40,7 +40,7 @@ button:disabled{cursor:not-allowed}
 .pick-detail p,.pick-overlay span,.pick-detail .text-button{font-size:13px}.pick-detail{gap:12px}.stats-row{font-size:13px;flex-wrap:wrap}.today-banner p{font-size:13px}.studio-shortcuts span{font-size:10px}.studio-shortcuts small{font-size:12px}.settings-card p{font-size:14px;line-height:1.65}.source-row small{font-size:12px}footer,footer .text-button{font-size:12px}
 /* Player: timeline / centered transport / utilities / optional practice tools. */
 #player{padding:24px}.player-top{align-items:center}.player-top h2{font-size:25px;line-height:1.2;overflow-wrap:anywhere}.player-top .eyebrow{font-size:11px}
-.player-layout-tools{margin-bottom:14px}.display-options{width:100%}.display-options>summary{display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;font-size:13px;font-weight:600;width:fit-content;min-height:44px}.display-options>summary:after{content:'⌄';font-size:16px}.display-options[open]>summary:after{content:'⌃'}.display-options>summary::-webkit-details-marker{display:none}
+.player-layout-tools{margin-bottom:14px}.display-options{width:100%}.display-options>summary{display:flex;align-items:center;gap:10px;list-style:none;cursor:pointer;font-size:13px;font-weight:600;width:fit-content;min-height:44px}.display-options>summary::-webkit-details-marker{display:none}
 .display-panel{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--bg);margin-top:4px}.display-panel>label{display:flex;align-items:center;gap:10px;font-size:13px}.display-panel select{font-size:14px;min-height:44px}.display-panel .height-control input{width:120px;min-height:44px}.display-panel .button{font-size:13px;min-height:44px}
 #full-stage{border-radius:12px;overflow:hidden}#video-frame{border-radius:0}
 #media-controls{padding:14px 18px 12px;color:#f7f9fd;background:#162133;border-radius:0}
@@ -59,7 +59,7 @@ button:disabled{cursor:not-allowed}
 #media-controls .media-display-actions{display:flex;align-items:center;justify-content:flex-end}
 #media-controls .practice-tools{display:block;margin:10px 0 0;padding:0;border-top:1px solid #40506a}
 #media-controls .practice-tools>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:44px;padding:8px 2px;font-size:14px;font-weight:500;cursor:pointer;list-style:none}
-#media-controls .practice-tools>summary::-webkit-details-marker{display:none}#media-controls .practice-tools>summary:after{content:'⌄';color:#c6d2e4}#media-controls .practice-tools[open]>summary:after{content:'⌃'}#media-controls .practice-tools>summary>span{color:#b0bed3;font-size:12px;font-weight:400;margin-left:auto}
+#media-controls .practice-tools>summary::-webkit-details-marker{display:none}#media-controls .practice-tools>summary>span{color:#b0bed3;font-size:12px;font-weight:400;margin-left:auto}
 #media-controls .practice-tools-body{padding:8px 0 2px}#media-controls .loop-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 #media-controls .loop-controls button{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 12px;font-size:13px;min-height:44px;border-radius:8px;border:1px solid #53637c;background:#263750;color:#f7f9fd}
 #media-controls .loop-controls button svg{width:18px;height:18px}#media-controls .loop-controls button:hover:not(:disabled){background:#344c6c}#media-controls .loop-controls [aria-pressed=true]{background:#385988;border-color:#b2ccff}
@@ -222,8 +222,8 @@ footer .button { white-space: normal; text-align: center; }
   font-size: 11px; font-weight: 700; background: var(--soft); color: var(--blue);
   border-radius: 999px; padding: 4px 9px;
 }
-.filter-chevron { margin-left: auto; font-size: 21px; color: var(--muted); line-height: 1; transition: transform .18s ease; }
-.filter-panel[open] .filter-chevron { transform: rotate(180deg); }
+
+
 .filter-panel-body { padding: 2px 16px 5px; }
 .filter-panel-body .filters { margin-bottom: 16px; }
 .filter-panel-body .advanced-filters { margin-bottom: 15px; }
@@ -286,7 +286,7 @@ body:has(dialog[open]) { overflow: hidden; }
   .filter-panel-body .filters select { min-height: 44px; font-size: 14px; }
 }
 @media (hover: none) { .video-card:hover { transform: none; } .video-card:hover .card-visual img { transform: none; } }
-@media (prefers-reduced-motion: reduce) { .filter-chevron { transition: none; } }
+
 
 
 /* Recently opened is an optional, browser-only shortcut, not a public watch history. */
@@ -338,4 +338,98 @@ body:has(dialog[open]) { overflow: hidden; }
   .mix-count-setting p { grid-column: 1; }
   .mix-count-field { width: min(100%, 210px); }
   .practice-start .mix-play-button { width: 100%; justify-content: center; }
+}
+
+/* Universal dropdowns: identical 16px chevrons, coherent borders, touch targets,
+   and consistent open states. Native selects keep OS keyboard and menu behavior. */
+:root {
+  --bc-dropdown-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23637289' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+[data-theme=dark] {
+  --bc-dropdown-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23BECDDF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+select:not([multiple]) {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  min-height: 46px;
+  min-width: 0;
+  padding: 10px 44px 10px 13px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background-color: var(--surface);
+  background-image: var(--bc-dropdown-arrow);
+  background-repeat: no-repeat;
+  background-size: 18px 18px;
+  background-position: right 13px center;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  font-weight: 500;
+  line-height: 1.4;
+  cursor: pointer;
+  text-overflow: ellipsis;
+}
+select:not([multiple]):hover:not(:disabled) { border-color: var(--muted); }
+select:not([multiple]):focus-visible { outline: 3px solid #739dff; outline-offset: 2px; }
+select:not([multiple]):disabled { cursor: not-allowed; opacity: .55; }
+select:not([multiple])::-ms-expand { display: none; }
+
+/* Keep the player's dark transport controls while matching the same arrow. */
+#media-controls #media-speed {
+  min-height: 44px;
+  min-width: 86px;
+  padding: 8px 32px 8px 10px;
+  border-radius: 10px;
+  background-color: #263750;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23D8E6F9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-position: right 8px center;
+  background-size: 16px 16px;
+  border-color: #53637c;
+  color: #fff;
+  font-size: 14px;
+}
+#media-controls #media-speed:hover:not(:disabled) { border-color: #a7c1e4; }
+
+/* All details disclosures, including labels, artists, filters, settings,
+   file information and upload configuration, use the same CSS chevron. */
+details > summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  list-style: none;
+  cursor: pointer;
+}
+details > summary::-webkit-details-marker { display: none; }
+details > summary::marker { content: ''; }
+details > summary::after {
+  content: '';
+  flex: 0 0 9px;
+  width: 9px;
+  height: 9px;
+  margin: -4px 5px 0 auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  border-radius: 1px;
+  color: var(--muted);
+  opacity: .95;
+  transform: rotate(45deg);
+  transform-origin: center;
+  transition: transform .18s ease, color .18s ease;
+}
+details[open] > summary::after {
+  transform: rotate(225deg);
+  margin-top: 4px;
+}
+details > summary:hover::after { color: var(--blue); }
+#media-controls .practice-tools > summary::after { color: #c6d2e4; }
+#media-controls .practice-tools > summary:hover::after { color: #fff; }
+.label-picker > summary > .picker-count { margin-left: 0; }
+.label-picker > summary { font-weight: 600; font-size: 14px; }
+.advanced-filters .label-picker > summary { font-size: 14px; }
+.label-picker[open] { border-color: var(--blue); }
+.label-picker > summary:hover { background: var(--soft); }
+@media (prefers-reduced-motion: reduce) {
+  details > summary::after { transition: none; }
 }
