@@ -55,7 +55,7 @@ function server(overrides = {}) {
       return new Response(null, { status: 201, headers: {Location:'https://upload.videodelivery.net/tus-fake-token', 'stream-media-id':uid} });
     }
     if (url.includes('api.cloudflare.com') && url.endsWith('/' + uid)) {
-      const details = { uid, meta:{sourceid:videoId}, status:{state:'ready',pctComplete:'100'}, readyToStream:true, playback:{hls:`https://${host}/${uid}/manifest/video.m3u8`}, ...overrides };
+      const details = { uid, creator:videoId, status:{state:'ready',pctComplete:'100'}, readyToStream:true, playback:{hls:`https://${host}/${uid}/manifest/video.m3u8`}, ...overrides };
       return Response.json({success:true, result:details});
     }
     if (url.includes('/rest/v1/bailacue_web_content?select=payload')) return Response.json([]);
@@ -79,7 +79,8 @@ test('owner can reserve a bounded tus upload without publishing unprocessed vide
   const call = calls.find(x=>x.url.includes('direct_user=true'));
   assert.equal(call.init.headers['Upload-Length'], String(video.size));
   assert.equal(call.init.headers['Tus-Resumable'], '1.0.0');
-  assert.match(call.init.headers['Upload-Metadata'], /sourceid /);
+  assert.equal(call.init.headers['Upload-Creator'], videoId);
+  assert.match(call.init.headers['Upload-Metadata'], /maxDurationSeconds /);
   assert.equal(publications.length, 0);
   const wrongFile = await handler(request('prepare', {videoId, file:{...body.file,size:video.size+1}}));
   assert.equal(wrongFile.status,400);
@@ -102,7 +103,7 @@ test('processing and unbound copies never become public', async () => {
   const processing = server({readyToStream:false,status:{state:'inprogress',pctComplete:'45'}});
   assert.equal((await processing.handler(request('status',{videoId,uid}))).status,200);
   assert.equal(processing.publications.length,0);
-  const unbound = server({meta:{sourceid:'drive:someone-else-123456789'}});
+  const unbound = server({creator:'drive:someone-else-123456789'});
   assert.equal((await unbound.handler(request('status',{videoId,uid}))).status,403);
   assert.equal(unbound.publications.length,0);
 });
