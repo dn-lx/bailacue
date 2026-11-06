@@ -88,3 +88,22 @@ test('public footer has branding but no create-your-own BailaCue promotion', () 
   assert.doesNotMatch(html, /Create your own BailaCue/i);
   assert.doesNotMatch(html, /wa\.me\/491796932923/);
 });
+
+test('mix builder offers adjustable count with three visible dance choices and no timer', () => {
+  assert.match(app, /id="mix-count" type="number" min="1" max="/);
+  assert.match(app, /value="\$\{requested\}"/);
+  assert.match(app, /state\.mixSize = requested/);
+  assert.match(app, /clampMixCount\(requested, pool\.length\)/);
+  for (const dance of ['Salsa', 'Bachata', 'Both']) {
+    assert.match(app, new RegExp('data-action="mix" data-dance="' + dance + '"'));
+  }
+  assert.doesNotMatch(app, /timer-panel|timerText|sessionSeconds|sessionStarted|action === 'timer'/);
+});
+
+test('mix play button has explicit text contrast in both themes and responsive touch actions', () => {
+  assert.match(app, /class="button subtle mix-play-button" data-action="start-queue"/);
+  assert.match(css, /\.practice-start \.mix-play-button \{[^}]*color: var\(--text\)/);
+  assert.match(css, /\.mix-options \{[^}]*grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+  assert.match(css, /@media \(max-width: 650px\)/);
+  assert.match(css, /\.practice-start \.mix-options \.button \{[^}]*min-height: 52px/);
+});
