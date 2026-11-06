@@ -26,6 +26,7 @@ test('Settings is keyboard reachable on mobile and production never shows a deve
   assert.match(app, /aria-current', activeView === 'settings'/);
   assert.match(html, /class="develop-badge" hidden/);
   assert.match(app, /location\.hostname\.startsWith\('develop--'\)/);
+  assert.match(css, /\.mobile-brand \{ display: flex; font-size: 19px/);
   assert.match(css, /\.header-actions #add-youtube, \.header-actions a\[href="#upload"\] \{ display: none/);
 });
 
