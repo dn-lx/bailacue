@@ -105,3 +105,17 @@ The public header already says **Sign in** and the dialog says **Sign in to Bail
 Verification: tests for bounded history, removed sources, stable mix reordering, keyboard control labels and available row actions; web lint, typecheck, automated unit tests and build via GitHub Actions. These checks do not represent live Android device testing.
 
 Production `main` and backend permissions are unchanged.
+
+## Mobile Mixes screenshot follow-up · 6 November 2026 — develop only
+
+Screenshot observation: The **Play this mix** button had a white background and invisible white text inside the dark mix panel. The separate timer card left substantial unused space, and creating a mix always generated ten items.
+
+| Finding | Correction |
+| --- | --- |
+| “Play this mix” looked like an empty white button. | The secondary button now specifies `color: var(--text)` against `background: var(--surface)`, with hover contrast. This works for both supported themes. |
+| The timer was not part of the desired public BailaCue experience. | Removed timer markup, start/reset logic, visibility handling, interval, and obsolete styling. |
+| The number of mix videos could not be changed. | Added labelled numeric “Number of videos” control (default 10). Values are validated and preserved in browser-local state; Salsa/Bachata/combined mixes cap their count to available videos. |
+| Split timer/creator layout wasted space and contributed to poor mobile wrapping. | The mix creator now spans the whole page width. The three dance buttons form a responsive grid with readable labels and touch-size controls. |
+| Existing mixes might be lost during reconfiguration. | Changing the desired count does not modify the existing mix; generating a new mix replaces it as before. The existing Play, reorder and remove actions are retained. |
+
+Verification: workflow syntax, typecheck, unit tests covering mix counts and the button's CSS contrast, and Netlify branch deployment. This is not equivalent to physical Android-browser validation. Production `main` is untouched.
