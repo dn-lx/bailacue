@@ -8,7 +8,7 @@ function jobKey(id) { return 'bailacue:stream-job:' + id; }
 function savedJob(id) {
   try {
     const job = JSON.parse(sessionStorage.getItem(jobKey(id)) || 'null');
-    return job?.videoId === id && Date.parse(job.expiresAt || '') > Date.now() ? job : null;
+    return job?.videoId === id && (job.completed === true || Date.parse(job.expiresAt || '') > Date.now()) ? job : null;
   } catch { return null; }
 }
 function safeUploadUrl(value) {
@@ -102,11 +102,17 @@ export function renderStreamAdmin(container, { video, admin, currentDelivery, on
   </div>`;
   const $ = selector => container.querySelector(selector);
   const fileInput = $('#stream-file'), duration = $('#stream-duration'), upload = $('#stream-upload'), check = $('#stream-check'), pause = $('#stream-pause'), progress = $('#stream-progress'), message = $('#stream-message');
-  let file = null, busy = false;
+  let file = null, busy = false, enabled = false;
+  fetch('/api/stream/config', { cache: 'no-store' }).then(response => response.json()).then(config => {
+    enabled = config.enabled === true;
+    if (!enabled) status('Cloudflare Stream is not activated for BailaCue. No paid processing can start until the administrator configures the private provider credentials.');
+    upload.disabled = !enabled || !file;
+    check.disabled = !enabled;
+  }).catch(() => { enabled = false; status('Adaptive video service status is unavailable; uploads are disabled.'); upload.disabled = true; check.disabled = true; });
   const job = () => savedJob(video.id);
   check.hidden = !job();
   function status(text) { message.textContent = text; }
-  function toggle(value) { busy = value; upload.disabled = value || !file; fileInput.disabled = value; pause.hidden = !value; check.disabled = value; }
+  function toggle(value) { busy = value; upload.disabled = value || !file || !enabled; fileInput.disabled = value; pause.hidden = !value; check.disabled = value || !enabled; }
   fileInput.onchange = async () => {
     file = fileInput.files?.[0] || null;
     if (!file) { upload.disabled = true; return; }
@@ -119,14 +125,15 @@ export function renderStreamAdmin(container, { video, admin, currentDelivery, on
     if (seconds > 0) duration.value = String(Math.ceil(seconds / 6) / 10);
     else status('Please enter the video duration manually if this browser cannot read its format.');
     if (seconds > 0) status('Ready to upload the selected original. This creates a separately billed streaming copy.');
-    upload.disabled = false;
+    upload.disabled = !enabled;
   };
   pause.onclick = () => { cancelStreamUpload(); status('Upload paused. Select the same original to resume.'); toggle(false); };
   upload.onclick = async () => {
-    if (!file || busy || !admin.isAdmin) return;
+    if (!enabled || !file || busy || !admin.isAdmin) return;
     const minutes = Number(duration.value);
     if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 480) { status('Enter the duration of the original video in minutes.'); return; }
     const existing = job();
+    if (existing?.completed) { status('This video has been uploaded. Select Check video processing instead.'); return; }
     if (existing && (existing.size !== file.size || existing.name !== file.name || existing.modified !== file.lastModified)) {
       status('The selected original differs from the paused upload. Restart with the original file or wait until its upload expires.');
       return;
@@ -144,7 +151,8 @@ export function renderStreamAdmin(container, { video, admin, currentDelivery, on
       }
       status('Uploading the original securely and resumably to the video service…');
       await uploadChunks(file, current, (sent, total) => { progress.value = Math.round(sent / total * 100); status(`Uploaded ${Math.round(sent / total * 100)}% · keep this tab active, or pause and resume later.`); }, controller.signal);
-      status('Upload completed. Cloudflare is preparing the adaptive resolutions. Check processing status to publish.');
+      current.completed = true; sessionStorage.setItem(jobKey(video.id), JSON.stringify(current));
+      status('Upload completed. Cloudflare is preparing adaptive resolutions. Check processing status to publish.');
       check.hidden = false;
     } catch (error) {
       status(controller.signal.aborted ? 'Upload paused. You can resume with the same original.' : error.message);
@@ -153,6 +161,7 @@ export function renderStreamAdmin(container, { video, admin, currentDelivery, on
   check.onclick = async () => {
     const current = job();
     if (!current) { status('No active upload for this video. Select its original file first.'); return; }
+    if (!enabled) { status('Adaptive video service is not activated.'); return; }
     check.disabled = true;
     try {
       const result = await ownerRequest(admin, 'status', { videoId: video.id, uid: current.uid });
