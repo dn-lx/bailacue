@@ -115,5 +115,5 @@ test('browser tab uses the new accessible dancing-partners icon', () => {
   assert.match(favicon, /aria-label="Two dancing partners"/);
   assert.match(favicon, /#E5F0FF/);
   assert.match(favicon, /#FF7DAA/);
-  assert.doesNotMatch(favicon, /<script|https?:\/\//i);
+  assert.doesNotMatch(favicon, /<script|<foreignObject|<image|onload\s*=|href\s*=/i);
 });
