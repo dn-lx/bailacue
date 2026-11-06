@@ -109,11 +109,13 @@ test('mix play button has explicit text contrast in both themes and responsive t
   assert.match(css, /\.practice-start \.mix-options \.button \{[^}]*min-height: 52px/);
 });
 
-test('browser tab uses the new accessible dancing-partners icon', () => {
-  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/dance-favicon\.svg\?v=1">/);
+test('browser tab renders the new compact BailaCue rhythm mark', () => {
+  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/dance-favicon\.svg\?v=2">/);
   assert.match(favicon, /viewBox="0 0 64 64"/);
-  assert.match(favicon, /aria-label="Two dancing partners"/);
-  assert.match(favicon, /#E5F0FF/);
-  assert.match(favicon, /#FF7DAA/);
+  assert.match(favicon, /aria-label="BailaCue rhythm and play icon"/);
+  assert.match(favicon, /<linearGradient id="rhythm"/);
+  assert.match(favicon, /<linearGradient id="flow"/);
+  assert.match(favicon, /fill="#FFFFFF"/);
+  assert.match(favicon, /fill="#0B1932"/);
   assert.doesNotMatch(favicon, /<script|<foreignObject|<image|onload\s*=|href\s*=/i);
 });
