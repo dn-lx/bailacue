@@ -84,13 +84,13 @@ export function createStreamHandler({ catalogue, publicConfig, fetcher = fetch, 
     const account = env('BAILACUE_CLOUDFLARE_ACCOUNT_ID');
     const base = `https://api.cloudflare.com/client/v4/accounts/${account}/stream`;
     if (action === 'prepare') {
+      if (videoId.length > 64) return error(400, 'The video identifier is too long to associate with the provider.');
       if (!validUpload(body.file, video)) return error(400, 'Select the matching original video file, including its exact original file size and estimated duration.');
       const maximum = Math.ceil(Number(body.file.durationSeconds) * 1.2 + 20);
       const cap = Math.max(60, Number(env('BAILACUE_STREAM_MAX_DURATION_SECONDS')) || 900);
       if (maximum > cap) return error(400, `This upload would reserve ${maximum} video seconds; configured limit is ${cap} seconds.`);
       const metadata = [
         ['name', body.file.name],
-        ['sourceid', videoId],
         ['maxDurationSeconds', String(maximum)],
         ['expiry', new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString()],
       ].map(([key, value]) => `${key} ${B64(value)}`).join(',');
@@ -100,6 +100,7 @@ export function createStreamHandler({ catalogue, publicConfig, fetcher = fetch, 
           'Tus-Resumable': '1.0.0',
           'Upload-Length': String(body.file.size),
           'Upload-Metadata': metadata,
+          'Upload-Creator': videoId,
         } });
       } catch { return error(502, 'Video service is unavailable. No upload started.'); }
       if (!result.ok) return error(502, 'Video service rejected the upload reservation. Check available video storage capacity.');
@@ -119,7 +120,7 @@ export function createStreamHandler({ catalogue, publicConfig, fetcher = fetch, 
       catch { return error(502, 'Could not inspect video processing status.'); }
       if (!result.ok || !details.success || details.result?.uid !== body.uid) return error(404, 'Video service has no matching video.');
       const v = details.result;
-      if (v.meta?.sourceid !== videoId && v.meta?.sourceId !== videoId) return error(403, 'This processed video is not associated with the selected original.');
+      if (v.creator !== videoId) return error(403, 'This processed video is not associated with the selected original.');
       if (!v.readyToStream || v.status?.state !== 'ready') return json({ status: v.status?.state || 'processing', percent: Number(v.status?.pctComplete) || 0 });
       const delivery = streamFromApi(v);
       if (!delivery) return error(409, 'Video is encoded but has no validated public streaming URL.');
