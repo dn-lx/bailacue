@@ -199,6 +199,13 @@ function renderSettings() {
 function render() {
   if (uploadRunning() && activeView === 'upload') return;
   const titles = { today: 'Discover', library: 'Library', practice: 'Mixes', settings: 'Settings', labels: 'Labels', upload: 'Add videos' };
+  const mixCounter = $('#nav-mix-count');
+  if (mixCounter) {
+    const mixSize = state.queue.filter(id => !!videoById(id)).length;
+    mixCounter.hidden = mixSize === 0;
+    mixCounter.textContent = String(mixSize);
+    mixCounter.setAttribute('aria-label', `${mixSize} ${mixSize === 1 ? 'video' : 'videos'} in mix`);
+  }
   $('#breadcrumb').textContent = titles[activeView];
   $('#mobile-settings').setAttribute('aria-current', activeView === 'settings' ? 'page' : 'false');
   document.title = `${titles[activeView]} · BailaCue`;
