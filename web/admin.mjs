@@ -15,6 +15,7 @@ export class BailaCueAdmin {
 
   get ready() { return !!(this.url && this.key); }
 
+  /** @param {string} path @param {{method?:string,payload?:any,auth?:boolean,retry?:boolean,headers?:Record<string,string>}} [options] */
   async call(path, { method = 'GET', payload, auth = false, retry = true, headers = {} } = {}) {
     if (!this.ready) throw new Error('BailaCue admin authentication has not been configured.');
     if (auth) await this.ensureSession();
