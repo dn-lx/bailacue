@@ -24,7 +24,7 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = () => null, toast }) {
+  constructor({ token, allowedFile, streamFor = _video => null, toast }) {
     this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
