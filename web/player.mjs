@@ -23,10 +23,10 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, toast, saveLoop }) {
-    this.token = token; this.allowedFile = allowedFile; this.toast = toast; this.saveLoop = saveLoop;
+  constructor({ token, allowedFile, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
-    this.media = null; this.video = null; this.youtube = null; this.loop = null; this.generation = 0; this.timer = null; this.kind = 'preview'; this.a = null;
+    this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.controls.innerHTML = `
       <div class="timeline"><input type="range" id="media-seek" aria-label="Video position" min="0" max="1000" step="1" value="0" aria-valuetext="0:00 of 0:00"><span id="media-time">0:00 / 0:00</span></div>
       <div class="transport" role="group" aria-label="Playback controls">
@@ -37,12 +37,8 @@ export class StudioPlayer {
       <div class="player-utilities">
         <div class="volume-control"><button type="button" id="media-mute" class="media-icon" aria-label="Mute" title="Mute">${mediaIcon('volume')}</button><input type="range" id="media-volume" aria-label="Volume" min="0" max="100" value="100"></div>
         <label class="speed-label" for="media-speed">Speed<select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
-        <div class="media-display-actions"></div>
-      </div>
-      <details class="practice-tools"><summary>Practice tools<span>Loop & mirror</span></summary><div class="practice-tools-body">
-        <div class="loop-controls"><button type="button" id="media-a">Set start A</button><button type="button" id="media-b">Set end B</button><button type="button" id="media-loop" aria-pressed="false">Loop off</button><button type="button" id="media-save-loop">Save loop</button><button type="button" id="media-mirror" aria-pressed="false">${mediaIcon('mirror')}Mirror</button></div>
-        <p id="loop-info">Set A and B to repeat a move.</p>
-      </div></details>`;
+        <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button></div>
+      </div>`;
     const fullscreen = document.querySelector('#fullscreen-button');
     fullscreen.className = 'media-icon'; fullscreen.innerHTML = mediaIcon('expand'); fullscreen.setAttribute('aria-label', 'Enter full screen'); fullscreen.setAttribute('title', 'Enter full screen');
     this.$('.media-display-actions').append(fullscreen);
@@ -54,10 +50,6 @@ export class StudioPlayer {
     this.$('#media-speed').onchange = e => { const value = Number(e.target.value); if (this.media) this.media.playbackRate = value; if (this.youtube) this.youtube.setPlaybackRate(value); };
     this.$('#media-volume').oninput = e => { const value = Number(e.target.value); if (this.media) { this.media.volume = value / 100; this.media.muted = value === 0; } if (this.youtube) { this.youtube.setVolume(value); value === 0 ? this.youtube.mute() : this.youtube.unMute(); } this.updateVolume(); };
     this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.updateVolume(); };
-    this.$('#media-a').onclick = () => { this.a = this.current(); this.loop = null; this.$('#media-loop').setAttribute('aria-pressed', 'false'); this.$('#media-loop').textContent = 'Loop off'; this.$('#loop-info').textContent = `A ${formatTime(this.a)} — choose B after this point.`; };
-    this.$('#media-b').onclick = () => { if (this.a === null || this.current() <= this.a + 0.2) { this.toast('Set A first, then choose B after the start.'); return; } this.loop = { start: this.a, end: this.current() }; this.$('#media-loop').setAttribute('aria-pressed', 'true'); this.$('#media-loop').textContent = 'Loop on'; this.$('#loop-info').textContent = `${formatTime(this.loop.start)} → ${formatTime(this.loop.end)}`; };
-    this.$('#media-loop').onclick = () => { const enabled = this.$('#media-loop').getAttribute('aria-pressed') !== 'true'; if (!this.loop) { this.toast('Set A and B to create a practice loop.'); return; } this.$('#media-loop').setAttribute('aria-pressed', String(enabled)); this.$('#media-loop').textContent = enabled ? 'Loop on' : 'Loop off'; };
-    this.$('#media-save-loop').onclick = () => { if (!this.loop) { this.toast('Set A and B before saving a loop.'); return; } this.saveLoop({ ...this.loop }); };
     this.$('#media-mirror').onclick = () => { if (!this.media) return; const active = this.media.classList.toggle('mirrored'); this.$('#media-mirror').setAttribute('aria-pressed', String(active)); };
     document.querySelector('#fullscreen-button').addEventListener('click', () => this.fullscreen());
     document.querySelector('#player').addEventListener('cancel', event => { if (document.querySelector('#player').classList.contains('fullscreen-mode')) { event.preventDefault(); this.fullscreen(); } });
@@ -81,8 +73,8 @@ export class StudioPlayer {
     this.stop(); const generation = this.generation; this.video = video;
     document.getElementById('drive-preview-button').hidden = true;
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
-    this.$('#media-speed').value = '1'; this.$('#media-loop').textContent = 'Loop off'; this.$('#media-loop').setAttribute('aria-pressed', 'false'); this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.$('#loop-info').textContent = 'Set A and B to repeat a move.';
-    this.controls.classList.remove('preview-mode'); this.$('.practice-tools').open = false;
+    this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false');
+    this.controls.classList.remove('preview-mode');
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
@@ -94,7 +86,7 @@ export class StudioPlayer {
           if (!navigator.serviceWorker.controller) await new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('Reload once to enable connected streaming.')), 5000); navigator.serviceWorker.addEventListener('controllerchange', () => { clearTimeout(timeout); resolve(undefined); }, { once: true }); });
         }
         if (generation !== this.generation) return;
-        const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'metadata';
+        const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'auto';
         media.src = localUrl || (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`);
         media.setAttribute('aria-label', `${video.title} video`);
         this.media = media; this.kind = 'native'; this.frame.replaceChildren(media);
@@ -113,9 +105,12 @@ export class StudioPlayer {
             this.status('This browser cannot show the original video format. Choose Drive preview or open the original below.');
             return;
           }
-          this.setAvailable(true);
-          this.status(localUrl ? 'Local preview · changes affect playback only' : 'Drive original · BailaCue player · speed, mirror and practice loops');
+          if (media.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) this.readyToPlay(media, localUrl);
+          else this.status('Video opened · preparing playback buffer…');
         });
+        media.addEventListener('canplay', () => { if (generation === this.generation && media === this.media && media.videoWidth) this.readyToPlay(media, localUrl); });
+        media.addEventListener('waiting', () => { if (generation === this.generation && media === this.media) this.status('Buffering video…'); });
+        media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) this.status('Playing · BailaCue player'); });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
           clearTimeout(loading); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
@@ -142,6 +137,7 @@ export class StudioPlayer {
     this.status(isDrive ? 'Drive preview · use Google’s controls. Full screen and player sizing remain available.' : 'Provider preview · use its controls, or open the original video.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }
+  readyToPlay(media, localUrl) { this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); }
   setAvailable(available) {
     this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
     this.$('#media-mirror').disabled = !available || !this.media;
@@ -173,9 +169,7 @@ export class StudioPlayer {
     this.updatePlay(!!((this.media && !this.media.paused && !this.media.ended) || this.youtube?.getPlayerState?.() === 1));
     this.updateVolume();
     this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
-    if (this.loop && this.$('#media-loop').getAttribute('aria-pressed') === 'true' && current >= this.loop.end) this.seek(this.loop.start);
   }
-  useLoop(loop) { this.$('.practice-tools').open = true; this.a = loop.start; this.loop = { start: loop.start, end: loop.end }; this.$('#media-loop').setAttribute('aria-pressed', 'true'); this.$('#media-loop').textContent = 'Loop on'; this.$('#loop-info').textContent = `${formatTime(loop.start)} → ${formatTime(loop.end)}`; this.seek(loop.start); }
   async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); this.updateFullscreen(); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
-  stop() { this.generation++; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.loop = null; this.a = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
+  stop() { this.generation++; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
 }
