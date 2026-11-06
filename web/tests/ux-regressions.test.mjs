@@ -6,6 +6,7 @@ import { StudioPlayer } from '../player.mjs';
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../interface.css', import.meta.url), 'utf8');
+const studioUi = readFileSync(new URL('../studio-ui.mjs', import.meta.url), 'utf8');
 const favicon = readFileSync(new URL('../assets/dance-favicon.svg', import.meta.url), 'utf8');
 
 test('public authentication uses Sign in without exposing administrator controls', () => {
@@ -118,4 +119,32 @@ test('browser tab renders the new compact BailaCue rhythm mark', () => {
   assert.match(favicon, /fill="#FFFFFF"/);
   assert.match(favicon, /fill="#0B1932"/);
   assert.doesNotMatch(favicon, /<script|<foreignObject|<image|onload\s*=|href\s*=/i);
+});
+
+test('native dropdowns share one styled arrow, readable sizing and accessible states', () => {
+  assert.ok(css.includes('select:not([multiple]), .player-info .field select:not([multiple]) {'));
+  assert.ok(css.includes('-webkit-appearance: none;'));
+  assert.ok(css.includes('background-image: var(--bc-dropdown-arrow);'));
+  assert.ok(css.includes('background-size: 18px 18px;'));
+  assert.ok(css.includes('background-position: right 13px center;'));
+  assert.ok(css.includes('min-height: 46px;'));
+  assert.ok(css.includes('padding: 10px 44px 10px 13px;'));
+  assert.ok(css.includes('[data-theme=dark] {\n  --bc-dropdown-arrow:'));
+  assert.ok(css.includes('#media-controls #media-speed {'));
+  assert.ok(css.includes('select:not([multiple]):focus-visible'));
+});
+
+test('filter, label, display and video disclosures share a consistent CSS chevron', () => {
+  assert.ok(css.includes('details > summary::after {'));
+  assert.ok(css.includes('details[open] > summary::after {'));
+  assert.ok(css.includes('transform: rotate(45deg);'));
+  assert.ok(css.includes('transform: rotate(225deg);'));
+  assert.ok(css.includes('details > summary::-webkit-details-marker'));
+  assert.ok(css.includes('@media (prefers-reduced-motion: reduce) {\n  details > summary::after'));
+  assert.doesNotMatch(app, /class="filter-chevron"/);
+  assert.doesNotMatch(studioUi, /<span aria-hidden="true">⌄<\/span>/);
+  assert.doesNotMatch(css, /content:'[⌄⌃]'/);
+  assert.ok(studioUi.includes('<details class="label-picker"><summary>'));
+  assert.ok(app.includes('<summary class="filter-summary">More filters'));
+  assert.ok(css.includes('.label-picker > summary > .picker-count:last-child'));
 });
