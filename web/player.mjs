@@ -1,5 +1,6 @@
 import { embedUrl } from './core.mjs';
 import { formatTime } from './studio-model.mjs';
+import { streamEmbedUrl } from './stream-delivery.mjs';
 const paths = {
   play: '<path d="m9 5 12 9-12 9Z" fill="currentColor" stroke="none"/>',
   pause: '<path d="M9 5v18M19 5v18" stroke-width="4"/>',
@@ -23,8 +24,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.toast = toast;
+  constructor({ token, allowedFile, streamFor = () => null, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.controls.innerHTML = `
@@ -78,6 +79,24 @@ export class StudioPlayer {
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
+    const deliveryUrl = !localUrl && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
+    if (deliveryUrl) {
+      const frame = document.createElement('iframe');
+      frame.src = deliveryUrl;
+      frame.title = video.title + ' · adaptive player';
+      frame.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
+      frame.allowFullscreen = true;
+      frame.referrerPolicy = 'strict-origin-when-cross-origin';
+      frame.addEventListener('load', () => this.frame.setAttribute('aria-busy', 'false'));
+      this.frame.replaceChildren(frame);
+      this.kind = 'stream';
+      this.controls.classList.add('preview-mode');
+      this.controls.setAttribute('data-preview-label', 'Adaptive video player');
+      this.setAvailable(false);
+      document.getElementById('drive-preview-button').hidden = false;
+      this.status('Adaptive video · quality adjusts to the connection. Use the video controls inside the player.');
+      return;
+    }
     if (localUrl || video.provider === 'drive') {
       try {
         if (!localUrl && this.token()) {
