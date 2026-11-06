@@ -90,3 +90,18 @@ sources, billing or cloud processing were added.
 Limitations: automated checks do not replace a real-device
 responsive/keyboard review. The site should be checked on a physical phone
 before promoting these changes to main.
+
+## Incremental UX update · 6 November 2026 — develop only
+
+The public header already says **Sign in** and the dialog says **Sign in to BailaCue**. This is intentional: site visitors can watch without an account and the single owner can use the same sign-in action to manage videos.
+
+| Finding | Implementation |
+| --- | --- |
+| Mix generation was simple, but custom mixes could not be reordered without rebuilding them. | Each queued video now has separately labelled **Move up** and **Move down** controls, with unavailable directions disabled. The order is saved in browser state and updates the mix immediately. Focus follows the moved video rather than disappearing after re-render. |
+| Mix row controls could crowd small mobile widths. | Grouped action buttons, 44 px tap targets and a responsive second action row below the title at narrow widths. Play and remove remain alongside reorder controls. |
+| Viewers had no quick route back to a video they had opened earlier. | **Recently opened** appears on Discover after a video has been opened. It displays up to four valid, still-available catalogue entries, most recent first. The section uses the same tested video cards. |
+| Personal viewing context should not be published to the shared catalogue. | Openings are stored only in existing browser-local history, never Supabase. Entries are deduplicated and capped at 50. Local previews are excluded; **Clear recent** deletes the local history explicitly. |
+
+Verification: tests for bounded history, removed sources, stable mix reordering, keyboard control labels and available row actions; web lint, typecheck, automated unit tests and build via GitHub Actions. These checks do not represent live Android device testing.
+
+Production `main` and backend permissions are unchanged.
