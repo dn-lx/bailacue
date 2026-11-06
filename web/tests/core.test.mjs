@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -82,4 +82,28 @@ test('mix reorder never loses videos or moves items outside queue bounds', () =>
   assert.deepEqual(moveQueueItem(ids, ids[2], 1), ids);
   assert.deepEqual(moveQueueItem(ids, 'drive:unlisted12345', 1), ids);
   assert.deepEqual(ids, data.videos.slice(0, 3).map(video => video.id));
+});
+
+test('mix count is configurable, bounded and kept when recovering saved browser state', () => {
+  assert.equal(emptyState().mixSize, 10);
+  assert.equal(clampMixCount(3, 266), 3);
+  assert.equal(clampMixCount('20', 114), 20);
+  assert.equal(clampMixCount(999, 114), 114);
+  assert.equal(clampMixCount(-50, 266), 1);
+  assert.equal(clampMixCount('not a number', 266), 10);
+  assert.equal(clampMixCount(12.8, 266), 12);
+  assert.equal(clampMixCount(8, 0), 0);
+  const all = data.videos;
+  const salsa = all.filter(v => v.dance === 'Salsa');
+  const bachata = all.filter(v => v.dance === 'Bachata');
+  const amount = 25;
+  for (const pool of [all, salsa, bachata]) {
+    const mix = practiceQueue(pool, {}).slice(0, clampMixCount(amount, pool.length));
+    assert.equal(mix.length, amount);
+    assert.equal(new Set(mix).size, mix.length);
+  }
+  assert.equal(practiceQueue(salsa, {}).slice(0, clampMixCount(1000, salsa.length)).length, salsa.length);
+  assert.equal(cleanState({ ...emptyState(), mixSize: 24 }).mixSize, 24);
+  assert.equal(cleanState({ ...emptyState(), mixSize: 0 }).mixSize, 1);
+  assert.equal(cleanState({ ...emptyState(), mixSize: undefined }).mixSize, 10);
 });
