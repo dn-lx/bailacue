@@ -82,3 +82,9 @@ test('recent video list is clearly browser-local and user can clear it', () => {
   assert.match(app, /if \(v\.provider !== 'local'\)/);
   assert.match(app, /state\.history = \[\]; save\(\); renderToday\(\)/);
 });
+
+test('public footer has branding but no create-your-own BailaCue promotion', () => {
+  assert.match(html, /<footer><span>BailaCue<b>·<\/b>Dance together\.<\/span><\/footer>/);
+  assert.doesNotMatch(html, /Create your own BailaCue/i);
+  assert.doesNotMatch(html, /wa\.me\/491796932923/);
+});
