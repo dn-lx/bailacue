@@ -7,8 +7,7 @@ are unchanged. Only IDs already in the deployed Salsa/Bachata catalogue are serv
 The server never accepts an upstream URL or forwards browser cookies or tokens.
 
 The endpoint reads public Drive download byte ranges, validates MIME, exact range,
-file size and byte count, and returns at most 4 MiB per request. The browser requests
-subsequent ranges while playing or seeking. This works within Netlify's function
+file size and byte count, and returns at most 4 MiB per request. The browser may request subsequent ranges while playing or seeking. Preload is enabled for a playable head-start, not guaranteed full-file download. This works within Netlify's function
 payload limit instead of buffering a whole original. Downloads time out after 18
 seconds; the player stops waiting for metadata after 22 seconds. Google errors,
 HTML confirmation pages and quota responses are not relayed as video content.
