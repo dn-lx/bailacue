@@ -63,3 +63,22 @@ test('automatic next-video playback is attempted once with a useful blocked-auto
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(notices.some(message => /Tap Play to continue the mix/.test(message)));
 });
+
+test('mix queue supports touch and keyboard-friendly ordered editing', () => {
+  assert.match(app, /data-action="mix-move-up"/);
+  assert.match(app, /data-action="mix-move-down"/);
+  assert.match(app, /aria-label="Move \$\{esc\(displayTitle\(v, state\.meta\)\)\} earlier"/);
+  assert.match(app, /Move video to position/);
+  assert.match(app, /\.focus\(\{ preventScroll: true \}\)/);
+  assert.match(css, /\.queue-actions \.icon-button/);
+  assert.match(css, /@media \(max-width: 620px\)/);
+});
+
+test('recent video list is clearly browser-local and user can clear it', () => {
+  assert.match(app, /recentOpenings\(state\.history, videos\(\), 4\)/);
+  assert.match(app, /Your last opened videos, saved only in this browser/);
+  assert.match(app, /data-action="clear-recent"/);
+  assert.match(app, /state\.history = recordRecent\(state\.history, v\.id\)/);
+  assert.match(app, /if \(v\.provider !== 'local'\)/);
+  assert.match(app, /state\.history = \[\]; save\(\); renderToday\(\)/);
+});
