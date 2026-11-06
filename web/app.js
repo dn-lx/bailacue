@@ -215,16 +215,16 @@ function openPlayer(id, queue = null, override = null, localUrl = '') {
   $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
 }
-function toggleFavorite(id) { patchMeta(id, { favorite: !meta(id).favorite }); if (selected?.id === id) updatePlayer(); refreshView(); }
+
 function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from your practice queue' : 'Added to your practice queue'); if (selected?.id === id) updatePlayer(); refreshView(); }
 function refreshView() { const position = window.scrollY; render(); window.scrollTo({ top: position }); }
-function markPractised() { if (!selected) return; const at = new Date().toISOString(); patchMeta(selected.id, { lastPractised: at, status: meta(selected.id).status === 'Learned' ? 'Learned' : 'Practising' }); state.history.push({ id: selected.id, at }); state.history = state.history.slice(-1000); save(); updatePlayer(); refreshView(); toast('Practice recorded. A little progress, every time.'); }
+
 function elapsed() { return sessionSeconds + (sessionStarted ? Math.floor((Date.now() - sessionStarted) / 1000) : 0); }
 function timerText() { const sec = elapsed(); return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
 function pauseTimer() { if (sessionStarted) { sessionSeconds = elapsed(); sessionStarted = null; } }
 function downloadJson(value, name) { const blob = new Blob([typeof value === 'string' ? value : JSON.stringify(value, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 async function importBackup(event) {
-  const file = event.target.files?.[0]; if (!file) return;
+  const file = event.target.files?.[0]; if (!file || !requireAdmin()) return;
   try {
     if (storageCorrupt) throw new Error('Download the unreadable original first, then replace it with this session before importing.');
     if (file.size > 10_000_000) throw new Error('Choose a backup smaller than 10 MB.');
@@ -235,7 +235,7 @@ async function importBackup(event) {
     const driveAdditions = new Map(state.drive.map(v => [v.id, v])); imported.drive.forEach(v => driveAdditions.set(v.id, v));
     const additions = new Map(state.youtube.map(v => [v.id, v])); imported.youtube.forEach(v => additions.set(v.id, v));
     state = cleanState({ ...state, meta: { ...state.meta, ...imported.meta }, drive: [...driveAdditions.values()], youtube: [...additions.values()], queue: [...new Set([...state.queue, ...imported.queue])], history: [...new Map([...state.history, ...imported.history].map(h => [`${h.id}:${h.at}`, h])).values()] });
-    save(); render(); toast('Backup imported. Your progress is ready.');
+    save(); await publishLabels(); for (const [id, value] of Object.entries(imported.meta)) await admin.put('meta:' + id, value); for (const video of imported.youtube) await admin.put('youtube:' + video.id, video); for (const video of imported.drive) await admin.put('drive:' + video.id, video); render(); toast('Backup published to BailaCue.');
   } catch (error) { toast(error.message || 'Could not import this backup.'); }
   event.target.value = '';
 }
@@ -249,26 +249,58 @@ async function loadCatalogue() {
   if (!catalogue.length) throw new Error('The fixed collections are empty.');
   $('#nav-count').textContent = String(videos().length);
 }
+async function loadSharedContent() {
+  if (!admin.ready) return;
+  const rows = await admin.readContent();
+  // Shared content is authoritative. Legacy browser-only edits never leak to public visitors.
+  state.meta = {};
+  state.youtube = [];
+  state.drive = [];
+  state.labels = emptyState().labels;
+  for (const item of rows) {
+    const key = item.key, v = item.payload;
+    if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
+    if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = v;
+    if (key?.startsWith('youtube:') && v.provider === 'youtube' && ['Salsa','Bachata'].includes(v.dance) && v.id === key.slice(8)) {
+      try { if (parseYoutube(v.url).id === v.id) state.youtube.push(v); } catch { /* Ignore invalid shared URLs. */ }
+    }
+    if (key?.startsWith('drive:') && v.provider === 'drive' && v.id === key.slice(6) && v.id === `drive:${v.providerId}` && SOURCES.some(x => x.dance === v.dance && x.folderId === v.folderId) && /^[A-Za-z0-9_-]{10,100}$/.test(v.providerId)) state.drive.push(v);
+  }
+  $('#nav-count').textContent = String(videos().length);
+}
+$('#admin-login').addEventListener('click', () => { $('#admin-error').textContent = ''; $('#admin-dialog').showModal(); });
+$('#admin-logout').addEventListener('click', async () => { await admin.signOut(); applyAccess(); if (selected) $('#player').close(); route(); toast('Signed out. Public viewing remains available.'); });
+$('#admin-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const button = $('#admin-form button[type="submit"]'); button.disabled = true;
+  $('#admin-error').textContent = '';
+  try {
+    await admin.signIn($('#admin-email').value.trim(), $('#admin-password').value);
+    $('#admin-password').value = '';
+    $('#admin-dialog').close(); applyAccess(); route(); toast('Administrator access enabled.');
+  } catch (error) { $('#admin-error').textContent = error.message; }
+  finally { button.disabled = false; }
+});
 document.addEventListener('click', async event => {
   if (!(event.target instanceof Element)) return;
   const close = event.target.closest('[data-close]'); if (close instanceof HTMLElement) { const dialog = document.getElementById(close.dataset.close); if (dialog instanceof HTMLDialogElement) dialog.close(); return; }
   const button = event.target.closest('[data-action]'); if (!(button instanceof HTMLButtonElement) || button.disabled) return;
   const action = button.dataset.action, id = button.dataset.id;
   if (action === 'open') openPlayer(id);
-  if (action === 'favorite') toggleFavorite(id);
   if (action === 'queue') toggleQueue(id);
   if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); }
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
   if (action === 'go-practice') navigate('practice');
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
   if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
-  if (action === 'mix') { state.queue = practiceQueue(driveVideos(), state.meta).slice(0, 10); save(); render(); toast('Your 10-video Salsa & Bachata mix is ready.'); }
+  if (action === 'mix') { const dance = button.dataset.dance || 'Both'; const pool = videos().filter(v => dance === 'Both' || v.dance === dance); state.queue = practiceQueue(pool, state.meta).slice(0, 10); save(); render(); toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.`); }
   if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids); }
   if (action === 'open-queue') openPlayer(id, state.queue);
   if (action === 'clear-queue') { state.queue = []; save(); render(); toast('Practice queue cleared'); }
   if (action === 'timer') { if (sessionStarted) pauseTimer(); else sessionStarted = Date.now(); render(); }
   if (action === 'timer-reset') { sessionStarted = null; sessionSeconds = 0; render(); }
-  if (action === 'rate' && selected) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
+  if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue); }
   if (action === 'add-youtube') openYoutube();
   if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
@@ -277,24 +309,23 @@ document.addEventListener('click', async event => {
   if (action === 'export-original') downloadJson(localStorage.getItem(STORAGE_KEY) || '{}', `BailaCue-original-${localDay()}.json`);
   if (action === 'replace-original') { storageCorrupt = false; if (save()) { render(); toast('Current session saved. Your downloaded original can be recovered separately.'); } }
   if (action === 'reload-catalogue') { button.disabled = true; try { await loadCatalogue(); render(); toast('Latest deployed catalogue loaded'); } catch (error) { toast(error.message); button.disabled = false; } }
-  if (action === 'remove-youtube' && selected?.provider === 'youtube') { removing = selected.id; $('#confirm-dialog').showModal(); }
+  if (action === 'remove-youtube' && admin.isAdmin && selected?.provider === 'youtube') { removing = selected.id; $('#confirm-dialog').showModal(); }
   if (action === 'retry-load') start();
 });
-$('#confirm-remove').addEventListener('click', () => { if (!removing) return; state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
+$('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
 $('#player').addEventListener('close', () => { studioPlayer.stop(); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
-$('#player-favorite').addEventListener('click', () => selected && toggleFavorite(selected.id));
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
-$('#mark-practised').addEventListener('click', markPractised);
-$('#learning-status').addEventListener('change', e => { if (selected) { patchMeta(selected.id, { status: e.target.value }); refreshView(); } });
-for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Saved in this browser' : 'Session only — export a backup'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
+for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Publishing to the shared catalogue…' : 'Administrator permission required'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
 $('#personal-title').addEventListener('change', refreshView);
-$('#youtube-form').addEventListener('submit', event => {
-  event.preventDefault();
+$('#youtube-form').addEventListener('submit', async event => {
+  event.preventDefault(); if (!requireAdmin()) return;
   try {
     const parsed = parseYoutube($('#youtube-url').value);
     if (state.youtube.some(v => v.id === parsed.id)) throw new Error('This source is already in your library.');
     const title = $('#youtube-name').value.trim(); if (!title) throw new Error('Give this source a title.');
-    state.youtube.push({ ...parsed, provider: 'youtube', dance: $('#youtube-dance').value, title, addedAt: new Date().toISOString() }); save();
+    const video = { ...parsed, provider: 'youtube', dance: $('#youtube-dance').value, title, addedAt: new Date().toISOString() };
+    await admin.put('youtube:' + video.id, video);
+    state.youtube.push(video); save();
     $('#youtube-dialog').close(); $('#youtube-form').reset(); $('#nav-count').textContent = String(videos().length);
     filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'recent', query: '' }; currentPage = 1; navigate('library'); toast('New inspiration added to your library.');
   } catch (error) { $('#youtube-error').textContent = error.message; }
@@ -307,10 +338,10 @@ window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 document.addEventListener('visibilitychange', () => { if (document.hidden && sessionStarted) { pauseTimer(); if (activeView === 'practice') renderPractice(); } });
 setInterval(() => { const timer = $('#timer'); if (timer && sessionStarted) timer.textContent = timerText(); }, 1000);
-async function start() { try { await loadCatalogue(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
+async function start() { try { await loadCatalogue(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 $('#player-size').addEventListener('change', event => { state.playerSize = Number(event.target.value); $('#player').classList.remove('theater'); $('#theater-button').textContent = 'Theater view'; $('#theater-button').setAttribute('aria-pressed', 'false'); $('#player').style.width = `${state.playerSize}px`; save(); });
 $('#player-height').addEventListener('input', event => $('#video-frame').style.setProperty('--video-height', `${event.target.value}px`));
 $('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
-for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location'],['#detail-bpm','bpm']]) $(selector).addEventListener('change', event => { if (!selected) return; patchMeta(selected.id, { [key]: key === 'bpm' ? (Number(event.target.value) || null) : event.target.value }); });
-async function loadConfiguration() { try { const config = await (await fetch('/public-config.json')).json(); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* Local and guest use do not depend on Google registration. */ } }
+for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
+async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
 hydrateIcons(); applyTheme(); loadConfiguration().finally(start);
