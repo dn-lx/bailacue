@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
 import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -35,6 +35,8 @@ const iconPaths = {
   download: '<path d="M12 3v12m-5-5 5 5 5-5M4 16v5h16v-5"/>',
   upload: '<path d="M12 16V4m-5 5 5-5 5 5M4 16v5h16v-5"/>',
   pause: '<path d="M8 5v14M16 5v14"/>',
+  up: '<path d="M12 19V5m-7 7 7-7 7 7"/>',
+  down: '<path d="M12 5v14m-7-7 7 7 7-7"/>',
 };
 function icon(name) { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${iconPaths[name] || iconPaths.play}</svg>`; }
 function hydrateIcons(root = document) { root.querySelectorAll('[data-icon]').forEach(el => { if (el instanceof HTMLElement) el.innerHTML = icon(el.dataset.icon); }); }
@@ -163,12 +165,14 @@ function ensurePicks(refresh = false) {
 }
 function renderToday() {
   const picks = ensurePicks();
+  const recent = recentOpenings(state.history, videos(), 4);
   const preview = filterVideos(driveVideos(), state.meta, { sort: 'recent' }).slice(0, 4);
   page.innerHTML = `${heading('SALSA + BACHATA', 'Find your next dance.', 'Browse the collection, play videos and create Salsa, Bachata or combined mixes.', `<span class="date-chip">${icon('calendar')}${dateLabel()}</span>`)}
     <div class="stats-row"><span><strong>${videos().length}</strong> dance videos</span><span><strong>2</strong> collections</span></div>
     <div class="section-heading"><div><h2>Discover today</h2><span class="count-chip">2 PICKS</span></div><button class="text-button" data-action="refresh-picks">${icon('refresh')} New picks</button></div>
     <div class="picks-grid">${picks.map(pick).join('')}</div>
     <div class="today-banner"><div class="banner-symbol">${icon('play')}</div><div><h3>Make your own mix.</h3><p>Choose Salsa, Bachata or both, and watch videos one after another.</p></div><button class="button primary small" data-action="go-practice">Create a mix ${icon('arrow')}</button></div>
+    ${recent.length ? `<div class="section-heading"><div><h2>Recently opened</h2></div><button type="button" class="text-button" data-action="clear-recent">Clear recent</button></div><p class="recent-helper">Your last opened videos, saved only in this browser.</p><div class="video-grid recent-grid">${recent.map(card).join('')}</div>` : ''}
     <div class="section-heading"><div><h2>Explore videos</h2></div><a class="text-button" href="#library">View the library ${icon('arrow')}</a></div>
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
@@ -232,7 +236,7 @@ function renderResults() {
 }
 function renderPractice() {
   const queue = state.queue.map(videoById).filter(Boolean);
-  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Generate a Salsa-only mix, a Bachata-only mix or a mix of both.')}<div class="practice-layout"><div class="practice-start"><span class="eyebrow">MIX YOUR DANCE VIDEOS</span><h2>What are we dancing today?</h2><p>Select a mix. BailaCue chooses ten videos from the library and queues them for continuous exploration.</p><div class="mix-options"><button class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button class="button subtle" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</div><div class="timer-panel"><span class="eyebrow">OPTIONAL SESSION TIMER</span><div class="timer" id="timer">${timerText()}</div><div><button class="button subtle small" id="timer-toggle" data-action="timer">${icon(sessionStarted ? 'pause' : 'play')}${sessionStarted ? 'Pause' : 'Start timer'}</button> <button class="text-button" data-action="timer-reset">Reset</button></div><p>The timer is optional. Pause it whenever you like.</p></div></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
+  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Generate a Salsa-only mix, a Bachata-only mix or a mix of both.')}<div class="practice-layout"><div class="practice-start"><span class="eyebrow">MIX YOUR DANCE VIDEOS</span><h2>What are we dancing today?</h2><p>Select a mix. BailaCue chooses ten videos from the library and queues them for continuous exploration.</p><div class="mix-options"><button class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button class="button subtle" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</div><div class="timer-panel"><span class="eyebrow">OPTIONAL SESSION TIMER</span><div class="timer" id="timer">${timerText()}</div><div><button class="button subtle small" id="timer-toggle" data-action="timer">${icon(sessionStarted ? 'pause' : 'play')}${sessionStarted ? 'Pause' : 'Start timer'}</button> <button class="text-button" data-action="timer-reset">Reset</button></div><p>The timer is optional. Pause it whenever you like.</p></div></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
 }
 function renderSettings() {
   page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Only the administrator manages labels and videos.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>Only you can add Google Drive videos, publish YouTube links or edit labels and video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
@@ -278,6 +282,7 @@ function updatePlayer() {
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
   selected = v;
+  if (v.provider !== 'local') { state.history = recordRecent(state.history, v.id); save(); }
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
   $('#player').classList.toggle('local-preview', v.provider === 'local');
@@ -413,6 +418,20 @@ document.addEventListener('click', async event => {
   if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids, null, '', true); }
   if (action === 'open-queue') openPlayer(id, state.queue, null, '', true);
   if (action === 'clear-queue') { state.queue = []; save(); render(); toast('Mix cleared.'); }
+  if (action === 'clear-recent') { state.history = []; save(); renderToday(); toast('Recent videos cleared from this browser.'); }
+  if (action === 'mix-move-up' || action === 'mix-move-down') {
+    const previousIndex = state.queue.indexOf(id);
+    if (previousIndex >= 0) {
+      const updated = moveQueueItem(state.queue, id, action === 'mix-move-up' ? -1 : 1);
+      const newIndex = updated.indexOf(id);
+      if (newIndex !== previousIndex) {
+        state.queue = updated; save(); render();
+        const nextAction = newIndex === 0 ? 'mix-move-down' : newIndex === updated.length - 1 ? 'mix-move-up' : action;
+        [...page.querySelectorAll('button[data-action]')].find(el => el.dataset.action === nextAction && el.dataset.id === id)?.focus({ preventScroll: true });
+        toast(`Moved video to position ${newIndex + 1} of ${updated.length}.`);
+      }
+    }
+  }
   if (action === 'timer') { if (sessionStarted) pauseTimer(); else sessionStarted = Date.now(); render(); }
   if (action === 'timer-reset') { sessionStarted = null; sessionSeconds = 0; render(); }
   if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
