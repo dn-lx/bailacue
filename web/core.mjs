@@ -7,7 +7,15 @@ export const SOURCES = Object.freeze([
 ]);
 /** @returns {import('./types.js').State} */
 export function emptyState() {
-  return { version: 1, meta: {}, youtube: [], drive: [], labels: seedLabels(), numbering: { Salsa: 0, Bachata: 0 }, googleClientId: '', playerSize: 960, queue: [], history: [], daily: null, theme: 'light' };
+  return { version: 1, meta: {}, youtube: [], drive: [], labels: seedLabels(), numbering: { Salsa: 0, Bachata: 0 }, googleClientId: '', playerSize: 960, queue: [], mixSize: 10, history: [], daily: null, theme: 'light' };
+}
+/** Clamp the selected number of videos to the available catalogue without rounding up. */
+export function clampMixCount(value, available, fallback = 10) {
+  const maximum = Math.max(0, Math.floor(Number(available) || 0));
+  if (!maximum) return 0;
+  const requested = Number(value);
+  if (!Number.isFinite(requested)) return Math.min(maximum, fallback);
+  return Math.max(1, Math.min(maximum, Math.floor(requested)));
 }
 export function rating(value) { return Number.isInteger(value) && value >= 1 && value <= 10 ? value : null; }
 export function parseYoutube(input) {
@@ -45,6 +53,7 @@ export function cleanState(input) {
       out.youtube.push({ ...parsed, provider: 'youtube', dance: v.dance, title: String(v.title || (parsed.kind === 'playlist' ? 'YouTube playlist' : 'YouTube video')).slice(0, 160), addedAt: String(v.addedAt || new Date().toISOString()) });
     } catch { /* Invalid external links are never restored. */ }
   }
+  out.mixSize = clampMixCount(input.mixSize, 10000);
   out.queue = Array.isArray(input.queue) ? [...new Set(input.queue.filter(x => typeof x === 'string' && /^(drive:|youtube:)/.test(x)))].slice(0, 1000) : [];
   out.history = Array.isArray(input.history) ? input.history.filter(x => x && typeof x.id === 'string' && typeof x.at === 'string').slice(-1000).map(x => ({ id: x.id, at: x.at })) : [];
   out.theme = input.theme === 'dark' ? 'dark' : 'light';
