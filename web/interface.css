@@ -348,7 +348,7 @@ body:has(dialog[open]) { overflow: hidden; }
 [data-theme=dark] {
   --bc-dropdown-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23BECDDF' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
-select:not([multiple]) {
+select:not([multiple]), .player-info .field select:not([multiple]) {
   -webkit-appearance: none;
   appearance: none;
   box-sizing: border-box;
@@ -425,7 +425,7 @@ details[open] > summary::after {
 details > summary:hover::after { color: var(--blue); }
 #media-controls .practice-tools > summary::after { color: #c6d2e4; }
 #media-controls .practice-tools > summary:hover::after { color: #fff; }
-.label-picker > summary > .picker-count { margin-left: 0; }
+.label-picker > summary > .picker-count:last-child { margin-left: 0; }
 .label-picker > summary { font-weight: 600; font-size: 14px; }
 .advanced-filters .label-picker > summary { font-size: 14px; }
 .label-picker[open] { border-color: var(--blue); }
