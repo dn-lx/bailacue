@@ -1,6 +1,8 @@
 import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl } from './core.mjs';
 import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
+import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
+import { renderStreamAdmin, cancelStreamUpload } from './stream-admin.mjs';
 import { DriveConnection } from './drive.mjs';
 import { StudioPlayer } from './player.mjs';
 import { labelPicker, renderLabelManager, renderUpload, uploadRunning } from './studio-ui.mjs';
@@ -60,9 +62,10 @@ let removing = null;
 let localPreviewUrl = '';
 const connection = new DriveConnection(state.googleClientId);
 const admin = new BailaCueAdmin();
+const streamMap = new Map();
 const publishTimers = new Map();
 const publishChains = new Map();
-const studioPlayer = new StudioPlayer({ token: () => connection.token(), allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id), toast });
+const studioPlayer = new StudioPlayer({ token: () => connection.token(), allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id), streamFor: video => streamMap.get(video.id), toast });
 function requireAdmin() { if (admin.isAdmin) return true; toast('Only the administrator can edit BailaCue. Sign in to continue.'); return false; }
 function publishKey(key, payload) {
   if (!admin.isAdmin) return Promise.resolve();
@@ -106,7 +109,11 @@ function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v 
   labelPicker($('#detail-labels'), { title: 'Labels', labels: () => state.labels, selected: m.labelIds || [], dance: v.dance, allowCreate: true, onChange: ids => { patchMeta(v.id, { labelIds: ids }); }, onCreate: addLabel });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
-  $('#file-facts').innerHTML = facts.map(([key,value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join(''); 
+  $('#file-facts').innerHTML = facts.map(([key,value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join('');
+  renderStreamAdmin($('#stream-admin'), {
+    video: v, admin, currentDelivery: streamMap.get(v.id), toast,
+    onPublished: delivery => { streamMap.set(v.id, delivery); studioPlayer.open(v); toast('Adaptive playback enabled for this video.'); },
+  }); 
 }
 
 
@@ -125,7 +132,7 @@ function applyTheme() { document.documentElement.dataset.theme = state.theme; $(
 function dateLabel() { return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()); }
 function badge(dance) { return `<span class="dance-badge ${dance.toLowerCase()}"><i class="dance-dot ${dance.toLowerCase()}"></i>${esc(dance)}</span>`; }
 function ratingPill(id) { const value = meta(id).rating; return `<span class="rating-pill">${icon('star')}${value ? `${value}<span>/10</span>` : '<span>Unrated</span>'}</span>`; }
-function thumb(v) { return v.provider === 'drive' ? `https://drive.google.com/thumbnail?id=${v.providerId}&sz=w600` : (v.kind === 'video' ? `https://i.ytimg.com/vi/${v.providerId}/hqdefault.jpg` : null); }
+function thumb(v) { const converted = streamMap.get(v.id); if (converted) return streamThumbnailUrl(converted); return v.provider === 'drive' ? `https://drive.google.com/thumbnail?id=${v.providerId}&sz=w600` : (v.kind === 'video' ? `https://i.ytimg.com/vi/${v.providerId}/hqdefault.jpg` : null); }
 function artwork(v, eager = false) { const url = thumb(v); return `${url ? `<img src="${esc(url)}" alt="" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer">` : ''}<span class="visual-fallback">${esc(v.provider === 'drive' ? v.title : '▶')}</span>`; }
 function handleImages(root = page) { root.querySelectorAll('.pick-visual,.card-visual').forEach(el => { const img = el.querySelector('img'); if (!img) el.classList.add('image-failed'); else { img.addEventListener('error', () => el.classList.add('image-failed')); if (img.complete && !img.naturalWidth) el.classList.add('image-failed'); } }); }
 function card(v) {
@@ -263,7 +270,7 @@ function protectLegacyBrowserData() {
     if (Object.keys(old.meta).length || old.drive.length || old.youtube.length || old.labels.some(x => x.id.startsWith('custom-'))) localStorage.setItem(LEGACY_BACKUP_KEY, raw);
   } catch { /* Existing storage remains untouched when unreadable. */ }
 }
-function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; }
+function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; streamMap.clear(); }
 async function loadSharedContent() {
   if (!admin.ready) return;
   const rows = await admin.readContent();
@@ -273,6 +280,7 @@ async function loadSharedContent() {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
+    if (key?.startsWith('stream:') && /^drive:[A-Za-z0-9_-]{10,100}$/.test(key.slice(7))) { const converted = parseStreamDelivery(v); if (converted) streamMap.set(key.slice(7), converted); }
     if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = publicMetadata(v);
     if (key?.startsWith('youtube:') && v.provider === 'youtube' && ['Salsa','Bachata'].includes(v.dance) && v.id === key.slice(8)) {
       try { if (parseYoutube(v.url).id === v.id) state.youtube.push(v); } catch { /* Ignore invalid shared URLs. */ }
@@ -326,7 +334,7 @@ document.addEventListener('click', async event => {
   if (action === 'retry-load') start();
 });
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
-$('#player').addEventListener('close', () => { studioPlayer.stop(); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
 for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Publishing to the shared catalogue…' : 'Administrator permission required'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
 $('#personal-title').addEventListener('change', refreshView);
