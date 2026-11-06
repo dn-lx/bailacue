@@ -32,7 +32,7 @@ test('Settings is keyboard reachable on mobile and production never shows a deve
 
 test('browser video mix actions and accessible result counts remain consistent', () => {
   assert.match(app, /aria-live="polite" aria-atomic="true"/);
-  assert.match(app, /Showing \$\{\(currentPage - 1\) \* pageSize \+ 1\}/);
+  assert.match(app, /Showing \$\{\(currentPage - 1\) \* (?:displayedPageSize|pageSize) \+ 1\}/);
   assert.match(app, /In mix' : 'Add to mix'/);
   assert.doesNotMatch(app, /practice queue/i);
   assert.match(html, /id="nav-mix-count" class="mix-count" hidden/);
