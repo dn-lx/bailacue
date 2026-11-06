@@ -171,7 +171,7 @@ footer .button { white-space: normal; text-align: center; }
 
 @media (max-width: 380px) {
   .topbar { padding-inline: 10px; gap: 3px; }
-  .mobile-brand { font-size: 20px; }
+  .mobile-brand { display: flex; font-size: 19px; letter-spacing: -.55px; }
   .header-actions { gap: 1px; }
   .header-actions #admin-login, .header-actions #admin-logout { padding-inline: 8px; font-size: 12px; }
   .header-actions .mobile-settings, .header-actions #theme-toggle { width: 44px; min-width: 44px; }
