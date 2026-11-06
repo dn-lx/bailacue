@@ -40,6 +40,12 @@ The relevant migration is documented in `ADMIN-DATABASE.sql`. Do not grant
 edit access based on user-controlled metadata, and never embed a service-role key
 in browser code.
 
+## Adaptive delivery pilot (disabled until a paid provider is explicitly enabled)
+
+A Cloudflare Stream integration is available on `develop` for **one-video-at-a-time** pilot conversion. It adds owner-authorized resumable TUS uploads (up to 2 GiB), provider processing checks and automatic public playback mapping only after the provider marks a copy ready. Drive originals remain unchanged and serve as fallback. A 15-minute per-upload reservation cap and a disabled-by-default configuration help prevent accidental charges.
+
+**No Cloudflare account credentials or paid processing have been configured.** Read [STREAM-DELIVERY.md](STREAM-DELIVERY.md) for setup, costs, permission boundaries and operation.
+
 ## Large originals and smooth playback
 The original Google Drive files are typically much larger than a normal
 web-app asset (the current library's median is about 160 MiB; some exceed
