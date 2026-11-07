@@ -1474,3 +1474,28 @@ details > summary:hover::after { color: var(--blue); }
   #player.browser-wide #media-controls .volume-value { display: none; }
   #player.browser-wide .player-settings .display-panel { grid-template-columns: 1fr; }
 }
+
+
+/* Final player interaction rules: the vertical grip and range must remain usable
+   in browser-fill mode; responsive controls cannot occupy each other's column. */
+#player.browser-wide #video-resize { display: flex !important; flex: 0 0 30px; min-height: 30px; }
+#player.browser-wide .player-settings #player-height {
+  display: block !important;
+  width: 100%;
+  max-width: 100%;
+}
+#player.browser-wide .player-settings #player-height-reset { display: inline-flex !important; }
+#player.browser-wide .player-settings .height-control { display: grid !important; grid-column: 1 / -1; }
+#player.browser-wide #media-controls .media-display-actions { min-width: 44px; }
+#player.browser-wide .player-settings .settings-help,
+#player.browser-wide .player-settings .player-about,
+#player.browser-wide .player-settings .player-owner-edit { grid-column: 1 / -1; }
+#player.browser-wide .player-settings .player-owner-edit[open] { max-width: 100%; }
+#player.browser-wide .player-settings .player-owner-edit .player-info { min-width: 0; }
+#player.browser-wide .player-settings:not([open]) > .display-panel { display: none !important; }
+#player.browser-wide .player-settings .player-about:not([open]) #public-video-details { display: none !important; }
+@media (max-width: 720px) {
+  #player.browser-wide #media-controls .media-display-actions { min-width: 44px; }
+  #player.browser-wide #media-controls .volume-control { flex-wrap: nowrap; }
+  #player.browser-wide #media-controls .speed-label { white-space: nowrap; }
+}
