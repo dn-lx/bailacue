@@ -15,7 +15,9 @@ mobile app is separate and has not been changed in this version.
   (`preload="auto"`) and waits until it is playable to enable controls.
 
 ## Video metadata and automatic dates
-The viewer displays each video's published rating (out of 10), labels, artists/teachers, upload or added date, optional recorded date, event, location, duration/resolution when known, and notes. These details are visible to every visitor; owner-only editing remains in its separate editor.
+The viewer displays each video's published rating (out of 10), labels, artists/teachers, upload or added date, optional recorded date, event, location, duration/resolution when known, and notes. These details are visible to every visitor. Once signed in, the owner can choose **Edit details** in **About this video** to edit the title, rating, labels, artists, recorded date, event, location and notes in that same card. Changes save automatically; the status confirms publication or offers **Retry save** after a failure. Choose **Done editing** to return to the details view.
+
+Fullscreen is in the playback control bar beside Mirror. Play stays centered between matching five-second skip buttons. Speed uses equal outside columns; on phones, volume has its own row above Mirror, centered Speed and Fullscreen. Fullscreen uses the same arrangement, with Exit in the final position, and keeps its bottom controls visible throughout playback.
 
 For uploaded Drive files, **Uploaded to Drive** uses Drive's `createdTime` value, captured automatically when the upload is confirmed. YouTube sources record the date they are added to BailaCue. The **Recorded on** date is separate and optional, not inferred from upload time. This prevents inaccurate recording dates.
 

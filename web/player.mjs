@@ -59,7 +59,7 @@ export class StudioPlayer {
           <output id="media-volume-value" class="volume-value" aria-live="off">100%</output>
         </div>
         <label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
-        <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button></div>
+        <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button><button type="button" id="fullscreen-button" class="media-icon" aria-label="Fullscreen video" title="Fullscreen video" hidden>${mediaIcon('expand')}</button></div>
       </div>`;
     this.fullscreenButton = /** @type {HTMLButtonElement} */ (document.querySelector('#fullscreen-button'));
     this.fullscreenButton.innerHTML = mediaIcon('expand');

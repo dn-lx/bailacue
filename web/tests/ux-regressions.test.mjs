@@ -280,7 +280,7 @@ test('video metadata is public, with rating, labels, artists and upload date', (
   assert.match(app, /field\(uploadLabel, date\(video\.addedAt\)\)/);
   assert.match(app, /field\('Recorded on', date\(details\.recordedAt\)\)/);
   assert.match(app, /details\.notes/);
-  assert.match(app, /#public-video-details'\)\.innerHTML/);
+  assert.match(app, /#video-details-summary'\)\.innerHTML/);
   assert.match(css, /#player\.browser-wide\[open\] #public-video-details/);
   assert.match(css, /max-height: none !important/);
   assert.match(css, /overflow-y: auto !important/);
@@ -302,9 +302,9 @@ test('volume plus minus and slider remain usable on Android with separate speed 
 
 
 test('owner-only editing and public metadata are both reachable', () => {
-  assert.match(html, /<details class="player-owner-edit" data-admin-only>/);
-  assert.match(css, /#player > \.player-owner-edit \{/);
-  assert.match(css, /#player\.browser-wide\[open\]:has\(> \.player-owner-edit\[open\]\)/);
+  assert.match(html, /<div id="video-details-editor" class="player-owner-edit" data-admin-only hidden>/);
+  assert.match(app, /data-action="edit-video-details" aria-controls="video-details-editor"/);
+  assert.match(css, /#player #video-details-editor\[hidden\] \{ display: none !important; \}/);
   assert.match(css, /#player\.browser-wide\[open\]:not\(\.fullscreen-mode\) \{/);
   assert.match(css, /overflow-y: auto !important/);
   assert.match(app, /if \(selected\?\.id === id\) renderPublicVideoDetails\(\)/);
@@ -341,7 +341,7 @@ test('video-only fullscreen uses BailaCue controls rather than native or Drive c
   assert.match(playerSource, /this\.kind = 'preview'/);
   assert.match(playerSource, /Cross-origin Google Drive and Cloudflare player iframes cannot be controlled/);
   assert.doesNotMatch(playerSource, /webkitEnterFullscreen/);
-  assert.match(css, /#player #video-only-shell #fullscreen-button\[hidden\] \{ display: none !important; \}/);
+  assert.match(css, /#player #media-controls #fullscreen-button\[hidden\] \{ display: none !important; \}/);
 });
 
 

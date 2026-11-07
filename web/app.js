@@ -65,6 +65,8 @@ const admin = new BailaCueAdmin();
 const streamMap = new Map();
 const publishTimers = new Map();
 const publishChains = new Map();
+const metadataVersions = new Map();
+const metadataStatus = new Map();
 const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
@@ -96,8 +98,25 @@ function publishDrive() {
   for (const video of state.drive) publishKey('drive:' + video.id, video);
 }
 function queueMetaPublish(id) {
+  const version = (metadataVersions.get(id) || 0) + 1;
+  metadataVersions.set(id, version);
+  setMetadataStatus(id, 'saving');
   clearTimeout(publishTimers.get(id));
-  publishTimers.set(id, setTimeout(() => { publishTimers.delete(id); publishKey('meta:' + id, publicMetadata(state.meta[id] || {})); }, 450));
+  publishTimers.set(id, setTimeout(async () => {
+    publishTimers.delete(id);
+    try {
+      await publishKey('meta:' + id, publicMetadata(state.meta[id] || {}));
+      if (metadataVersions.get(id) === version) setMetadataStatus(id, 'saved');
+    } catch {
+      if (metadataVersions.get(id) === version) setMetadataStatus(id, 'error');
+    }
+  }, 450));
+}
+function setMetadataStatus(id, status = metadataStatus.get(id) || 'saved') {
+  metadataStatus.set(id, status);
+  if (selected?.id !== id) return;
+  $('#note-status').textContent = status === 'saving' ? 'Saving changes…' : status === 'error' ? 'Changes could not be published. Try again.' : 'All changes saved';
+  $('#retry-video-save').hidden = status !== 'error';
 }
 function applyAccess() {
   document.body.classList.toggle('is-admin', admin.isAdmin);
@@ -141,7 +160,7 @@ function renderPublicVideoDetails() {
     ...(video.duration ? [field('Duration', esc(formatTime(video.duration)))] : []),
     ...(video.width && video.height ? [field('Resolution', `${video.width} × ${video.height}`)] : []),
   ];
-  $('#public-video-details').innerHTML = `<div class="video-info-header"><h3>About this video</h3><p>Dance details and community labels</p></div><dl class="video-info-grid">${fields.join('')}</dl>${details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
+  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>Dance details and community labels</p></div>${admin.isAdmin ? `<button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${!$('#video-details-editor').hidden}">${$('#video-details-editor').hidden ? 'Edit details' : 'Done editing'}</button>` : ''}</div><dl class="video-info-grid">${fields.join('')}</dl>${details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
 }
 
 function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v = selected, m = meta(v.id);
@@ -326,7 +345,8 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`;
-  $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
+  $('#video-details-editor').hidden = true;
+  $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
   // About this video is rendered from canonical source timestamps and published metadata.
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
@@ -476,6 +496,14 @@ document.addEventListener('click', async event => {
       }
     }
   }
+  if (action === 'edit-video-details' && selected && requireAdmin()) {
+    const editor = $('#video-details-editor');
+    editor.hidden = !editor.hidden;
+    renderPublicVideoDetails();
+    if (!editor.hidden) { mountVideoDetails(); $('#personal-title').focus(); }
+    else $('#public-video-details [data-action="edit-video-details"]').focus({ preventScroll: true });
+  }
+  if (action === 'retry-video-save' && selected && requireAdmin()) queueMetaPublish(selected.id);
   if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue, null, '', true); }
   if (action === 'add-youtube') openYoutube();
@@ -492,7 +520,7 @@ document.addEventListener('click', async event => {
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
 $('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
-for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Publishing to the shared catalogue…' : 'Administrator permission required'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
+for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
 $('#personal-title').addEventListener('change', refreshView);
 $('#youtube-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!requireAdmin()) return;

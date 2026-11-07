@@ -2102,3 +2102,107 @@ details > summary:hover::after { color: var(--blue); }
   #player #video-only-shell:fullscreen .fs-settings .fs-volume-step { height: 34px; min-height: 34px; }
   #player #video-only-shell:fullscreen .fs-settings select { min-height: 38px; }
 }
+
+/* Fullscreen lives in the control bar. Equal outside columns center speed;
+   phones put volume above a balanced mirror / speed / fullscreen row. */
+#player #media-controls .player-utilities,
+#player.browser-wide #media-controls .player-utilities {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  grid-template-areas: "volume speed display";
+  align-items: center;
+  gap: 10px;
+}
+#player #media-controls .volume-control,
+#player.browser-wide #media-controls .volume-control {
+  grid-area: volume;
+  width: 100%; max-width: 310px; min-width: 0;
+  justify-self: start;
+}
+#player #media-controls .speed-label,
+#player.browser-wide #media-controls .speed-label {
+  grid-area: speed; justify-self: center;
+}
+#player #media-controls .media-display-actions,
+#player.browser-wide #media-controls .media-display-actions {
+  grid-area: display; justify-self: end; min-width: 0; gap: 6px;
+}
+#player #media-controls #fullscreen-button:not([hidden]),
+#player.browser-wide #media-controls #fullscreen-button:not([hidden]) {
+  display: inline-flex !important;
+  position: static !important;
+  align-items: center; justify-content: center;
+  width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  padding: 9px; border-radius: 10px;
+}
+#player #media-controls #fullscreen-button[hidden] { display: none !important; }
+#player #video-only-shell:fullscreen .fs-settings {
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+}
+#player #video-only-shell:fullscreen .fs-settings label { justify-self: center; }
+#player #video-only-shell:fullscreen .fs-display-actions {
+  display: flex; justify-self: end; align-items: center; gap: 6px;
+}
+#player #video-only-shell:fullscreen .fullscreen-transport {
+  grid-template-columns: 44px 58px 44px;
+}
+#player #video-only-shell:fullscreen .fullscreen-transport .fs-primary {
+  width: 58px; height: 58px; min-width: 58px; min-height: 58px; padding: 14px;
+}
+#player #video-details-editor {
+  margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+}
+#player #video-details-editor[hidden] { display: none !important; }
+#player #video-details-editor .player-info {
+  display: grid !important;
+  grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+  gap: 24px; margin: 0; padding: 0; border: 0; max-height: none; overflow: visible;
+}
+#player #video-details-editor .detail-heading {
+  flex-wrap: wrap; gap: 8px; align-items: baseline;
+}
+#player #video-details-editor .metadata-save-status {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+#player #video-details-editor .metadata-save-status .text-button { min-height: 44px; }
+#player #video-details-editor .field input,
+#player #video-details-editor .rating-buttons button { min-height: 44px; }
+#player #video-details-editor #stream-admin { max-width: 100%; overflow-wrap: anywhere; }
+#player .public-video-details .video-info-header { align-items: center; }
+#player .public-video-details .video-info-header p { margin-top: 4px; }
+#player .public-video-details .video-info-header button { min-height: 44px; }
+@media (max-width: 720px) {
+  #player #media-controls .player-utilities,
+  #player.browser-wide #media-controls .player-utilities {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "volume volume volume" "mirror speed expand";
+    gap: 5px 8px;
+  }
+  #player #media-controls .volume-control,
+  #player.browser-wide #media-controls .volume-control {
+    max-width: none; justify-content: center; justify-self: stretch;
+  }
+  #player #media-controls .media-display-actions,
+  #player.browser-wide #media-controls .media-display-actions { display: contents; }
+  #player #media-controls #media-mirror { grid-area: mirror; justify-self: start; }
+  #player #media-controls #fullscreen-button { grid-area: expand; justify-self: end; }
+  #player #video-only-shell:fullscreen .fs-settings {
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-areas: "volume volume volume" "mirror speed expand";
+    gap: 5px 8px;
+  }
+  #player #video-only-shell:fullscreen .fs-settings .fs-volume {
+    grid-area: volume; justify-self: stretch; max-width: none;
+  }
+  #player #video-only-shell:fullscreen .fs-settings label { grid-area: speed; justify-self: center; }
+  #player #video-only-shell:fullscreen .fs-display-actions { display: contents; }
+  #player #video-only-shell:fullscreen .fs-mirror { grid-area: mirror; justify-self: start; }
+  #player #video-only-shell:fullscreen .fs-exit { grid-area: expand; justify-self: end; }
+  #player #video-details-editor .player-info { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+}
+@media (max-height: 430px) and (orientation: landscape) {
+  #player #video-only-shell:fullscreen .fullscreen-transport { grid-template-columns: 44px 52px 44px; }
+  #player #video-only-shell:fullscreen .fullscreen-transport .fs-primary {
+    width: 52px; height: 52px; min-width: 52px; min-height: 52px; padding: 12px;
+  }
+}
