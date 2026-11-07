@@ -165,3 +165,18 @@ The user-supplied Android screenshot showed a comparatively small portrait playb
 | Fullscreen and source fallbacks could behave differently. | Player sizing only applies to the non-fullscreen dialog; original Google Drive, YouTube, and adaptive stream sources retain their existing fallbacks and controls. |
 
 Validation: GitHub Actions lint, typecheck, tests and build; Netlify branch-deployment verification. No real Android device interaction or real-provider playback was verified in this environment. Production `main` remains untouched.
+
+## Browser-wide player and unified controls · 7 November 2026 — develop only
+
+Follow-up from the Android screenshot and feedback: the player opened as a relatively small popup; the settings disclosure sat above the video; fallback and text actions were too prominent; volume adjustment was hard to use; and speed/transport controls could overlap.
+
+| Reported issue | Correction |
+| --- | --- |
+| Tapping a Library or mix video should fill the browser screen. | `openPlayer()` now enables `browser-wide` by default for both entry points. The dialog covers the browser viewport (`100vw × 100dvh`) but does **not** request device-native fullscreen, so the browser's toolbar rules still apply and **Close** remains available. The expand control toggles compact vs browser-wide. |
+| Settings belong below playback, replacing Drive preview. | **Player settings** is now an action below the video. The Drive fallback button is inside that settings panel and only shown when relevant. The original-source link remains available. |
+| Inconsistent text action buttons. | Buttons in the lower settings panel now share a minimum 44px target, border radius, weight, padding, contrast and hover/focus treatments. Advanced metadata and owner-only editing stay reachable in expandable settings rather than filling the viewer. |
+| Hard-to-adjust volume. | Added visible volume slider, mute action, 10% decrease/increase buttons and a percentage readout. Mobile retains the slider and step buttons. YouTube uses its player volume API; adaptive/Drive iframe previews continue to use embedded provider controls. |
+| Speed selector overlapped the play button. | Centered back/play/forward in a dedicated transport row. Speed, volume and mirror/expand are in a separate responsive utility grid with two distinct rows on narrow phones. |
+| Video sizing was lost in expanded mode. | Responsive default video stage fills remaining browser height; user-set video heights switch to scrollable custom sizing, with a 44px touch/keyboard resize grip. Close stays accessible in scrollable settings. |
+
+Checks: web lint/typecheck/tests/build and Netlify `develop` branch deploy. A physical Android interaction test is outstanding; the connected live-browser test provider cannot run with the current account balance. No Supabase policies, paid streaming providers, or production `main` were changed.
