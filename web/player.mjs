@@ -199,6 +199,7 @@ export class StudioPlayer {
   updateFullscreen() {
     const active = document.fullscreenElement === this.videoShell;
     const label = active ? 'Exit video fullscreen' : 'Fullscreen video';
+    if (this.media) this.media.controls = active; // Native seek/play/volume only in video-only fullscreen.
     this.fullscreenButton.setAttribute('aria-label', label);
     this.fullscreenButton.title = label;
     this.fullscreenButton.setAttribute('aria-pressed', String(active));
