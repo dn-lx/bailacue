@@ -76,6 +76,7 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false');
     this.controls.classList.remove('preview-mode');
+    this.frame.classList.remove('portrait-video');
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
@@ -124,6 +125,8 @@ export class StudioPlayer {
             this.status('This browser cannot show the original video format. Choose Drive preview or open the original below.');
             return;
           }
+          this.frame.classList.toggle('portrait-video', media.videoHeight > media.videoWidth);
+          this.frame.dispatchEvent(new Event('videoaspectchange'));
           if (media.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) this.readyToPlay(media, localUrl);
           else this.status('Video opened · preparing playback buffer…');
         });
@@ -192,5 +195,5 @@ export class StudioPlayer {
     this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
   }
   async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); this.updateFullscreen(); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
-  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
+  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); this.frame.classList.remove('portrait-video'); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
 }
