@@ -211,8 +211,9 @@ test('opening any video uses browser viewport with a permanent close control', (
   assert.match(app, /setPlayerViewport\(true\)/);
   assert.match(css, /#player\.browser-wide:not\(\.fullscreen-mode\) \{[\s\S]*?height: 100dvh !important/);
   assert.match(css, /#player\.browser-wide \#full-stage \{[\s\S]*?flex: 1 1 0/);
-  assert.match(playerSource, /dialog\.classList\.toggle\('browser-wide'\)/);
-  assert.doesNotMatch(playerSource, /requestFullscreen\(/);
+  assert.match(app, /classList\\.toggle\\('browser-wide', fill\\)/);
+  assert.match(playerSource, /this\\.videoShell\\.requestFullscreen\\(\\)/);
+  assert.doesNotMatch(playerSource, /dialog\\.requestFullscreen\\(\\)/);
 });
 
 test('player is settings-free while keeping visible source actions and owner editing', () => {
@@ -261,7 +262,7 @@ test('browser-wide player fills the viewport with Close and Escape support', () 
   assert.match(css, /width: 100vw !important;/);
   assert.match(css, /#player\.browser-wide #full-stage \{/);
   assert.match(css, /flex: 1 1 0;/);
-  assert.match(playerSource, /fullscreen\(\) \{[\s\S]*?classList\.toggle\('browser-wide'\)/);
+  assert.match(playerSource, /async fullscreen\\(\\) \\{[\\s\\S]*?this\\.videoShell\\.requestFullscreen\\(\\)/);
 });
 
 test('preview and video metadata remain available without a settings accordion', () => {
@@ -295,4 +296,80 @@ test('owner-only editing remains scrollable outside the deleted viewer settings 
   assert.match(css, /#player\.browser-wide\[open\]:has\(> \.player-owner-edit\[open\]\)/);
   assert.match(css, /overflow-y: auto !important/);
   assert.match(css, /#player \.player-actions #drive-preview-button\[hidden\] \{ display: none !important; \}/);
+});
+
+test('video-only fullscreen button is inside the video shell, outside playback controls', () => {
+  const header = html.indexOf('class="player-top"');
+  const videoShell = html.indexOf('id="video-only-shell"');
+  const videoFrame = html.indexOf('id="video-frame"');
+  const fullscreen = html.indexOf('id="fullscreen-button"');
+  const resize = html.indexOf('id="video-resize"');
+  const controls = html.indexOf('id="media-controls"');
+  assert.ok(header >= 0 && videoShell > header && videoFrame > videoShell);
+  assert.ok(fullscreen > videoFrame && fullscreen < resize && resize < controls);
+  assert.match(html, /id="fullscreen-button" class="video-fullscreen-button" aria-label="Fullscreen video"/);
+  assert.match(playerSource, /this\.videoShell = document\.querySelector\('#video-only-shell'\)/);
+  assert.match(playerSource, /this\.fullscreenButton\.addEventListener\('click', \(\) => this\.fullscreen\(\)\)/);
+  assert.doesNotMatch(playerSource, /\.append\(fullscreen\)/);
+  assert.match(css, /#player #video-only-shell #fullscreen-button \{[\s\S]*?display: inline-flex !important/);
+});
+
+test('only video shell fills the native screen and video remains uncropped', () => {
+  assert.match(css, /#player #video-only-shell:fullscreen \{/);
+  assert.match(css, /#player #video-only-shell:fullscreen #video-frame,/);
+  assert.match(css, /height: 100% !important/);
+  assert.match(css, /object-fit: contain/);
+  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{/);
+  assert.match(playerSource, /document\.fullscreenElement === this\.videoShell/);
+  assert.match(playerSource, /document\.addEventListener\('fullscreenchange', \(\) => this\.updateFullscreen\(\)\)/);
+  assert.match(playerSource, /await document\.exitFullscreen\(\)/);
+  assert.match(playerSource, /this\.media\.webkitEnterFullscreen\(\)/);
+  assert.match(playerSource, /this\.toast\('Video fullscreen was blocked/);
+});
+
+test('video-only fullscreen requests and exits without toggling browser-wide viewer', async () => {
+  const previousDocument = globalThis.document;
+  const videoShell = {
+    requestFullscreen() { globalThis.document.fullscreenElement = this; return Promise.resolve(); },
+  };
+  const doc = {
+    fullscreenElement: null,
+    exitFullscreen() { this.fullscreenElement = null; return Promise.resolve(); },
+  };
+  const notifications = [];
+  const instance = {
+    videoShell,
+    media: null,
+    toast: message => notifications.push(message),
+    updateFullscreen() {},
+  };
+  globalThis.document = doc;
+  try {
+    await StudioPlayer.prototype.fullscreen.call(instance);
+    assert.equal(doc.fullscreenElement, videoShell);
+    await StudioPlayer.prototype.fullscreen.call(instance);
+    assert.equal(doc.fullscreenElement, null);
+    assert.deepEqual(notifications, []);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
+
+test('fullscreen blocked by browser shows feedback without falsely entering fullscreen', async () => {
+  const previousDocument = globalThis.document;
+  globalThis.document = { fullscreenElement: null };
+  const messages = [];
+  const instance = {
+    videoShell: { requestFullscreen() { return Promise.reject(new Error('blocked')); } },
+    media: null, toast: message => messages.push(message), updateFullscreen() {},
+  };
+  try {
+    await StudioPlayer.prototype.fullscreen.call(instance);
+    assert.equal(globalThis.document.fullscreenElement, null);
+    assert.match(messages[0], /fullscreen was blocked/);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
 });
