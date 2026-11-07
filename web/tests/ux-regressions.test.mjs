@@ -5,6 +5,7 @@ import { StudioPlayer } from '../player.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
+const playerSource = readFileSync(new URL('../player.mjs', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../interface.css', import.meta.url), 'utf8');
 const studioUi = readFileSync(new URL('../studio-ui.mjs', import.meta.url), 'utf8');
 const favicon = readFileSync(new URL('../assets/dance-favicon.svg', import.meta.url), 'utf8');
@@ -176,4 +177,39 @@ test('popup transport stays readable, speed arrow does not tile on Android', () 
   assert.match(css, /#player \.display-panel \.height-control \{ display: flex; \}/);
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /#player #media-controls #media-volume \{ display: none; \}/);
+});
+
+test('player uses a media-first portrait layout without cropping', () => {
+  assert.match(css, /#player:not\(\.fullscreen-mode\) #video-frame\.portrait-video \{/);
+  assert.match(css, /height: var\(--video-height, min\(77dvh, 820px\)\)/);
+  assert.match(css, /#player #video-frame > video \{ object-fit: contain; \}/);
+  assert.match(css, /#player:not\(\.fullscreen-mode\) #video-frame \{[\s\S]*?max-height: min\(82dvh, 840px\)/);
+  assert.match(css, /#player \.video-resize \{[^}]*min-height: 36px/);
+  assert.match(playerSource, /this\.frame\.classList\.toggle\('portrait-video', media\.videoHeight > media\.videoWidth\)/);
+  assert.match(playerSource, /this\.frame\.dispatchEvent\(new Event\('videoaspectchange'\)\)/);
+  assert.match(app, /videoFrame\.addEventListener\('videoaspectchange'/);
+});
+
+test('player width can be dragged or keyboard resized, while mobile stays viewport-wide', () => {
+  assert.match(html, /id="player-width-resize" class="player-width-resize" role="slider" tabindex="0"/);
+  assert.match(html, /aria-orientation="horizontal"/);
+  assert.match(html, /id="player-reset-size"/);
+  assert.match(html, /<option value="custom" disabled>Custom width<\/option>/);
+  assert.match(app, /widthResize\.addEventListener\('pointerdown'/);
+  assert.match(app, /widthResize\.addEventListener\('pointermove'/);
+  assert.match(app, /widthResize\.addEventListener\('pointerup'/);
+  assert.match(app, /widthResize\.addEventListener\('pointercancel'/);
+  assert.match(app, /widthResize\.addEventListener\('keydown'/);
+  assert.match(app, /applyPlayerWidth\(Math\.min\(playerWidthMaximum\(\), keyValues\[event\.key\]\), true\)/);
+  assert.match(app, /state\.playerSize = width; save\(\)/);
+  assert.match(css, /#player \.player-width-resize \{[\s\S]*?touch-action: none/);
+  assert.match(css, /#player \.player-width-resize \{ display: none; \}/);
+  assert.match(css, /#player:not\(\.fullscreen-mode\) \{\s*width: calc\(100vw - 8px\) !important/);
+});
+
+test('player Reset size restores comfortable width and responsive video height', () => {
+  assert.match(app, /\$\('#player-reset-size'\)\.addEventListener\('click'/);
+  assert.match(app, /state\.playerSize = 960;\s*state\.playerHeight = 0;/);
+  assert.match(app, /applyPlayerWidth\(state\.playerSize\);\s*applyVideoHeight\(state\.playerHeight\);/);
+  assert.match(app, /playerHeightMaximum = \(\) => Math\.max\(220, Math\.min\(840, Math\.floor\(window\.innerHeight \* 0\.82\)\)\)/);
 });
