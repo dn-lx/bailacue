@@ -1,3 +1,19 @@
+# Latest continuation checkpoint · 7 November 2026
+
+Implemented and deployed on `develop` in commit `b2983ea22241701525da2a1aee458961c0626e26`:
+
+- Fullscreen is part of the playback control bar beside Mirror. Play is centered between equal five-second skip controls. Phone controls use a full-width volume row, with Mirror, centered Speed and Fullscreen below it. Fullscreen retains its persistent bottom bar with the same arrangement and Exit in the last position.
+- The signed-in owner can choose **Edit details** directly in **About this video**. The title, labels, artists, recording date, event, location, notes and 1–10 rating are editable in that card. Upload dates remain automatic source facts. Visitors see published details without editing access.
+- Publication status now confirms success, offers Retry save on failure, and ignores stale completions from older edits or another video's pending save.
+
+Validation: web lint, typecheck, all 80 tests, static build and diff checks passed. A focused execution harness also exercised debouncing, the latest payload, confirmed saves, failure/retry, stale-save completion and video-switch isolation. Netlify branch deploy `6aef6f1704c19d7aa7d651fc` is ready for the implementation commit.
+
+Live browser checks: the library and details load; guest editing is unavailable; the fullscreen button is inside the control bar. At 1363px and 340px CSS viewport widths, Play is exactly centered. At 340px, the skip distances are both 73px, the Speed group is centered, and player scrollWidth equals clientWidth (337px). The narrow check used browser zoom, not Android emulation.
+
+Remaining verification: this cloud browser reported an unsupported video format for the two Drive originals sampled (Bachata 0001 and 0002), so playing video and entering native fullscreen were not verified end to end here. Owner editing was not exercised against the live authenticated catalogue. Check playback/fullscreen and the owner editor on Android before deciding whether to merge into `main`. Production was not changed.
+
+---
+
 # BailaCue web 0.2 verification · 24 October 2026
 
 Only the separate web app and Netlify configuration change on develop. Native mobile
