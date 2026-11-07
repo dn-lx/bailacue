@@ -1658,3 +1658,212 @@ details > summary:hover::after { color: var(--blue); }
     bottom: auto;
   }
 }
+
+
+/* Fullscreen v2: independent BailaCue controls, no OS/Drive native video chrome.
+   Interaction on the transparent tap layer reveals the overlay. It auto-hides
+   after 3.5s, but remains visible while keyboard controls have focus. */
+#player #video-only-shell #fullscreen-button[hidden] { display: none !important; }
+#player #video-only-shell #fullscreen-tap-zone,
+#player #video-only-shell #fullscreen-controls[hidden] { display: none !important; }
+#player #video-only-shell:fullscreen #fullscreen-tap-zone {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  background: transparent;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+#player #video-only-shell:fullscreen #fullscreen-controls:not([hidden]) {
+  display: block;
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  color: #f8fbff;
+  font-family: inherit;
+}
+#player #video-only-shell:fullscreen .fullscreen-center {
+  display: flex;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  align-items: center;
+  justify-content: center;
+  gap: clamp(14px, 4vw, 36px);
+  pointer-events: auto;
+  background: #06162882;
+  border: 1px solid #ffffff2b;
+  border-radius: 100px;
+  padding: 10px 18px;
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+  max-width: calc(100vw - 24px);
+}
+#player #video-only-shell:fullscreen .fs-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
+  padding: 9px;
+  border-radius: 50%;
+  border: 1px solid #ffffff44;
+  background: #182c49c7;
+  color: #f8fbff;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+#player #video-only-shell:fullscreen .fs-icon svg {
+  width: 25px;
+  height: 25px;
+  display: block;
+  pointer-events: none;
+}
+#player #video-only-shell:fullscreen .fs-icon.fs-primary {
+  width: 70px;
+  height: 70px;
+  min-width: 70px;
+  min-height: 70px;
+  padding: 18px;
+  border: 0;
+  background: #f6f9ff;
+  color: #13243c;
+  box-shadow: 0 4px 25px #0006;
+}
+#player #video-only-shell:fullscreen .fs-icon.fs-primary svg { width: 33px; height: 33px; }
+#player #video-only-shell:fullscreen .fs-icon:hover { background: #31547d; }
+#player #video-only-shell:fullscreen .fs-icon.fs-primary:hover { background: #dce9ff; }
+#player #video-only-shell:fullscreen .fullscreen-bottom {
+  display: flex;
+  position: absolute;
+  left: max(12px, env(safe-area-inset-left));
+  right: max(12px, env(safe-area-inset-right));
+  bottom: max(12px, env(safe-area-inset-bottom));
+  flex-direction: column;
+  gap: 12px;
+  padding: 19px clamp(12px, 3vw, 24px) 12px;
+  background: linear-gradient(to bottom, #0613211c 0%, #061321e5 53%, #061321f2 100%);
+  border-radius: 14px;
+  pointer-events: auto;
+  max-width: 1250px;
+  margin-inline: auto;
+}
+#player #video-only-shell:fullscreen .fs-progress {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+#player #video-only-shell:fullscreen .fs-progress input {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  height: 40px;
+  margin: 0;
+  accent-color: #a9c4ff;
+  touch-action: pan-x;
+}
+#player #video-only-shell:fullscreen .fs-progress span {
+  flex: 0 0 auto;
+  min-width: 84px;
+  text-align: right;
+  color: #e0e9f8;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+#player #video-only-shell:fullscreen .fs-settings {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: clamp(9px, 3vw, 25px);
+}
+#player #video-only-shell:fullscreen .fs-volume {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1 1 auto;
+  max-width: 310px;
+}
+#player #video-only-shell:fullscreen .fs-volume .fs-icon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+}
+#player #video-only-shell:fullscreen .fs-volume input {
+  width: 100%;
+  max-width: 240px;
+  min-width: 45px;
+  flex: 1 1 auto;
+  height: 40px;
+  margin: 0;
+  accent-color: #a9c4ff;
+  touch-action: pan-x;
+}
+#player #video-only-shell:fullscreen .fs-settings label {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+  color: #f3f7ff;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+#player #video-only-shell:fullscreen .fs-settings select {
+  display: block;
+  width: 91px;
+  min-width: 91px;
+  min-height: 44px;
+  padding: 8px 28px 8px 9px;
+  border: 1px solid #7388a9;
+  border-radius: 10px;
+  color: #f7f9ff;
+  background-color: #223752;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 7.5 5 5 5-5' fill='none' stroke='%23D8E6F9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-size: 17px 17px;
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  font-size: 14px;
+  font-weight: 600;
+}
+#player #video-only-shell:fullscreen :is(button,input,select):focus-visible {
+  outline: 3px solid #a6ccff;
+  outline-offset: 3px;
+}
+#player #video-only-shell:fullscreen #fullscreen-button {
+  transition: opacity .17s ease;
+  opacity: 0;
+  pointer-events: none;
+}
+#player #video-only-shell:fullscreen.fullscreen-controls-visible #fullscreen-button {
+  opacity: 1;
+  pointer-events: auto;
+}
+@media (max-width: 460px) {
+  #player #video-only-shell:fullscreen .fullscreen-center { padding: 6px 10px; gap: 12px; }
+  #player #video-only-shell:fullscreen .fs-icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; }
+  #player #video-only-shell:fullscreen .fs-icon.fs-primary { width: 62px; height: 62px; min-width: 62px; min-height: 62px; }
+  #player #video-only-shell:fullscreen .fullscreen-bottom { gap: 7px; padding: 12px; }
+  #player #video-only-shell:fullscreen .fs-progress span { min-width: 76px; font-size: 12px; }
+  #player #video-only-shell:fullscreen .fs-settings label { font-size: 12px; gap: 5px; }
+}
+@media (max-height: 420px) and (orientation: landscape) {
+  #player #video-only-shell:fullscreen .fullscreen-center { top: 43%; padding: 5px 9px; }
+  #player #video-only-shell:fullscreen .fs-icon.fs-primary { width: 56px; height: 56px; min-width: 56px; min-height: 56px; }
+  #player #video-only-shell:fullscreen .fullscreen-bottom { gap: 4px; padding: 7px 12px; }
+  #player #video-only-shell:fullscreen .fs-progress input { height: 30px; }
+  #player #video-only-shell:fullscreen .fs-settings select { min-height: 38px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #player #video-only-shell:fullscreen #fullscreen-button { transition: none; }
+}
