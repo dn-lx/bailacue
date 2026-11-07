@@ -1867,3 +1867,238 @@ details > summary:hover::after { color: var(--blue); }
 @media (prefers-reduced-motion: reduce) {
   #player #video-only-shell:fullscreen #fullscreen-button { transition: none; }
 }
+
+
+/* Player v6: video details always visible below the stage, not hidden by the
+   browser-wide flex layout. Scroll to inspect details without losing playback. */
+#player.browser-wide[open]:not(.fullscreen-mode) {
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+}
+#player.browser-wide[open] #full-stage {
+  flex: 0 0 auto !important;
+  height: clamp(500px, calc(100dvh - 110px), 960px);
+  min-height: 0;
+  overflow: hidden;
+}
+#player.browser-wide[open] #video-only-shell {
+  flex: 1 1 auto;
+  min-height: 240px;
+}
+#player.browser-wide[open]:has(#video-frame[style*="--video-height"]) #full-stage {
+  height: min(calc(var(--video-height) + 220px), 1100px);
+}
+#player.browser-wide[open] #public-video-details,
+#player #public-video-details.video-info-ready {
+  display: block !important;
+  flex: 0 0 auto !important;
+  width: 100%;
+  max-width: 1500px !important;
+  max-height: none !important;
+  margin: 12px auto max(16px, env(safe-area-inset-bottom)) !important;
+  padding: clamp(15px, 2.4vw, 25px) !important;
+  overflow: visible !important;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+}
+#player .public-video-details .video-info-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  flex-wrap: wrap; gap: 5px 14px; margin-bottom: 14px;
+}
+#player .public-video-details .video-info-header h3 {
+  font-size: clamp(17px, 2vw, 21px);
+  letter-spacing: -.025em;
+  color: var(--text);
+  margin: 0;
+}
+#player .public-video-details .video-info-header p {
+  font-size: 12px; color: var(--muted); margin: 0;
+}
+#player .public-video-details .video-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px 20px;
+  margin: 0;
+}
+#player .public-video-details .video-info-item {
+  min-width: 0;
+  padding: 0 0 11px;
+  border-bottom: 1px solid var(--line);
+}
+#player .public-video-details .video-info-item dt {
+  color: var(--muted); font-size: 12px; font-weight: 650;
+  margin-bottom: 7px; letter-spacing: .01em;
+}
+#player .public-video-details .video-info-item dd {
+  color: var(--text); font-size: 14px;
+  font-weight: 550; line-height: 1.5;
+  margin: 0; overflow-wrap: anywhere;
+}
+#player .public-video-details .video-info-rating {
+  display: inline-flex; gap: 6px; align-items: center;
+}
+#player .public-video-details .video-info-rating svg {
+  width: 17px; height: 17px; color: var(--blue);
+}
+#player .public-video-details .video-info-tags {
+  display: flex; align-items: center; gap: 6px;
+  flex-wrap: wrap; margin-top: 1px;
+}
+#player .public-video-details .video-info-tags .tag {
+  font-size: 12px; line-height: 1.35; padding: 5px 9px;
+  max-width: 100%; white-space: normal;
+}
+#player .public-video-details .video-info-unset {
+  font-weight: 450; color: var(--muted);
+}
+#player .public-video-details .video-info-notes {
+  margin-top: 14px;
+}
+#player .public-video-details .video-info-notes h4 {
+  font-size: 12px; color: var(--muted); margin: 0 0 7px;
+}
+#player .public-video-details .video-info-notes p {
+  color: var(--text); font-size: 14px; margin: 0;
+  line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#player .player-actions:has(#queue-nav:empty) { display: none !important; }
+/* Fullscreen v3: persistent BailaCue controls, arranged in the same vertical
+   order as the normal player: seek / centered transport / utilities. */
+#player #video-only-shell:fullscreen #fullscreen-tap-zone {
+  display: none !important;
+}
+#player #video-only-shell:fullscreen #fullscreen-controls:not([hidden]) {
+  display: block !important;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+#player #video-only-shell:fullscreen .fullscreen-bottom {
+  position: absolute !important;
+  display: flex;
+  flex-direction: column;
+  left: 50% !important;
+  right: auto !important;
+  bottom: 0 !important;
+  top: auto !important;
+  transform: translateX(-50%);
+  width: min(100%, 1250px);
+  max-width: 100%;
+  margin: 0 !important;
+  padding: 10px max(15px, env(safe-area-inset-right)) max(12px, env(safe-area-inset-bottom)) max(15px, env(safe-area-inset-left));
+  gap: 7px;
+  border-radius: 14px 14px 0 0;
+  border: 1px solid #ffffff29;
+  border-bottom: 0;
+  background: linear-gradient(180deg, #14233aba, #15263af5 22%, #15263af9 100%);
+  pointer-events: auto;
+  box-sizing: border-box;
+}
+#player #video-only-shell:fullscreen .fullscreen-transport {
+  display: grid;
+  grid-template-columns: 44px 64px 44px;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(15px, 4vw, 29px);
+}
+#player #video-only-shell:fullscreen .fullscreen-transport .fs-icon {
+  flex: 0 0 auto; width: 44px; height: 44px;
+  min-width: 44px; min-height: 44px;
+  justify-self: center;
+}
+#player #video-only-shell:fullscreen .fullscreen-transport .fs-primary {
+  width: 64px; height: 64px;
+  min-width: 64px; min-height: 64px;
+  padding: 16px;
+}
+#player #video-only-shell:fullscreen .fs-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center; gap: 12px;
+}
+#player #video-only-shell:fullscreen .fs-progress input {
+  min-width: 0; width: 100%; height: 30px;
+}
+#player #video-only-shell:fullscreen .fs-progress span { min-width: 76px; }
+#player #video-only-shell:fullscreen .fs-settings {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto 44px 44px;
+  align-items: center;
+  gap: clamp(6px, 2vw, 15px);
+  min-width: 0;
+}
+#player #video-only-shell:fullscreen .fs-settings .fs-volume {
+  width: 100%; max-width: 320px; min-width: 0; gap: 7px;
+}
+#player #video-only-shell:fullscreen .fs-settings .fs-volume input {
+  width: 100%; min-width: 35px; flex: 1 1 auto;
+}
+#player #video-only-shell:fullscreen .fs-volume-step {
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  flex: 0 0 34px; width: 34px; height: 40px;
+  min-width: 34px; min-height: 40px;
+  border: 1px solid #70829d;
+  border-radius: 9px;
+  background: #263c59;
+  color: #fff;
+  font-size: 20px; line-height: 1;
+  cursor: pointer;
+}
+#player #video-only-shell:fullscreen .fs-settings .fs-mirror,
+#player #video-only-shell:fullscreen .fs-settings .fs-exit {
+  width: 44px; height: 44px;
+  min-width: 44px; min-height: 44px;
+  padding: 10px;
+}
+#player #video-only-shell:fullscreen .fs-settings button:disabled {
+  cursor: not-allowed; opacity: .4;
+}
+#player #video-only-shell:fullscreen .fs-settings .fs-exit {
+  background: #263c59;
+  border: 1px solid #8698b5;
+  border-radius: 10px;
+}
+#player #video-only-shell:fullscreen .fs-settings label {
+  justify-self: end;
+}
+#player #video-only-shell:fullscreen #fullscreen-button {
+  display: none !important;
+}
+@media (max-width: 720px) {
+  #player.browser-wide[open] #public-video-details {
+    margin-top: 10px !important;
+    padding: 15px !important;
+  }
+  #player.browser-wide[open] #full-stage { height: clamp(470px, calc(100dvh - 108px), 830px); }
+  #player .public-video-details .video-info-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  #player .public-video-details .video-info-item:nth-child(2),
+  #player .public-video-details .video-info-item:nth-child(3) { grid-column: span 1; }
+}
+@media (max-width: 520px) and (orientation: portrait) {
+  #player #video-only-shell:fullscreen .fs-settings {
+    grid-template-columns: minmax(0,1fr) auto 44px 44px;
+  }
+  #player #video-only-shell:fullscreen .fs-settings .fs-volume {
+    grid-column: 1 / -1;
+    justify-self: stretch;
+    max-width: none;
+  }
+  #player #video-only-shell:fullscreen .fs-settings label {
+    justify-self: start;
+  }
+  #player #video-only-shell:fullscreen .fullscreen-bottom { gap: 5px; }
+}
+@media (max-height: 430px) and (orientation: landscape) {
+  #player #video-only-shell:fullscreen .fullscreen-bottom { gap: 3px; padding-top: 4px; padding-bottom: max(4px, env(safe-area-inset-bottom)); }
+  #player #video-only-shell:fullscreen .fullscreen-transport { grid-template-columns: 42px 52px 42px; gap: 15px; }
+  #player #video-only-shell:fullscreen .fullscreen-transport .fs-primary {
+    width: 52px; height: 52px; min-width: 52px; min-height: 52px;
+    padding: 12px;
+  }
+  #player #video-only-shell:fullscreen .fs-progress input { height: 26px; }
+  #player #video-only-shell:fullscreen .fs-settings .fs-volume-step { height: 34px; min-height: 34px; }
+  #player #video-only-shell:fullscreen .fs-settings select { min-height: 38px; }
+}
