@@ -288,3 +288,11 @@ test('volume plus minus and slider remain usable on Android with separate speed 
   assert.match(css, /#player\.browser-wide #media-controls \.speed-label \{/);
   assert.match(css, /#player\.browser-wide #media-controls \.volume-control \{/);
 });
+
+test('owner-only editing remains scrollable outside the deleted viewer settings menu', () => {
+  assert.match(html, /<details class="player-owner-edit" data-admin-only>/);
+  assert.match(css, /#player > \.player-owner-edit \{/);
+  assert.match(css, /#player\.browser-wide\[open\]:has\(> \.player-owner-edit\[open\]\)/);
+  assert.match(css, /overflow-y: auto !important/);
+  assert.match(css, /#player \.player-actions #drive-preview-button\[hidden\] \{ display: none !important; \}/);
+});
