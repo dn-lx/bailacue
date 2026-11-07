@@ -1308,3 +1308,57 @@ details > summary:hover::after { color: var(--blue); }
   #player.browser-wide #media-controls .volume-step { flex-basis: 34px; width: 34px; }
   #player.browser-wide .player-top .eyebrow { font-size: 9px; }
 }
+
+
+/* Keep settings and published/owner metadata available in the viewport layout. */
+#player.browser-wide #fullscreen-button { display: none !important; }
+#player.browser-wide .player-settings .player-window-width,
+#player.browser-wide .player-settings .player-width-resize { display: none !important; }
+#player.browser-wide .player-settings #player-height,
+#player.browser-wide .player-settings #player-height-reset {
+  /* Automatic viewport sizing fills the stage. Height dragging remains in Windowed view. */
+  display: none !important;
+}
+#player.browser-wide #video-resize { display: none !important; }
+#player.browser-wide .player-settings .player-about,
+#player.browser-wide .player-settings .player-owner-edit {
+  display: block;
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 2px;
+}
+#player.browser-wide .player-settings .player-about[hidden] { display: none !important; }
+#player.browser-wide .player-settings .player-about > summary,
+#player.browser-wide .player-settings .player-owner-edit > summary {
+  min-height: 44px;
+  padding: 8px 5px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+#player.browser-wide .player-settings #public-video-details {
+  display: block;
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+  padding: 8px 0;
+  font-size: 13px;
+}
+#player.browser-wide .player-settings .player-info {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  width: 100%;
+  margin: 0;
+  padding: 10px 0;
+  border: 0;
+}
+#player.browser-wide .player-settings .player-info .form-columns { grid-template-columns: 1fr; }
+#player.browser-wide .player-settings .player-info h3 { font-size: 16px; }
+#player.browser-wide .player-settings .player-info .field { min-width: 0; }
+#player.browser-wide .player-settings #stream-admin { overflow-wrap: anywhere; }
+#player.browser-wide .player-settings .player-owner-edit:not([open]) .player-info { display: none; }
+#player.browser-wide .player-settings #drive-preview-button[hidden] { display: none !important; }
+#player.browser-wide .player-settings .settings-help { font-size: 12px; line-height: 1.4; }
+#player.browser-wide .player-settings .display-panel label,
+#player.browser-wide .player-settings .display-panel .button { color: var(--text); }
