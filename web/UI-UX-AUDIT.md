@@ -149,3 +149,19 @@ Observed on an Android screenshot: the modal contained a relatively small video 
 | Provider playback | For Drive preview and adaptive streaming iframe playback, the provider continues to own its controls. The native BailaCue controls are hidden in preview mode; full-screen behavior is retained. |
 
 Quality gates: GitHub Actions web syntax/lint, TypeScript, unit/regression tests and static build; successful Netlify branch deployment. Automated verification does not certify appearance or touch behavior on a physical Android device. Production `main` is unchanged.
+
+## Player popup redesign · 7 November 2026 — develop only
+
+The user-supplied Android screenshot showed a comparatively small portrait playback area, an oversized control stack, and an inconspicuous way to adjust video size.
+
+| Finding | Change on `develop` |
+| --- | --- |
+| Portrait videos were visually small inside a landscape-shaped player stage. | After loaded metadata confirms portrait orientation, the player expands its responsive video height to approximately 77% of viewport height (bounded to 820px) while preserving `object-fit: contain` — the video is never cropped. Landscape videos retain a shorter default. |
+| The surrounding dialog wasted mobile space. | Reduced modal edge padding, tightened top and bottom spacing, made the header sticky while scrolling, and compacted transport, timeline, and action styling. |
+| The video could not be enlarged easily. | The clearly labelled grip below the video adjusts height with touch or mouse; arrow keys also work. Height is persisted locally and the display slider stays synchronized, including when portrait metadata arrives. |
+| Desktop users could select only three discrete player widths. | Added a horizontally draggable, keyboard-accessible Resize width control inside Display settings. The selected custom width is saved to local browser state; mobile always stays viewport-wide. |
+| It was hard to return to sensible sizing. | Added Reset size (960px desktop width plus automatic responsive video height), alongside an explicit Auto height control. |
+| Some UI controls needed harmonization. | Retained the clean player-speed chevron and centered transport, keeping focus visibility and 44px touch targets. |
+| Fullscreen and source fallbacks could behave differently. | Player sizing only applies to the non-fullscreen dialog; original Google Drive, YouTube, and adaptive stream sources retain their existing fallbacks and controls. |
+
+Validation: GitHub Actions lint, typecheck, tests and build; Netlify branch-deployment verification. No real Android device interaction or real-provider playback was verified in this environment. Production `main` remains untouched.
