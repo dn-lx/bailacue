@@ -462,3 +462,45 @@ test('fullscreen exit is in safe top corner, custom overlay uses uncropped video
   assert.match(playerSource, /this\.fullscreenButton\.innerHTML = mediaIcon\(active \? 'shrink' : 'expand'\)/);
   assert.match(playerSource, /this\.hideFullscreenControls\(\)/);
 });
+
+test('fullscreen explicitly disables native video controls and hides button for iframe previews', () => {
+  const previousDocument = globalThis.document;
+  const shell = {};
+  const button = {
+    hidden: false,
+    title: '',
+    attributes: {},
+    setAttribute(key, value) { this.attributes[key] = value; },
+  };
+  const media = { controls: true };
+  const flags = { shown: 0, hidden: 0 };
+  const instance = {
+    videoShell: shell,
+    media,
+    kind: 'native',
+    controls: { classList: { contains: () => false } },
+    fullscreenButton: button,
+    customFullscreenAvailable: StudioPlayer.prototype.customFullscreenAvailable,
+    showFullscreenControls() { flags.shown++; },
+    hideFullscreenControls() { flags.hidden++; },
+    fsKeyboardActive: false,
+  };
+  globalThis.document = { fullscreenElement: shell };
+  try {
+    StudioPlayer.prototype.updateFullscreen.call(instance);
+    assert.equal(media.controls, false);
+    assert.equal(button.hidden, false);
+    assert.equal(button.attributes['aria-label'], 'Exit video fullscreen');
+    assert.equal(flags.shown, 1);
+    globalThis.document.fullscreenElement = null;
+    instance.kind = 'preview';
+    instance.media = null;
+    StudioPlayer.prototype.updateFullscreen.call(instance);
+    assert.equal(button.hidden, true);
+    assert.equal(button.attributes['aria-label'], 'Fullscreen video');
+    assert.equal(flags.hidden, 1);
+  } finally {
+    if (previousDocument === undefined) delete globalThis.document;
+    else globalThis.document = previousDocument;
+  }
+});
