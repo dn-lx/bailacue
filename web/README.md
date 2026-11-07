@@ -15,7 +15,9 @@ mobile app is separate and has not been changed in this version.
   (`preload="auto"`) and waits until it is playable to enable controls.
 
 ## Video metadata and automatic dates
-The viewer displays each video's published rating (out of 10), labels, artists/teachers, upload or added date, optional recorded date, event, location, duration/resolution when known, and notes. These details are visible to every visitor. **Edit metadata** is always visible in **About this video**. If signed out, it opens owner sign-in directly from the video; successful sign-in opens the editable fields without reopening or restarting playback. For an already signed-in owner, every video opens with the title, rating, labels, artists, recorded date, event, location and notes ready to edit in that same card. Changes save automatically; the status confirms publication or offers **Retry save** after a failure. Choose **Done editing** to return to the details view.
+Anyone can edit the title, rating (out of 10), labels, artists/teachers, recorded date, event, location and notes without signing in. These fields open ready to edit in **About this video**. New labels and artists can also be created there without an account. Changes save to the shared catalogue and are available to every viewer, including in a fresh browser. The status confirms publication or offers **Retry save** after a failure. **Done editing** shows the compact summary; **Edit metadata** reopens the fields without an authentication prompt.
+
+Public metadata saves atomically merge changed fields through `bailacue_patch_web_metadata`. `bailacue_add_web_label` adds or reuses a shared label. Both RPCs use invoker rights, scoped row-level security and the public publishable key. The database validates field names, sizes, types, recording dates, ratings and known video identities. Existing shared label definitions cannot be overwritten or removed by public editors; video label assignments remain editable.
 
 Fullscreen is in the playback control bar beside Mirror. Play stays centered between matching five-second skip buttons. Speed uses equal outside columns; on phones, volume has its own row above Mirror, centered Speed and Fullscreen. Fullscreen uses the same arrangement, with Exit in the final position, and keeps its bottom controls visible throughout playback.
 
@@ -32,8 +34,10 @@ No signup flow is exposed.
 
 The isolated tables `public.bailacue_web_admins` (one seeded owner) and
 `public.bailacue_web_content` were created in the connected Me+ Supabase project.
-They have row-level security: guests and logged users may **read published
-content**, and only that listed admin may insert, update or delete content.
+They have row-level security: guests and logged users may read published content,
+edit annotations on known videos and add shared labels. The listed admin manages
+video sources and existing label definitions. Source records, automatic upload
+dates, content keys and shared-content deletion are outside public editing.
 Original Me+ domain and retired BailaCue tables remain untouched.
 
 Public content contains keys `labels`, `meta:<video-id>`,

@@ -217,14 +217,14 @@ test('opening any video uses browser viewport with a permanent close control', (
 });
 
 
-test('player has no external or Drive source buttons and still offers owner-only editing', () => {
+test('player has no external or Drive source buttons and offers public metadata editing', () => {
   const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
   const details = html.indexOf('id="public-video-details"');
   assert.ok(stage > 0 && actions > stage && details > actions);
   assert.doesNotMatch(html, /id="drive-preview-button"|id="provider-link"|Open original|Try Google Drive player/);
   assert.doesNotMatch(app, /#provider-link/);
   assert.doesNotMatch(playerSource, /getElementById\('drive-preview-button'\)/);
-  assert.match(html, /class="player-owner-edit" data-admin-only/);
+  assert.match(html, /class="video-metadata-editor" hidden/);
   assert.doesNotMatch(html, /class="player-settings"|<summary>Player settings<\/summary>/);
 });
 
@@ -244,10 +244,10 @@ test('mobile playback controls align and retain usable volume and speed controls
   assert.ok(css.includes('#player #media-controls .transport'));
 });
 
-test('browser-wide resizing and owner-only editor stay functional without Player settings', () => {
+test('browser-wide resizing and public editor stay functional without Player settings', () => {
   assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
   assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
-  assert.match(html, /class="player-owner-edit" data-admin-only/);
+  assert.match(html, /class="video-metadata-editor" hidden/);
   assert.match(html, /id="detail-labels"/);
   assert.match(html, /id="detail-artists"/);
   assert.match(html, /id="rating-buttons"/);
@@ -301,8 +301,8 @@ test('volume plus minus and slider remain usable on Android with separate speed 
 });
 
 
-test('owner-only editing and public metadata are both reachable', () => {
-  assert.match(html, /<div id="video-details-editor" class="player-owner-edit" data-admin-only hidden>/);
+test('public editing and metadata are both reachable', () => {
+  assert.match(html, /<div id="video-details-editor" class="video-metadata-editor" hidden>/);
   assert.match(app, /data-action="edit-video-details" aria-controls="video-details-editor"/);
   assert.match(css, /#player #video-details-editor\[hidden\] \{ display: none !important; \}/);
   assert.match(css, /#player\.browser-wide\[open\]:not\(\.fullscreen-mode\) \{/);

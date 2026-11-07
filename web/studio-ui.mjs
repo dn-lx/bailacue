@@ -13,7 +13,11 @@ export function labelPicker(container, { labels, selected = [], title, artists =
     const query = normalizeName(search.value), matches = available().filter(l => normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query)); active = -1; search.removeAttribute('aria-activedescendant');
     list.innerHTML = matches.length ? matches.map((l, i) => `<button type="button" role="option" id="${id}-${i}" data-id="${esc(l.id)}" aria-selected="${chosen.has(l.id)}" class="picker-option"><span>${esc(l.name)}<small>${esc(l.type)}${l.dance !== 'Both' ? ` · ${l.dance}` : ''}</small></span><span aria-hidden="true">${chosen.has(l.id) ? '✓' : '+'}</span></button>`).join('') : '<p class="picker-empty">No matching labels.</p>';
     create.innerHTML = allowCreate && query && !available().some(l => normalizeName(l.name) === query) ? `<button type="button" class="text-button">+ Create ${esc(artists ? 'artist' : 'label')} “${esc(search.value.trim())}”</button>` : '';
-    create.querySelector('button')?.addEventListener('click', () => { const label = onCreate(search.value.trim(), artists ? 'Artist' : 'Technique', dance); if (label) { chosen.add(label.id); search.value = ''; commit(); } });
+    create.querySelector('button')?.addEventListener('click', async event => {
+      const button = event.currentTarget; button.disabled = true;
+      try { const label = await onCreate(search.value.trim(), artists ? 'Artist' : 'Technique', dance); if (label) { chosen.add(label.id); search.value = ''; commit(); } }
+      finally { if (button.isConnected) button.disabled = false; }
+    });
     list.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const id = button.dataset.id; chosen.has(id) ? chosen.delete(id) : chosen.add(id); commit(); search.focus(); }));
     tags.innerHTML = labels().filter(l => chosen.has(l.id)).map(l => `<button type="button" class="tag" data-id="${esc(l.id)}" aria-label="Remove ${esc(l.name)}">${esc(l.name)} <span aria-hidden="true">×</span></button>`).join('');
     tags.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { chosen.delete(button.dataset.id); commit(); }));

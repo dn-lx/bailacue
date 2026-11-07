@@ -1,5 +1,5 @@
 import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
-import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
+import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
 import { renderStreamAdmin, cancelStreamUpload } from './stream-admin.mjs';
@@ -67,6 +67,7 @@ const publishTimers = new Map();
 const publishChains = new Map();
 const metadataVersions = new Map();
 const metadataStatus = new Map();
+const pendingMetadata = new Map();
 const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
@@ -104,9 +105,19 @@ function queueMetaPublish(id) {
   clearTimeout(publishTimers.get(id));
   publishTimers.set(id, setTimeout(async () => {
     publishTimers.delete(id);
+    const patch = { ...pendingMetadata.get(id) };
     try {
-      await publishKey('meta:' + id, publicMetadata(state.meta[id] || {}));
-      if (metadataVersions.get(id) === version) setMetadataStatus(id, 'saved');
+      const key = 'meta:' + id, prior = publishChains.get(key) || Promise.resolve();
+      const request = prior.catch(() => {}).then(() => admin.patchMetadata(id, patch));
+      publishChains.set(key, request);
+      const canonical = await request;
+      if (metadataVersions.get(id) === version) {
+        pendingMetadata.delete(id);
+        state.meta[id] = publicMetadata(canonical);
+        save();
+        if (selected?.id === id) renderPublicVideoDetails();
+        setMetadataStatus(id, 'saved');
+      }
     } catch {
       if (metadataVersions.get(id) === version) setMetadataStatus(id, 'error');
     }
@@ -128,17 +139,24 @@ function studioContext() { return { state: () => state, save: () => { save(); if
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
 } }; }
-function addLabel(name, type, dance) { if (!requireAdmin()) return; try { const label = createLabel(state.labels, name, type, dance); save(); publishLabels(); return label; } catch (error) { toast(error.message); } }
+async function addLabel(name, type, dance) {
+  try {
+    const label = await admin.addSharedLabel(name, type, dance);
+    state.labels = cleanLabels([...state.labels, label]);
+    save();
+    return label;
+  } catch (error) { toast('Could not add the label: ' + error.message); }
+}
 function readableDate(value) { if (!value || Number.isNaN(Date.parse(value))) return 'Unknown'; return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
 function cardDetails(v) { const m = meta(v.id); const labels = state.labels.filter(l => m.labelIds?.includes(l.id)); const artists = state.labels.filter(l => m.artistIds?.includes(l.id));
   return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${labels.length ? labels.slice(0, 2).map(l => `<span class="tag">${esc(l.name)}</span>`).join('') : ''}${labels.length > 2 ? `<span class="empty-tag">+${labels.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
 }
 
-/** Public catalogue metadata is always visible below the player; only the owner can edit it. */
+/** Everyone can edit the shared metadata directly below the video. */
 function renderPublicVideoDetails() {
   if (!selected) return;
   const video = selected, details = meta(video.id);
-  const editing = admin.isAdmin && !$('#video-details-editor').hidden;
+  const editing = !$('#video-details-editor').hidden;
   const labels = state.labels.filter(item => details.labelIds?.includes(item.id));
   const artists = state.labels.filter(item => details.artistIds?.includes(item.id));
   const field = (name, value, extraClass = '') => `<div class="video-info-item ${extraClass}"><dt>${esc(name)}</dt><dd>${value}</dd></div>`;
@@ -164,10 +182,10 @@ function renderPublicVideoDetails() {
     ...(video.duration ? [field('Duration', esc(formatTime(video.duration)))] : []),
     ...(video.width && video.height ? [field('Resolution', `${video.width} × ${video.height}`)] : []),
   ];
-  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>${editing ? 'Edit the fields below. Changes save automatically.' : 'Dance details and community labels'}</p></div><button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${editing}"${!admin.isAdmin ? ' aria-haspopup="dialog"' : ''}>${editing ? 'Done editing' : 'Edit metadata'}</button></div><dl class="video-info-grid">${fields.join('')}</dl>${!editing && details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
+  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>${editing ? 'Anyone can edit these details. Changes save for everyone.' : 'Dance details and community labels'}</p></div><button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${editing}">${editing ? 'Done editing' : 'Edit metadata'}</button></div><dl class="video-info-grid">${fields.join('')}</dl>${!editing && details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
 }
 
-function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v = selected, m = meta(v.id);
+function mountVideoDetails() { if (!selected) return; const v = selected, m = meta(v.id);
   $('#personal-title').value = m.title || '';
   $('#notes').value = m.notes || '';
   setMetadataStatus(v.id);
@@ -192,7 +210,17 @@ function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageAvailable = true; return true; }
   catch { storageAvailable = false; toast('Browser storage is unavailable. Export a backup to keep your changes.'); return false; }
 }
-function patchMeta(id, patch) { if (!requireAdmin()) return false; state.meta[id] = { ...meta(id), ...patch }; const saved = save(); queueMetaPublish(id); if (state.drive.some(v => v.id === id)) publishDrive(); if (selected?.id === id) renderPublicVideoDetails(); return saved; }
+function patchMeta(id, patch) {
+  const change = publicMetadata(patch);
+  state.meta[id] = { ...meta(id), ...change };
+  const saved = save();
+  if (!id.startsWith('local:')) {
+    pendingMetadata.set(id, { ...pendingMetadata.get(id), ...change });
+    queueMetaPublish(id);
+  }
+  if (selected?.id === id) renderPublicVideoDetails();
+  return saved;
+}
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimeout); toastTimeout = setTimeout(() => $('#toast').classList.remove('show'), 4200); }
 function applyTheme() { document.documentElement.dataset.theme = state.theme; $('#theme-toggle').innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon'); $('#theme-toggle').setAttribute('aria-label', `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`); }
 function dateLabel() { return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()); }
@@ -300,7 +328,7 @@ function renderPractice() {
   });
 }
 function renderSettings() {
-  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Only the administrator manages labels and videos.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>Only you can add Google Drive videos, publish YouTube links or edit labels and video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
+  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
 function render() {
@@ -335,7 +363,7 @@ function updatePlayer() {
   const m = meta(selected.id);
   $('#player-title').textContent = displayTitle(selected, state.meta);
   $('#player-source').textContent = `${selected.dance} / ${selected.provider === 'drive' ? 'GOOGLE DRIVE' : selected.provider === 'local' ? 'ON THIS DEVICE' : 'YOUTUBE'}`;
-  $('#rating-buttons').innerHTML = admin.isAdmin ? `${Array.from({ length: 10 }, (_, i) => `<button data-action="rate" data-rating="${i + 1}" aria-label="Rate ${i + 1} out of 10" aria-pressed="${m.rating === i + 1}" class="${m.rating === i + 1 ? 'active' : ''}">${i + 1}</button>`).join('')}<button class="unrate ${!m.rating ? 'active' : ''}" data-action="rate" data-rating="0" aria-pressed="${!m.rating}">Unrated</button>` : `${m.rating ? `${m.rating} / 10` : 'Not rated'}`;
+  $('#rating-buttons').innerHTML = `${Array.from({ length: 10 }, (_, i) => `<button data-action="rate" data-rating="${i + 1}" aria-label="Rate ${i + 1} out of 10" aria-pressed="${m.rating === i + 1}" class="${m.rating === i + 1 ? 'active' : ''}">${i + 1}</button>`).join('')}<button class="unrate ${!m.rating ? 'active' : ''}" data-action="rate" data-rating="0" aria-pressed="${!m.rating}">Unrated</button>`;
   $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In mix' : 'Add to mix'}`;
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
@@ -352,7 +380,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`;
-  $('#video-details-editor').hidden = !admin.isAdmin;
+  $('#video-details-editor').hidden = false;
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
   // About this video is rendered from canonical source timestamps and published metadata.
 
@@ -511,15 +539,14 @@ document.addEventListener('click', async event => {
     }
   }
   if (action === 'edit-video-details' && selected) {
-    if (!admin.isAdmin) { openAdminSignIn(); return; }
     const editor = $('#video-details-editor');
     editor.hidden = !editor.hidden;
     renderPublicVideoDetails();
     if (!editor.hidden) { mountVideoDetails(); $('#personal-title').focus(); }
     else $('#public-video-details [data-action="edit-video-details"]').focus({ preventScroll: true });
   }
-  if (action === 'retry-video-save' && selected && requireAdmin()) queueMetaPublish(selected.id);
-  if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
+  if (action === 'retry-video-save' && selected) queueMetaPublish(selected.id);
+  if (action === 'rate' && selected) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue, null, '', true); }
   if (action === 'add-youtube') openYoutube();
   if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
@@ -621,7 +648,7 @@ videoResize.addEventListener('dblclick', () => applyVideoHeight(0, true));
 window.addEventListener('resize', () => {
   if (playerDialog.open) applyVideoHeight(state.playerHeight);
 });
-for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
+for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
 $('.develop-badge').hidden = !location.hostname.startsWith('develop--') && location.hostname !== 'localhost';
 hydrateIcons(); applyTheme(); loadConfiguration().finally(start);
