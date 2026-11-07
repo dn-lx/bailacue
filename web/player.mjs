@@ -36,8 +36,14 @@ export class StudioPlayer {
         <button type="button" id="media-forward" class="media-icon media-skip" aria-label="Forward 5 seconds" title="Forward 5 seconds">${mediaIcon('forward')}</button>
       </div>
       <div class="player-utilities">
-        <div class="volume-control"><button type="button" id="media-mute" class="media-icon" aria-label="Mute" title="Mute">${mediaIcon('volume')}</button><input type="range" id="media-volume" aria-label="Volume" min="0" max="100" value="100"></div>
-        <label class="speed-label" for="media-speed">Speed<select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        <div class="volume-control" role="group" aria-label="Volume controls">
+          <button type="button" id="media-mute" class="media-icon" aria-label="Mute" title="Mute">${mediaIcon('volume')}</button>
+          <button type="button" id="media-volume-down" class="volume-step" aria-label="Decrease volume" title="Volume down">−</button>
+          <input type="range" id="media-volume" aria-label="Adjust volume" min="0" max="100" step="1" value="100">
+          <button type="button" id="media-volume-up" class="volume-step" aria-label="Increase volume" title="Volume up">+</button>
+          <output id="media-volume-value" class="volume-value" aria-live="off">100%</output>
+        </div>
+        <label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button></div>
       </div>`;
     const fullscreen = document.querySelector('#fullscreen-button');
@@ -49,12 +55,13 @@ export class StudioPlayer {
     this.$('#media-forward').onclick = () => this.seek(this.current() + 5);
     this.$('#media-seek').oninput = e => this.seek(Number(e.target.value) / 1000 * this.duration());
     this.$('#media-speed').onchange = e => { const value = Number(e.target.value); if (this.media) this.media.playbackRate = value; if (this.youtube) this.youtube.setPlaybackRate(value); };
-    this.$('#media-volume').oninput = e => { const value = Number(e.target.value); if (this.media) { this.media.volume = value / 100; this.media.muted = value === 0; } if (this.youtube) { this.youtube.setVolume(value); value === 0 ? this.youtube.mute() : this.youtube.unMute(); } this.updateVolume(); };
+    this.$('#media-volume').oninput = e => this.setVolume(Number(e.target.value));
+    this.$('#media-volume-down').onclick = () => this.setVolume(Number(this.$('#media-volume').value) - 10);
+    this.$('#media-volume-up').onclick = () => this.setVolume(Number(this.$('#media-volume').value) + 10);
     this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.updateVolume(); };
     this.$('#media-mirror').onclick = () => { if (!this.media) return; const active = this.media.classList.toggle('mirrored'); this.$('#media-mirror').setAttribute('aria-pressed', String(active)); };
     document.querySelector('#fullscreen-button').addEventListener('click', () => this.fullscreen());
-    document.querySelector('#player').addEventListener('cancel', event => { if (document.querySelector('#player').classList.contains('fullscreen-mode')) { event.preventDefault(); this.fullscreen(); } });
-    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); });
+    /* The player fills the browser viewport, not the device screen, so Close and Escape remain available. */
     document.addEventListener('keydown', event => {
       if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof Element && event.target.closest('input,select,textarea,button,[contenteditable=true]'))) return;
       if ([' ', 'k', 'ArrowLeft', 'ArrowRight', 'f'].includes(event.key)) event.preventDefault();
@@ -172,16 +179,25 @@ export class StudioPlayer {
     if (button.getAttribute('aria-label') === label) return;
     button.innerHTML = mediaIcon(playing ? 'pause' : 'play'); button.setAttribute('aria-label', label); button.title = label;
   }
+  setVolume(value) {
+    const volume = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    if (this.media) { this.media.volume = volume / 100; this.media.muted = volume === 0; }
+    if (this.youtube) { this.youtube.setVolume(volume); volume === 0 ? this.youtube.mute() : this.youtube.unMute(); }
+    this.$('#media-volume').value = String(volume);
+    this.updateVolume();
+  }
   updateVolume() {
     const muted = !!(this.media?.muted || this.youtube?.isMuted?.());
     const button = this.$('#media-mute'); button.innerHTML = mediaIcon(muted ? 'muted' : 'volume');
     button.setAttribute('aria-label', muted ? 'Unmute' : 'Mute'); button.title = muted ? 'Unmute' : 'Mute';
     const volume = this.media ? Math.round(this.media.volume * 100) : this.youtube?.getVolume?.();
-    if (Number.isFinite(volume)) this.$('#media-volume').value = muted ? 0 : volume;
+    if (Number.isFinite(volume)) this.$('#media-volume').value = String(muted ? 0 : Math.round(volume));
+    this.$('#media-volume-value').textContent = `${this.$('#media-volume').value}%`;
   }
   updateFullscreen() {
-    const active = document.querySelector('#player').classList.contains('fullscreen-mode');
-    const button = this.$('#fullscreen-button'), label = active ? 'Exit full screen' : 'Enter full screen'; button.setAttribute('aria-label', label); button.title = label;
+    const active = document.querySelector('#player').classList.contains('browser-wide');
+    const button = this.$('#fullscreen-button'), label = active ? 'Use compact player' : 'Expand player to browser viewport';
+    button.setAttribute('aria-label', label); button.title = label; button.setAttribute('aria-pressed', String(active));
   }
   current() { return this.media?.currentTime || this.youtube?.getCurrentTime?.() || 0; }
   duration() { return this.media?.duration || this.youtube?.getDuration?.() || 0; }
@@ -194,6 +210,10 @@ export class StudioPlayer {
     this.updateVolume();
     this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
   }
-  async fullscreen() { const dialog = document.querySelector('#player'); const active = dialog.classList.toggle('fullscreen-mode'); this.updateFullscreen(); if (!active) { if (document.fullscreenElement) await document.exitFullscreen().catch(() => {}); return; } try { if (this.stage.requestFullscreen) await this.stage.requestFullscreen(); } catch { /* The full-window layout remains available when native fullscreen is denied. */ } }
-  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); this.frame.classList.remove('portrait-video'); document.querySelector('#player').classList.remove('fullscreen-mode'); this.updateFullscreen(); }
+  fullscreen() {
+    const dialog = document.querySelector('#player');
+    dialog.classList.toggle('browser-wide');
+    this.updateFullscreen();
+  }
+  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); this.frame.classList.remove('portrait-video'); document.querySelector('#player').classList.remove('fullscreen-mode', 'browser-wide'); this.updateFullscreen(); }
 }
