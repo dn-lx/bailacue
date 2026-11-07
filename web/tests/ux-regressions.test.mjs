@@ -216,11 +216,14 @@ test('opening any video uses browser viewport with a permanent close control', (
   assert.doesNotMatch(playerSource, /dialog\.requestFullscreen\(\)/);
 });
 
-test('player is settings-free while keeping visible source actions and owner editing', () => {
+
+test('player has no external or Drive source buttons and still offers owner-only editing', () => {
   const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
-  const fallback = html.indexOf('id="drive-preview-button"'), provider = html.indexOf('id="provider-link"');
-  assert.ok(stage > 0 && actions > stage && fallback > actions && provider > fallback);
-  assert.match(html, /id="drive-preview-button" hidden/);
+  const details = html.indexOf('id="public-video-details"');
+  assert.ok(stage > 0 && actions > stage && details > actions);
+  assert.doesNotMatch(html, /id="drive-preview-button"|id="provider-link"|Open original|Try Google Drive player/);
+  assert.doesNotMatch(app, /#provider-link/);
+  assert.doesNotMatch(playerSource, /getElementById\('drive-preview-button'\)/);
   assert.match(html, /class="player-owner-edit" data-admin-only/);
   assert.doesNotMatch(html, /class="player-settings"|<summary>Player settings<\/summary>/);
 });
@@ -265,16 +268,23 @@ test('browser-wide player fills the viewport with Close and Escape support', () 
   assert.match(playerSource, /async fullscreen\(\) \{[\s\S]*?this\.videoShell\.requestFullscreen\(\)/);
 });
 
-test('preview and video metadata remain available without a settings accordion', () => {
-  const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
-  const preview = html.indexOf('id="drive-preview-button"');
-  const provider = html.indexOf('id="provider-link"');
-  assert.ok(stage > 0 && stage < actions && actions < preview && preview < provider);
-  assert.match(html, /id="public-video-details"/);
-  assert.match(html, /class="player-owner-edit" data-admin-only/);
-  assert.match(app, /\$\('#public-video-details'\)\.innerHTML/);
-  assert.doesNotMatch(html, /id="player-about"/);
-  assert.doesNotMatch(html, /id="player-reset-size"|id="player-height-reset"|class="player-settings"/);
+
+test('video metadata is public, with rating, labels, artists and upload date', () => {
+  const stage = html.indexOf('id="full-stage"'), section = html.indexOf('id="public-video-details"');
+  assert.ok(stage > 0 && section > stage);
+  assert.match(html, /id="public-video-details" class="public-video-details" aria-label="Video details"/);
+  assert.match(app, /function renderPublicVideoDetails\(\)/);
+  assert.match(app, /field\('Rating'/);
+  assert.match(app, /field\('Labels'/);
+  assert.match(app, /field\('Artists & teachers'/);
+  assert.match(app, /field\(uploadLabel, date\(video\.addedAt\)\)/);
+  assert.match(app, /field\('Recorded on', date\(details\.recordedAt\)\)/);
+  assert.match(app, /details\.notes/);
+  assert.match(app, /#public-video-details'\)\.innerHTML/);
+  assert.match(css, /#player\.browser-wide\[open\] #public-video-details/);
+  assert.match(css, /max-height: none !important/);
+  assert.match(css, /overflow-y: auto !important/);
+  assert.doesNotMatch(html, /id="player-about"|id="provider-link"|id="drive-preview-button"/);
 });
 
 test('volume plus minus and slider remain usable on Android with separate speed row', () => {
@@ -290,31 +300,34 @@ test('volume plus minus and slider remain usable on Android with separate speed 
   assert.match(css, /#player\.browser-wide #media-controls \.volume-control \{/);
 });
 
-test('owner-only editing remains scrollable outside the deleted viewer settings menu', () => {
+
+test('owner-only editing and public metadata are both reachable', () => {
   assert.match(html, /<details class="player-owner-edit" data-admin-only>/);
   assert.match(css, /#player > \.player-owner-edit \{/);
   assert.match(css, /#player\.browser-wide\[open\]:has\(> \.player-owner-edit\[open\]\)/);
+  assert.match(css, /#player\.browser-wide\[open\]:not\(\.fullscreen-mode\) \{/);
   assert.match(css, /overflow-y: auto !important/);
-  assert.match(css, /#player \.player-actions #drive-preview-button\[hidden\] \{ display: none !important; \}/);
+  assert.match(app, /if \(selected\?\.id === id\) renderPublicVideoDetails\(\)/);
 });
 
 
-test('fullscreen UI is a dedicated BailaCue overlay inside the video shell', () => {
+test('fullscreen UI has bottom-aligned transport and utilities inside the video shell', () => {
   const shell = html.indexOf('id="video-only-shell"');
   const frame = html.indexOf('id="video-frame"');
-  const tap = html.indexOf('id="fullscreen-tap-zone"');
   const overlay = html.indexOf('id="fullscreen-controls"');
-  const exit = html.indexOf('id="fullscreen-button"');
+  const bottom = html.indexOf('class="fullscreen-bottom"');
+  const transport = html.indexOf('class="fullscreen-transport"');
+  const exit = html.indexOf('id="fs-exit"');
   const resize = html.indexOf('id="video-resize"');
-  assert.ok(shell > 0 && frame > shell && tap > frame && overlay > tap && exit > overlay && exit < resize);
-  for (const id of ['fs-back', 'fs-play', 'fs-forward', 'fs-seek', 'fs-time', 'fs-mute', 'fs-volume', 'fs-speed']) {
+  assert.ok(shell > 0 && frame > shell && overlay > frame && bottom > overlay &&
+    transport > bottom && exit > transport && exit < resize);
+  for (const id of ['fs-back', 'fs-play', 'fs-forward', 'fs-seek', 'fs-time', 'fs-mute', 'fs-volume', 'fs-volume-down', 'fs-volume-up', 'fs-speed', 'fs-mirror', 'fs-exit']) {
     assert.match(html, new RegExp('id="' + id + '"'));
   }
   assert.match(html, /id="fullscreen-controls"[^>]*hidden/);
-  assert.match(html, /aria-label="Fullscreen playback controls"/);
-  assert.match(playerSource, /this\.fullscreenButton\.addEventListener\('click', \(\) => this\.fullscreen\(\)\)/);
-  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-controls:not\(\[hidden\]\)/);
-  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-tap-zone/);
+  assert.doesNotMatch(html, /fullscreen-tap-zone|fullscreen-center/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fullscreen-transport/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fullscreen-bottom/);
 });
 
 test('video-only fullscreen uses BailaCue controls rather than native or Drive controls', () => {
@@ -331,37 +344,37 @@ test('video-only fullscreen uses BailaCue controls rather than native or Drive c
   assert.match(css, /#player #video-only-shell #fullscreen-button\[hidden\] \{ display: none !important; \}/);
 });
 
-test('fullscreen has independent seek, volume, playback and speed interactions', () => {
+
+test('fullscreen has independent seek, volume, speed, mirror and exit controls', () => {
   assert.match(playerSource, /this\.fsPlay\.onclick = \(\) => \{ this\.playPause\(\)/);
   assert.match(playerSource, /this\.fsBack\.onclick = \(\) => \{ this\.seek\(this\.current\(\) - 5\)/);
   assert.match(playerSource, /this\.fsForward\.onclick = \(\) => \{ this\.seek\(this\.current\(\) \+ 5\)/);
   assert.match(playerSource, /this\.fsSeek\.oninput = \(\) => \{ this\.seek\(Number\(this\.fsSeek\.value\)/);
-  assert.match(playerSource, /this\.fsVolume\.oninput = \(\) => \{ this\.setVolume\(Number\(this\.fsVolume\.value\)\)/);
-  assert.match(playerSource, /this\.fsSpeed\.onchange = \(\) => \{ this\.setSpeed\(Number\(this\.fsSpeed\.value\)\)/);
-  assert.match(playerSource, /this\.fsMute\.onclick = \(\) => \{ this\.toggleMute\(\)/);
+  assert.match(playerSource, /this\.fsVolume\.oninput = \(\) => this\.setVolume\(Number\(this\.fsVolume\.value\)\)/);
+  assert.match(playerSource, /this\.fsVolumeDown\.onclick = \(\) => this\.setVolume\(Number\(this\.fsVolume\.value\) - 10\)/);
+  assert.match(playerSource, /this\.fsVolumeUp\.onclick = \(\) => this\.setVolume\(Number\(this\.fsVolume\.value\) \+ 10\)/);
+  assert.match(playerSource, /this\.fsSpeed\.onchange = \(\) => this\.setSpeed\(Number\(this\.fsSpeed\.value\)\)/);
+  assert.match(playerSource, /this\.fsMute\.onclick = \(\) => this\.toggleMute\(\)/);
+  assert.match(playerSource, /this\.fsMirror\.onclick = \(\) => this\.toggleMirror\(\)/);
+  assert.match(playerSource, /this\.fsExit\.onclick = \(\) => this\.fullscreen\(\)/);
   assert.match(playerSource, /this\.fsTime\.textContent = /);
-  assert.match(playerSource, /this\.updateFullscreenControls\(\)/);
 });
 
-test('fullscreen overlay reveals on tap or mouse, auto-hides after 3.5s, and respects keyboard focus', () => {
-  assert.match(playerSource, /this\.fullscreenTapZone\.addEventListener\('click', \(\) => this\.showFullscreenControls\(\)\)/);
-  assert.match(playerSource, /this\.videoShell\.addEventListener\('pointermove'/);
-  assert.match(playerSource, /this\.fullscreenControls\.addEventListener\('focusin'/);
-  assert.match(playerSource, /this\.fsScrubbing \|\| this\.fsPointerDown/);
-  assert.match(playerSource, /this\.fsKeyboardActive && \(this\.fullscreenControls\.contains\(document\.activeElement\)/);
-  assert.match(playerSource, /}, 3500\)/);
-  assert.match(css, /#player #video-only-shell:fullscreen\.fullscreen-controls-visible #fullscreen-button/);
-  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{[\s\S]*?opacity: 0/);
+
+test('fullscreen overlay remains visible throughout playback, including while idle', () => {
+  assert.doesNotMatch(playerSource, /scheduleFullscreenHide|fullscreenHideTimer|fullscreenTapZone/);
+  assert.doesNotMatch(playerSource, /}, 3500\)/);
+  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-controls:not\(\[hidden\]\)/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fullscreen-bottom \{/);
+  assert.match(css, /bottom: 0 !important/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fullscreen-transport/);
   const previousDocument = globalThis.document;
   const classes = new Set();
   const shell = { classList: { add: c => classes.add(c), remove: c => classes.delete(c) } };
   const overlay = { hidden: true };
   const instance = {
-    videoShell: shell,
-    fullscreenControls: overlay,
-    fullscreenHideTimer: null,
+    videoShell: shell, fullscreenControls: overlay,
     updateFullscreenControls() { this.synced = true; },
-    scheduleFullscreenHide() { this.scheduled = true; },
   };
   globalThis.document = { fullscreenElement: shell };
   try {
@@ -369,7 +382,6 @@ test('fullscreen overlay reveals on tap or mouse, auto-hides after 3.5s, and res
     assert.equal(overlay.hidden, false);
     assert.ok(classes.has('fullscreen-controls-visible'));
     assert.equal(instance.synced, true);
-    assert.equal(instance.scheduled, true);
     StudioPlayer.prototype.hideFullscreenControls.call(instance);
     assert.equal(overlay.hidden, true);
     assert.ok(!classes.has('fullscreen-controls-visible'));
@@ -450,17 +462,17 @@ test('blocked native fullscreen reports a useful error without changing video st
   }
 });
 
-test('fullscreen exit is in safe top corner, custom overlay uses uncropped video', () => {
+
+test('fullscreen exit is bottom-aligned and video stays uncropped', () => {
   assert.match(css, /#player #video-only-shell:fullscreen \{/);
   assert.match(css, /#player #video-only-shell:fullscreen #video-frame,/);
   assert.match(css, /object-fit: contain/);
-  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{[\s\S]*?top: max\(16px, env\(safe-area-inset-top\)\)/);
-  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{[\s\S]*?bottom: auto/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fullscreen-bottom \{/);
+  assert.match(css, /bottom: 0 !important/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fs-settings \{/);
+  assert.match(css, /#player #video-only-shell:fullscreen \.fs-settings \.fs-exit/);
   assert.match(playerSource, /document\.addEventListener\('fullscreenchange', \(\) => this\.updateFullscreen\(\)\)/);
-  assert.match(playerSource, /document\.fullscreenElement === this\.videoShell/);
   assert.match(playerSource, /await document\.exitFullscreen\(\)/);
-  assert.match(playerSource, /this\.fullscreenButton\.innerHTML = mediaIcon\(active \? 'shrink' : 'expand'\)/);
-  assert.match(playerSource, /this\.hideFullscreenControls\(\)/);
 });
 
 test('fullscreen explicitly disables native video controls and hides button for iframe previews', () => {
@@ -489,7 +501,7 @@ test('fullscreen explicitly disables native video controls and hides button for 
   try {
     StudioPlayer.prototype.updateFullscreen.call(instance);
     assert.equal(media.controls, false);
-    assert.equal(button.hidden, false);
+    assert.equal(button.hidden, true);
     assert.equal(button.attributes['aria-label'], 'Exit video fullscreen');
     assert.equal(flags.shown, 1);
     globalThis.document.fullscreenElement = null;
