@@ -543,6 +543,7 @@ widthResize.addEventListener('keydown', event => {
 const videoFrame = $('#video-frame');
 const videoResize = $('#video-resize');
 const videoHeightSlider = $('#player-height');
+videoFrame.addEventListener('videoaspectchange', () => { if (playerDialog.open) applyVideoHeight(state.playerHeight); });
 const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.82)));
 function applyVideoHeight(value, persist = false) {
   const max = playerHeightMaximum();
