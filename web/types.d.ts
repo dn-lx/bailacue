@@ -41,6 +41,7 @@ export interface State {
   numbering: Record<string, number>;
   googleClientId: string;
   playerSize: number;
+  playerHeight: number;
   queue: string[];
   mixSize: number;
   history: { id: string; at: string }[];
