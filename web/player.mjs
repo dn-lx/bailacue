@@ -9,6 +9,7 @@ const paths = {
   volume: '<path d="M3 11h5l6-5v16l-6-5H3Z"/><path d="M19 9a8 8 0 0 1 0 10m4-14a14 14 0 0 1 0 18"/>',
   muted: '<path d="M3 11h5l6-5v16l-6-5H3Z"/><path d="m20 10 6 8m0-8-6 8"/>',
   expand: '<path d="M10 3H3v7m15-7h7v7M3 18v7h7m15-7v7h-7"/>',
+  shrink: '<path d="M3 10h7V3m8 0v7h7M3 18h7v7m8 0v-7h7"/>',
   mirror: '<path d="M14 2v24M10 7 3 21h7Zm8 0 7 14h-7Z"/>',
 };
 function mediaIcon(name) { return `<svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`; }
@@ -197,7 +198,7 @@ export class StudioPlayer {
   updateFullscreen() {
     const active = document.querySelector('#player').classList.contains('browser-wide');
     const button = this.$('#fullscreen-button'), label = active ? 'Use compact player' : 'Expand player to browser viewport';
-    button.setAttribute('aria-label', label); button.title = label; button.setAttribute('aria-pressed', String(active));
+    button.setAttribute('aria-label', label); button.title = label; button.setAttribute('aria-pressed', String(active)); button.innerHTML = mediaIcon(active ? 'shrink' : 'expand');
   }
   current() { return this.media?.currentTime || this.youtube?.getCurrentTime?.() || 0; }
   duration() { return this.media?.duration || this.youtube?.getDuration?.() || 0; }
