@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
 import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -299,6 +299,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   const m = meta(id), labels = state.labels.filter(x => m.labelIds?.includes(x.id)), artists = state.labels.filter(x => m.artistIds?.includes(x.id));
   $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
+  requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
 
 function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from mix' : 'Added to mix'); if (selected?.id === id) updatePlayer(); refreshView(); }
@@ -483,7 +484,61 @@ window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 $('#player-size').addEventListener('change', event => { state.playerSize = Number(event.target.value); $('#player').classList.remove('theater'); $('#theater-button').textContent = 'Theater view'; $('#theater-button').setAttribute('aria-pressed', 'false'); $('#player').style.width = `${state.playerSize}px`; save(); });
-$('#player-height').addEventListener('input', event => $('#video-frame').style.setProperty('--video-height', `${event.target.value}px`));
+/* Resize the video without restarting playback. Pointer drag and keyboard sliders
+   write the same browser-local preference; neither touches video metadata. */
+const videoFrame = $('#video-frame');
+const videoResize = $('#video-resize');
+const videoHeightSlider = $('#player-height');
+const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.78)));
+function applyVideoHeight(value, persist = false) {
+  const max = playerHeightMaximum();
+  const height = clampPlayerHeight(value, max);
+  if (height) videoFrame.style.setProperty('--video-height', `${height}px`);
+  else videoFrame.style.removeProperty('--video-height');
+  const displayed = height || Math.round(videoFrame.getBoundingClientRect().height) || Math.min(max, 540);
+  videoResize.setAttribute('aria-valuemax', String(max));
+  videoResize.setAttribute('aria-valuenow', String(Math.round(displayed)));
+  videoResize.setAttribute('aria-valuetext', `${Math.round(displayed)} pixels high`);
+  videoHeightSlider.max = String(max);
+  videoHeightSlider.value = String(displayed);
+  if (persist) { state.playerHeight = height; save(); }
+  return height;
+}
+let activeVideoResize = null;
+videoResize.addEventListener('pointerdown', event => {
+  if (!$('#player').open || $('#player').classList.contains('fullscreen-mode') || event.button !== 0) return;
+  event.preventDefault();
+  videoResize.focus({ preventScroll: true });
+  activeVideoResize = { id: event.pointerId, startY: event.clientY, startHeight: videoFrame.getBoundingClientRect().height, height: 0 };
+  activeVideoResize.height = activeVideoResize.startHeight;
+  videoResize.setPointerCapture(event.pointerId);
+  videoResize.classList.add('dragging');
+});
+videoResize.addEventListener('pointermove', event => {
+  if (!activeVideoResize || activeVideoResize.id !== event.pointerId) return;
+  activeVideoResize.height = applyVideoHeight(activeVideoResize.startHeight + event.clientY - activeVideoResize.startY);
+});
+function endVideoResize(event) {
+  if (!activeVideoResize || activeVideoResize.id !== event.pointerId) return;
+  const height = activeVideoResize.height;
+  activeVideoResize = null;
+  videoResize.classList.remove('dragging');
+  if (videoResize.hasPointerCapture(event.pointerId)) videoResize.releasePointerCapture(event.pointerId);
+  applyVideoHeight(height, true);
+}
+videoResize.addEventListener('pointerup', endVideoResize);
+videoResize.addEventListener('pointercancel', endVideoResize);
+videoResize.addEventListener('keydown', event => {
+  const current = videoFrame.getBoundingClientRect().height;
+  const keyValues = { ArrowUp: current + 24, ArrowRight: current + 24, ArrowDown: current - 24, ArrowLeft: current - 24, Home: 220, End: playerHeightMaximum() };
+  if (!Object.hasOwn(keyValues, event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  applyVideoHeight(keyValues[event.key], true);
+});
+videoHeightSlider.addEventListener('input', event => applyVideoHeight(event.target.value));
+videoHeightSlider.addEventListener('change', event => applyVideoHeight(event.target.value, true));
+window.addEventListener('resize', () => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 $('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
 for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
