@@ -1,5 +1,7 @@
 # Latest continuation checkpoint · 7 November 2026
 
+Metadata editing follow-up: the edit action is now visible to signed-out viewers and opens owner sign-in from the video. Successful sign-in refreshes the open player and reveals editable fields immediately. Signed-in owners see those fields by default on every video; the summary does not repeat static versions of the fields being edited. Playback is preserved through sign-in. A DOM integration regression test covers the guest edit action, rejected and successful sign-in, all editable metadata, publication failure/retry and reopening with saved values. Owner authorization and automatic upload dates are preserved. Web lint, typecheck, all 81 tests, the static build and diff checks pass. Authentication and writes in the integration test use isolated response fixtures, not the live catalogue.
+
 Implemented and deployed on `develop` in commit `b2983ea22241701525da2a1aee458961c0626e26`:
 
 - Fullscreen is part of the playback control bar beside Mirror. Play is centered between equal five-second skip controls. Phone controls use a full-width volume row, with Mirror, centered Speed and Fullscreen below it. Fullscreen retains its persistent bottom bar with the same arrangement and Exit in the last position.

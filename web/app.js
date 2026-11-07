@@ -138,6 +138,7 @@ function cardDetails(v) { const m = meta(v.id); const labels = state.labels.filt
 function renderPublicVideoDetails() {
   if (!selected) return;
   const video = selected, details = meta(video.id);
+  const editing = admin.isAdmin && !$('#video-details-editor').hidden;
   const labels = state.labels.filter(item => details.labelIds?.includes(item.id));
   const artists = state.labels.filter(item => details.artistIds?.includes(item.id));
   const field = (name, value, extraClass = '') => `<div class="video-info-item ${extraClass}"><dt>${esc(name)}</dt><dd>${value}</dd></div>`;
@@ -149,21 +150,27 @@ function renderPublicVideoDetails() {
     ? `<span class="video-info-tags">${values.map(item => `<span class="tag">${esc(item.name)}</span>`).join('')}</span>`
     : '<span class="video-info-unset">Not added</span>';
   const uploadLabel = video.provider === 'drive' ? 'Uploaded to Drive' : 'Added to library';
-  const fields = [
+  const editableFields = [
     field('Rating', details.rating ? `<span class="video-info-rating">${icon('star')} <strong>${details.rating}/10</strong></span>` : '<span class="video-info-unset">Not rated yet</span>', 'video-info-rating-item'),
     field('Labels', tags(labels)),
     field('Artists & teachers', tags(artists)),
-    field(uploadLabel, date(video.addedAt)),
     field('Recorded on', date(details.recordedAt)),
     ...(details.event ? [field('Event / class', valueOrEmpty(details.event))] : []),
     ...(details.location ? [field('Location', valueOrEmpty(details.location))] : []),
+  ];
+  const fields = [
+    ...(!editing ? editableFields : []),
+    field(uploadLabel, date(video.addedAt)),
     ...(video.duration ? [field('Duration', esc(formatTime(video.duration)))] : []),
     ...(video.width && video.height ? [field('Resolution', `${video.width} × ${video.height}`)] : []),
   ];
-  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>Dance details and community labels</p></div>${admin.isAdmin ? `<button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${!$('#video-details-editor').hidden}">${$('#video-details-editor').hidden ? 'Edit details' : 'Done editing'}</button>` : ''}</div><dl class="video-info-grid">${fields.join('')}</dl>${details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
+  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>${editing ? 'Edit the fields below. Changes save automatically.' : 'Dance details and community labels'}</p></div><button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${editing}"${!admin.isAdmin ? ' aria-haspopup="dialog"' : ''}>${editing ? 'Done editing' : 'Edit metadata'}</button></div><dl class="video-info-grid">${fields.join('')}</dl>${!editing && details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
 }
 
 function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v = selected, m = meta(v.id);
+  $('#personal-title').value = m.title || '';
+  $('#notes').value = m.notes || '';
+  setMetadataStatus(v.id);
   for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).value = m[key] || '';
   labelPicker($('#detail-labels'), { title: 'Labels', labels: () => state.labels, selected: m.labelIds || [], dance: v.dance, allowCreate: true, onChange: ids => { patchMeta(v.id, { labelIds: ids }); }, onCreate: addLabel });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
@@ -345,7 +352,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`;
-  $('#video-details-editor').hidden = true;
+  $('#video-details-editor').hidden = !admin.isAdmin;
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
   // About this video is rendered from canonical source timestamps and published metadata.
 
@@ -411,11 +418,12 @@ async function loadSharedContent() {
   }
   $('#nav-count').textContent = String(videos().length);
 }
-$('#admin-login').addEventListener('click', () => {
+function openAdminSignIn() {
   $('#admin-error').textContent = '';
   $('#admin-dialog').showModal();
   $('#admin-email').focus();
-});
+}
+$('#admin-login').addEventListener('click', openAdminSignIn);
 $('#admin-dialog').addEventListener('close', () => {
   $('#admin-password').value = '';
   $('#admin-password').type = 'password';
@@ -438,7 +446,13 @@ $('#admin-form').addEventListener('submit', async event => {
   try {
     await admin.signIn($('#admin-email').value.trim(), $('#admin-password').value);
     $('#admin-password').value = '';
-    $('#admin-dialog').close(); applyAccess(); route(); toast('Signed in. You can now manage the library.');
+    $('#admin-dialog').close(); applyAccess(); route();
+    if (selected && $('#player').open) {
+      $('#video-details-editor').hidden = false;
+      updatePlayer(); mountVideoDetails();
+      $('#personal-title').focus();
+    }
+    toast('Signed in. You can now edit video metadata.');
   } catch (error) { $('#admin-error').textContent = error.message; }
   finally { button.disabled = false; }
 });
@@ -496,7 +510,8 @@ document.addEventListener('click', async event => {
       }
     }
   }
-  if (action === 'edit-video-details' && selected && requireAdmin()) {
+  if (action === 'edit-video-details' && selected) {
+    if (!admin.isAdmin) { openAdminSignIn(); return; }
     const editor = $('#video-details-editor');
     editor.hidden = !editor.hidden;
     renderPublicVideoDetails();
