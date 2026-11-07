@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampPlayerWidth, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
 import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -295,13 +295,12 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   studioPlayer.updateFullscreen();
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
-  applyPlayerWidth(state.playerSize);
+  $('#player').style.width = `${state.playerSize}px`;
   $('#provider-link').hidden = v.provider === 'local';
   if (v.provider !== 'local') $('#provider-link').href = v.provider === 'drive' ? `https://drive.google.com/file/d/${v.providerId}/view` : v.url; else $('#provider-link').removeAttribute('href');
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
   const m = meta(id), labels = state.labels.filter(x => m.labelIds?.includes(x.id)), artists = state.labels.filter(x => m.artistIds?.includes(x.id));
   $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
-  $('#player-about').hidden = !(labels.length || artists.length || m.notes);
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
@@ -487,76 +486,18 @@ document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.a
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
-/* The player supports preset sizes and custom drag widths without touching playback. */
+/* Video opens browser-wide, with the native media control to toggle compact view. */
 const playerDialog = $('#player');
 function setPlayerViewport(fill) {
   playerDialog.classList.toggle('browser-wide', fill);
   playerDialog.classList.remove('theater');
-  const toggle = $('#theater-button');
-  toggle.textContent = fill ? 'Windowed view' : 'Fill browser';
-  toggle.setAttribute('aria-pressed', String(!fill));
-  $('#player-size').disabled = fill;
-  $('#player-width-resize').setAttribute('aria-disabled', String(fill));
   studioPlayer.updateFullscreen();
-  if (!fill) applyPlayerWidth(state.playerSize);
   if (playerDialog.open) requestAnimationFrame(() => applyVideoHeight(state.playerHeight));
 }
-const widthResize = $('#player-width-resize');
-const widthPicker = $('#player-size');
-const playerWidthMaximum = () => Math.max(560, Math.min(1440, window.innerWidth - 24));
-function applyPlayerWidth(value, persist = false) {
-  const width = clampPlayerWidth(value);
-  playerDialog.style.width = `${width}px`;
-  widthPicker.value = [680, 960, 1280].includes(width) ? String(width) : 'custom';
-  const effectiveWidth = Math.min(width, playerWidthMaximum());
-  widthResize.setAttribute('aria-valuemax', String(Math.round(playerWidthMaximum())));
-  widthResize.setAttribute('aria-valuenow', String(Math.round(effectiveWidth)));
-  widthResize.setAttribute('aria-valuetext', `${Math.round(effectiveWidth)} pixels wide`);
-  if (persist) { state.playerSize = width; save(); }
-  return width;
-}
-widthPicker.addEventListener('change', event => {
-  if (event.target.value === 'custom') return;
-  setPlayerViewport(false);
-  applyPlayerWidth(Number(event.target.value), true);
-});
-let activeWidthResize = null;
-widthResize.addEventListener('pointerdown', event => {
-  if (!playerDialog.open || (playerDialog.classList.contains('fullscreen-mode') || playerDialog.classList.contains('browser-wide')) || window.innerWidth <= 720 || event.button !== 0) return;
-  event.preventDefault();
-  widthResize.focus({ preventScroll: true });
-  const startWidth = playerDialog.getBoundingClientRect().width;
-  activeWidthResize = { id: event.pointerId, startX: event.clientX, startWidth, width: startWidth };
-  widthResize.setPointerCapture(event.pointerId);
-  widthResize.classList.add('dragging');
-});
-widthResize.addEventListener('pointermove', event => {
-  if (!activeWidthResize || activeWidthResize.id !== event.pointerId) return;
-  activeWidthResize.width = applyPlayerWidth(Math.min(playerWidthMaximum(), activeWidthResize.startWidth + (event.clientX - activeWidthResize.startX)));
-});
-function endWidthResize(event) {
-  if (!activeWidthResize || activeWidthResize.id !== event.pointerId) return;
-  const { width, startWidth } = activeWidthResize;
-  activeWidthResize = null;
-  widthResize.classList.remove('dragging');
-  if (widthResize.hasPointerCapture(event.pointerId)) widthResize.releasePointerCapture(event.pointerId);
-  applyPlayerWidth(event.type === 'pointercancel' ? startWidth : width, true);
-}
-widthResize.addEventListener('pointerup', endWidthResize);
-widthResize.addEventListener('pointercancel', endWidthResize);
-widthResize.addEventListener('keydown', event => {
-  const current = playerDialog.getBoundingClientRect().width || state.playerSize;
-  const keyValues = { ArrowRight: current + 32, ArrowLeft: current - 32, Home: 560, End: playerWidthMaximum() };
-  if (!Object.hasOwn(keyValues, event.key)) return;
-  event.preventDefault();
-  event.stopPropagation();
-  applyPlayerWidth(Math.min(playerWidthMaximum(), keyValues[event.key]), true);
-});
 /* Resize the video without restarting playback. Pointer drag and keyboard sliders
    write the same browser-local preference; neither touches video metadata. */
 const videoFrame = $('#video-frame');
 const videoResize = $('#video-resize');
-const videoHeightSlider = $('#player-height');
 videoFrame.addEventListener('videoaspectchange', () => { if (playerDialog.open) applyVideoHeight(state.playerHeight); });
 const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.82)));
 function applyVideoHeight(value, persist = false) {
@@ -568,8 +509,6 @@ function applyVideoHeight(value, persist = false) {
   videoResize.setAttribute('aria-valuemax', String(max));
   videoResize.setAttribute('aria-valuenow', String(Math.round(displayed)));
   videoResize.setAttribute('aria-valuetext', `${Math.round(displayed)} pixels high`);
-  videoHeightSlider.max = String(max);
-  videoHeightSlider.value = String(displayed);
   if (persist) { state.playerHeight = height; save(); }
   return height;
 }
@@ -606,21 +545,11 @@ videoResize.addEventListener('keydown', event => {
   event.stopPropagation();
   applyVideoHeight(keyValues[event.key], true);
 });
-videoHeightSlider.addEventListener('input', event => applyVideoHeight(event.target.value));
-videoHeightSlider.addEventListener('change', event => applyVideoHeight(event.target.value, true));
-$('#player-height-reset').addEventListener('click', () => applyVideoHeight(0, true));
-$('#player-reset-size').addEventListener('click', () => {
-  state.playerSize = 960;
-  state.playerHeight = 0;
-  applyPlayerWidth(state.playerSize);
-  applyVideoHeight(state.playerHeight);
-  save();
-  toast('Player size reset to automatic video height and comfortable width.');
-});
+/* Keep drag sizing responsive; double-click/tap the grip to return to automatic height. */
+videoResize.addEventListener('dblclick', () => applyVideoHeight(0, true));
 window.addEventListener('resize', () => {
-  if (playerDialog.open) { applyPlayerWidth(state.playerSize); applyVideoHeight(state.playerHeight); }
+  if (playerDialog.open) applyVideoHeight(state.playerHeight);
 });
-$('#theater-button').addEventListener('click', () => setPlayerViewport(!playerDialog.classList.contains('browser-wide')));
 for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
 $('.develop-badge').hidden = !location.hostname.startsWith('develop--') && location.hostname !== 'localhost';
