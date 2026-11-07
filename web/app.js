@@ -291,6 +291,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   if (v.provider !== 'local') { state.history = recordRecent(state.history, v.id); save(); }
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
+  $('#player').classList.add('browser-wide');
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   applyPlayerWidth(state.playerSize);
   $('#provider-link').hidden = v.provider === 'local';
@@ -459,7 +460,7 @@ document.addEventListener('click', async event => {
   if (action === 'retry-load') start();
 });
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
-$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
 for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Publishing to the shared catalogue…' : 'Administrator permission required'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
 $('#personal-title').addEventListener('change', refreshView);
@@ -508,7 +509,7 @@ widthPicker.addEventListener('change', event => {
 });
 let activeWidthResize = null;
 widthResize.addEventListener('pointerdown', event => {
-  if (!playerDialog.open || playerDialog.classList.contains('fullscreen-mode') || window.innerWidth <= 720 || event.button !== 0) return;
+  if (!playerDialog.open || (playerDialog.classList.contains('fullscreen-mode') || playerDialog.classList.contains('browser-wide')) || window.innerWidth <= 720 || event.button !== 0) return;
   event.preventDefault();
   widthResize.focus({ preventScroll: true });
   const startWidth = playerDialog.getBoundingClientRect().width;
