@@ -17,6 +17,13 @@ export function clampMixCount(value, available, fallback = 10) {
   if (!Number.isFinite(requested)) return Math.min(maximum, fallback);
   return Math.max(1, Math.min(maximum, Math.floor(requested)));
 }
+/** Browser-local player width. Preserve custom drag sizes, unlike the preset selector. */
+export function clampPlayerWidth(value, fallback = 960) {
+  if (value == null || value === '') return fallback;
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.max(560, Math.min(1440, Math.round(number)));
+}
 /** 0 means responsive automatic height; positive values are user-requested pixel heights. */
 export function clampPlayerHeight(value, max = 840) {
   if (value === 0 || value == null || value === '') return 0;
@@ -66,7 +73,7 @@ export function cleanState(input) {
   out.theme = input.theme === 'dark' ? 'dark' : 'light';
   out.labels = cleanLabels(input.labels);
   out.googleClientId = /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(input.googleClientId || '') ? input.googleClientId : '';
-  out.playerSize = [680, 960, 1280].includes(input.playerSize) ? input.playerSize : 960;
+  out.playerSize = clampPlayerWidth(input.playerSize);
   out.playerHeight = clampPlayerHeight(input.playerHeight);
   for (const dance of ['Salsa', 'Bachata']) out.numbering[dance] = Number.isSafeInteger(input.numbering?.[dance]) && input.numbering[dance] >= 0 ? input.numbering[dance] : 0;
   out.drive = Array.isArray(input.drive) ? input.drive.filter(v => v && v.provider === 'drive' && /^[A-Za-z0-9_-]{10,100}$/.test(v.providerId) && v.id === `drive:${v.providerId}` && SOURCES.some(s => s.dance === v.dance && s.folderId === v.folderId)).slice(0, 5000).map(v => ({ id: v.id, provider: 'drive', providerId: v.providerId, folderId: v.folderId, dance: v.dance, title: String(v.title || '').slice(0, 160), filename: String(v.filename || '').slice(0, 160), addedAt: String(v.addedAt || ''), updatedAt: String(v.updatedAt || ''), size: Number(v.size) || 0, duration: Number(v.duration) || null, width: Number(v.width) || null, height: Number(v.height) || null, mimeType: String(v.mimeType || 'video/mp4').slice(0, 60) })) : [];
