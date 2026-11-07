@@ -219,3 +219,16 @@ In response to the Android screenshot, the video frame now has a visible fullscr
 - Added regression tests for control placement, source preservation, native fullscreen request/exit, rejection handling, and no accidental expansion of the entire dialog.
 
 Verification: GitHub Actions web workflow (lint/typecheck/tests/build) and Netlify `develop` branch deployment. A physical Android screenshot test remains outstanding. Production `main` remains unchanged.
+
+## Custom BailaCue fullscreen controls · 7 November 2026 — develop only
+
+The earlier video-only fullscreen exposed browser-native controls, which conflicted with the desired BailaCue playback experience and allowed Google Drive UI to dominate when an iframe preview was used.
+
+- **Replaced the native video control bar:** the direct HTML5 video always uses `controls = false`. The fullscreen shell includes BailaCue-owned Play/Pause, skip ±5 seconds, seek bar, time display, mute, volume slider, speed selector, and an Exit fullscreen button.
+- **Tap-to-reveal:** a transparent tap layer over the video reveals the controls. Pointer movement also reveals them on desktops. A 3.5-second inactivity timer hides them; keyboard focus and active seek dragging keep controls visible.
+- **Video-only screen:** only the video shell goes fullscreen. The normal browser-wide popup, header, metadata, main transport and resize handle remain outside. Video aspect ratio stays uncropped.
+- **Provider boundary:** a cross-origin Google Drive preview iframe or Cloudflare Stream iframe cannot be operated by the same BailaCue controls. Custom fullscreen is unavailable for those iframe fallbacks and the user is told that direct, controllable playback is needed. The Drive iframe is not granted native fullscreen permission. YouTube's controllable IFrame API uses BailaCue controls with its built-in control bar disabled, but provider branding may remain.
+- **No playback reset:** the fullscreen overlay controls operate the existing video/YouTube player, preserving time, playback rate and volume across entering and exiting fullscreen. Unsupported or blocked fullscreen requests show actionable feedback.
+- **Validation:** regression tests for controls, seek, volume, speed, auto-hide, fullscreen transitions, native-controls disabled, iframe restrictions and blocked-browser feedback; GitHub Actions lint/typecheck/tests/build and Netlify `develop` branch deployment. Real Android-browser visual testing remains outstanding.
+
+These changes do not affect backend permissions or the production `main` branch.
