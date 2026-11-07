@@ -211,9 +211,9 @@ test('opening any video uses browser viewport with a permanent close control', (
   assert.match(app, /setPlayerViewport\(true\)/);
   assert.match(css, /#player\.browser-wide:not\(\.fullscreen-mode\) \{[\s\S]*?height: 100dvh !important/);
   assert.match(css, /#player\.browser-wide \#full-stage \{[\s\S]*?flex: 1 1 0/);
-  assert.match(app, /classList\\.toggle\\('browser-wide', fill\\)/);
-  assert.match(playerSource, /this\\.videoShell\\.requestFullscreen\\(\\)/);
-  assert.doesNotMatch(playerSource, /dialog\\.requestFullscreen\\(\\)/);
+  assert.match(app, /classList\.toggle\('browser-wide', fill\)/);
+  assert.match(playerSource, /this\.videoShell\.requestFullscreen\(\)/);
+  assert.doesNotMatch(playerSource, /dialog\.requestFullscreen\(\)/);
 });
 
 test('player is settings-free while keeping visible source actions and owner editing', () => {
@@ -262,7 +262,7 @@ test('browser-wide player fills the viewport with Close and Escape support', () 
   assert.match(css, /width: 100vw !important;/);
   assert.match(css, /#player\.browser-wide #full-stage \{/);
   assert.match(css, /flex: 1 1 0;/);
-  assert.match(playerSource, /async fullscreen\\(\\) \\{[\\s\\S]*?this\\.videoShell\\.requestFullscreen\\(\\)/);
+  assert.match(playerSource, /async fullscreen\(\) \{[\s\S]*?this\.videoShell\.requestFullscreen\(\)/);
 });
 
 test('preview and video metadata remain available without a settings accordion', () => {
@@ -323,7 +323,7 @@ test('only video shell fills the native screen and video remains uncropped', () 
   assert.match(playerSource, /document\.fullscreenElement === this\.videoShell/);
   assert.match(playerSource, /document\.addEventListener\('fullscreenchange', \(\) => this\.updateFullscreen\(\)\)/);
   assert.match(playerSource, /await document\.exitFullscreen\(\)/);
-  assert.match(playerSource, /this\.media\.webkitEnterFullscreen\(\)/);
+  assert.match(playerSource, /legacyVideo\.webkitEnterFullscreen\(\)/);
   assert.match(playerSource, /this\.toast\('Video fullscreen was blocked/);
 });
 
