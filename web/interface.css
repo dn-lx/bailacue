@@ -1509,3 +1509,49 @@ details > summary:hover::after { color: var(--blue); }
   touch-action: none;
 }
 #player.browser-wide #video-resize .resize-grip { width: 42px; flex-basis: 42px; height: 5px; }
+
+
+/* Owner-only metadata editor is independent of the removed public Player settings.
+   Opening it turns the browser-wide player into a scrollable editing surface. */
+#player > .player-owner-edit {
+  flex: 0 0 auto;
+  max-width: 1500px;
+  width: 100%;
+  margin: 6px auto 0;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--bg);
+}
+#player > .player-owner-edit > summary {
+  min-height: 44px;
+  padding: 10px 4px;
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--text);
+}
+#player > .player-owner-edit .player-info {
+  display: grid;
+  margin: 0;
+  padding: 12px 0;
+  min-width: 0;
+  border-top: 1px solid var(--line);
+}
+#player.browser-wide[open]:has(> .player-owner-edit[open]) {
+  overflow-y: auto !important;
+}
+#player.browser-wide:has(> .player-owner-edit[open]) #full-stage {
+  flex: 0 0 auto;
+  height: min(66dvh, 650px);
+  min-height: 260px;
+}
+#player.browser-wide:has(> .player-owner-edit[open]) #video-frame {
+  flex: 1 1 auto;
+  min-height: 230px !important;
+  height: auto !important;
+}
+#player > .player-owner-edit #stream-admin {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+#player .player-actions #drive-preview-button[hidden] { display: none !important; }
