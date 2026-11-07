@@ -1499,3 +1499,13 @@ details > summary:hover::after { color: var(--blue); }
   #player.browser-wide #media-controls .volume-control { flex-wrap: nowrap; }
   #player.browser-wide #media-controls .speed-label { white-space: nowrap; }
 }
+
+
+/* Touch-sized draggable seam remains reachable below the video. */
+#player.browser-wide #video-resize {
+  flex: 0 0 44px;
+  min-height: 44px;
+  padding: 8px 12px;
+  touch-action: none;
+}
+#player.browser-wide #video-resize .resize-grip { width: 42px; flex-basis: 42px; height: 5px; }
