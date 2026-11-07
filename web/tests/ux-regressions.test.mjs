@@ -148,3 +148,32 @@ test('filter, label, display and video disclosures share a consistent CSS chevro
   assert.ok(app.includes('<summary class="filter-summary">More filters'));
   assert.ok(css.includes('.label-picker > summary > .picker-count:last-child'));
 });
+
+test('popup player gives the video more mobile space with an accessible resize handle', () => {
+  assert.match(html, /id="video-resize" class="video-resize" role="slider" tabindex="0"/);
+  assert.match(html, /aria-orientation="vertical"/);
+  assert.match(html, /id="video-resize-label">Drag to resize video/);
+  assert.match(html, /id="player-height" type="range" min="220" max="840"/);
+  assert.match(css, /#player:not\(\.fullscreen-mode\) #video-frame \{[\s\S]*?height: var\(--video-height, clamp\(380px, 58dvh, 680px\)\)/);
+  assert.match(css, /height: var\(--video-height, min\(63dvh, 650px\)\)/);
+  assert.match(css, /#player \.video-resize \{[\s\S]*?touch-action: none/);
+  assert.match(css, /#player\.fullscreen-mode \.video-resize,/);
+  assert.match(app, /videoResize\.addEventListener\('pointerdown'/);
+  assert.match(app, /videoResize\.addEventListener\('pointermove'/);
+  assert.match(app, /videoResize\.addEventListener\('pointerup'/);
+  assert.match(app, /videoResize\.addEventListener\('pointercancel'/);
+  assert.match(app, /videoResize\.addEventListener\('keydown'/);
+  assert.match(app, /state\.playerHeight = height; save\(\)/);
+  assert.match(app, /requestAnimationFrame\(\(\) => \{ if \(\$\('#player'\)\.open\) applyVideoHeight\(state\.playerHeight\)/);
+});
+
+test('popup transport stays readable, speed arrow does not tile on Android', () => {
+  assert.match(css, /#player #media-controls #media-speed \{[\s\S]*?background-image: none !important/);
+  assert.match(css, /#player #media-controls #media-speed \{[\s\S]*?background-repeat: no-repeat !important/);
+  assert.match(css, /#player #media-controls \.speed-label::after \{/);
+  assert.match(css, /#player #media-controls \.player-utilities \{/);
+  assert.match(css, /#player #media-controls \.media-play \{/);
+  assert.match(css, /#player \.display-panel \.height-control \{ display: flex; \}/);
+  assert.match(css, /@media \(max-width: 460px\)/);
+  assert.match(css, /#player #media-controls #media-volume \{ display: none; \}/);
+});
