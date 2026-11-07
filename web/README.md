@@ -6,14 +6,18 @@ mobile app is separate and has not been changed in this version.
 
 ## Experience
 - Public video library, search, artist/style labels and the fixed Salsa/Bachata collections.
-- The video popup prioritizes portrait and landscape playback, includes touch/keyboard video-height dragging, optional desktop width dragging, and Reset size/Auto height controls. Preferences are stored locally and video frames remain uncropped.
+- The video popup fills the browser viewport, prioritizes portrait and landscape playback, and supports touch/keyboard video-height dragging. The video-only fullscreen mode has its own permanently visible BailaCue controls at the bottom (seek, centered playback, volume, speed, mirror and exit). Frames remain uncropped. Chrome's native fullscreen control bar is not used.
 - Choose the number of videos (from 1 up to the available catalogue size), then create a Salsa mix, Bachata mix or combined Salsa + Bachata mix. Mix size is saved locally, and is limited to the number of videos available for the selected dance. Native HTML5 and individual YouTube videos advance automatically to the next mix item when a video ends, where autoplay is permitted; iframe fallback and adaptive Stream copies retain manual Next/Previous controls.
 - No favourites tab, learning status, BPM entry or saved A–B practice loops.
-- Footer: "Create your own BailaCue with your own videos", opening
-  `https://wa.me/491796932923`.
+- The footer has only BailaCue branding, without a promotional or external WhatsApp button.
 - Video uses the existing native HTML5 player (Drive originals), or YouTube's
   official iframe player. HTML5 video now requests early buffering
   (`preload="auto"`) and waits until it is playable to enable controls.
+
+## Video metadata and automatic dates
+The viewer displays each video's published rating (out of 10), labels, artists/teachers, upload or added date, optional recorded date, event, location, duration/resolution when known, and notes. These details are visible to every visitor; owner-only editing remains in its separate editor.
+
+For uploaded Drive files, **Uploaded to Drive** uses Drive's `createdTime` value, captured automatically when the upload is confirmed. YouTube sources record the date they are added to BailaCue. The **Recorded on** date is separate and optional, not inferred from upload time. This prevents inaccurate recording dates.
 
 ## Public navigation and accessibility
 The header shows **Sign in** instead of administrator terminology, with password visibility and remembered owner access. Mobile viewers have a dedicated Settings shortcut, large touch targets, and accessible video result counts. See [UI-UX-AUDIT.md](UI-UX-AUDIT.md) for the latest refinements.
@@ -67,8 +71,7 @@ serve those entries without viewer authentication. The media handler also checks
 the public Supabase content table for newly owner-published Drive files,
 validates their IDs, fixed-folder association and size, then serves them through
 the existing bounded range proxy without requiring a catalogue redeploy.
-Playback still depends on Drive's public sharing permissions, quotas and codecs;
-Drive preview and Open original remain fallbacks.
+Playback still depends on Drive's public sharing permissions, quotas and codecs. The public video popup no longer presents **Try Google Drive player** or **Open original** buttons. An automatic embedded preview may still appear when the direct video format cannot play, but that provider iframe cannot use BailaCue's custom fullscreen controls.
 
 ## Build and deployment
 ```sh
