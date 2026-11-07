@@ -180,3 +180,18 @@ Follow-up from the Android screenshot and feedback: the player opened as a relat
 | Video sizing was lost in expanded mode. | Responsive default video stage fills remaining browser height; user-set video heights switch to scrollable custom sizing, with a 44px touch/keyboard resize grip. Close stays accessible in scrollable settings. |
 
 Checks: web lint/typecheck/tests/build and Netlify `develop` branch deploy. A physical Android interaction test is outstanding; the connected live-browser test provider cannot run with the current account balance. No Supabase policies, paid streaming providers, or production `main` were changed.
+
+## Full-browser player controls · 7 November 2026 — develop only
+
+The next user feedback required that the library and mix playback popup fill the **browser content viewport** on opening, without invoking the device's native fullscreen API; the Close button must still dismiss it. The user also requested settings beneath playback in place of the prominent Drive-preview action and functional, non-overlapping volume/speed controls.
+
+| Finding | Change |
+| --- | --- |
+| The popup remained a centered dialog requiring another fullscreen tap. | Each opened Library video and Mix item now enters browser-wide mode immediately. The video stage fills remaining viewport height; the title and Close action stay at the top. A Windowed view toggle is provided through Player settings. |
+| Player settings appeared above playback, using inconsistent text buttons. | Moved the disclosure into the lower actions area. Reset, height, width and optional fallback are grouped beneath the new Player settings control with consistent tap targets. The Google Drive fallback remains available *inside* settings when applicable, not as a persistent action beside every video. |
+| The player had no usable mobile volume adjustment. | Added − and + buttons, mute and a visible 0–100% slider with percentage output; control steps are 10%, clamped to the range. Embedded third-party iframe players retain their own volume controls when cross-origin playback is used. |
+| Speed controls overlapped the Play button. | Centered Back/Play/Forward transport in its own row; speed and mirror actions are arranged separately, with explicit responsive grid areas on smaller screens and the range slider in the volume row. |
+| Enlarging video might hide metadata editing. | Moved public video information and single-owner editing inside expandable Player settings sections, preserving authorization. |
+| Earlier draggable sizing needed to remain possible. | Preserved touch/keyboard video-height resizing and desktop width adjustments; the browser-view layout keeps the player within the viewport by default. |
+
+Verification: automatic GitHub Actions lint/typecheck/tests/build and Netlify deploy on `develop`. Automated checks are not equivalent to watching the real video on an Android phone; connected live-browser testing was unavailable. Production `main` remains unchanged.
