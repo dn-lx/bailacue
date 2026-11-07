@@ -433,3 +433,204 @@ details > summary:hover::after { color: var(--blue); }
 @media (prefers-reduced-motion: reduce) {
   details > summary::after { transition: none; }
 }
+
+
+/* Player v2: prioritize the film over chrome. Use the same surface and
+   touch-target system as the rest of BailaCue; keep video in contain mode. */
+#player:not(.fullscreen-mode) {
+  width: min(1120px, calc(100vw - 20px));
+  max-width: calc(100vw - 12px);
+  max-height: calc(100dvh - 16px);
+  padding: clamp(12px, 1.4vw, 20px);
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+#player:not(.fullscreen-mode) .player-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 8px;
+  padding: 0 0 6px;
+  border: 0;
+}
+#player .player-top .eyebrow { font-size: 11px; letter-spacing: .8px; }
+#player .player-top h2 { margin-top: 4px; font-size: clamp(21px, 2.5vw, 28px); line-height: 1.18; }
+#player .player-top .icon-button { flex: 0 0 44px; height: 44px; border-radius: 12px; }
+#player .player-layout-tools { margin: 0 0 8px; gap: 8px; min-height: 38px; }
+#player .display-options > summary {
+  width: fit-content;
+  min-height: 38px;
+  padding: 6px 12px;
+  gap: 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--bg);
+  font-size: 13px;
+  font-weight: 600;
+}
+#player .display-options > summary:hover,
+#player .display-options[open] > summary { background: var(--soft); }
+#player .display-options > summary::after { color: var(--muted); margin-right: 4px; }
+#player .display-panel { margin-top: 8px; gap: 12px; }
+#player .display-panel .height-control { display: flex; }
+#player .display-panel .height-control input {
+  width: clamp(96px, 16vw, 180px);
+  max-width: 48vw;
+  accent-color: var(--blue);
+}
+#player .display-panel > label { font-size: 13px; }
+#player:not(.fullscreen-mode) #full-stage {
+  border-radius: 14px;
+  overflow: hidden;
+  background: #101723;
+}
+#player:not(.fullscreen-mode) #video-frame {
+  height: var(--video-height, clamp(380px, 58dvh, 680px));
+  max-height: min(78dvh, 840px);
+  min-height: 220px;
+  aspect-ratio: auto;
+  background: #101723;
+  border-radius: 0;
+}
+#player #video-frame > video,
+#player #video-frame > iframe { display: block; width: 100%; height: 100%; object-fit: contain; }
+#player .video-resize {
+  display: flex;
+  min-height: 32px;
+  width: 100%;
+  padding: 4px 10px;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  background: #1a2a40;
+  border-top: 1px solid #3b506a;
+  color: #c2d4ed;
+  font-size: 11px;
+  line-height: 1.4;
+  font-weight: 600;
+  touch-action: none;
+  cursor: ns-resize;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#player .video-resize:hover,
+#player .video-resize.dragging,
+#player .video-resize:focus-visible { background: #2a405e; color: #fff; }
+#player .video-resize:focus-visible { outline: 3px solid #89b1ff; outline-offset: -3px; }
+#player .resize-grip {
+  display: inline-block;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 5px;
+  border-radius: 999px;
+  background: #8ba6cc;
+  box-shadow: 0 0 0 1px #96aacf33;
+}
+#player #media-controls { padding: 10px 14px 12px; background: #18263a; color: #f7f9fd; border-radius: 0; }
+#player #media-controls .timeline { gap: 12px; grid-template-columns: minmax(0, 1fr) auto; }
+#player #media-controls #media-seek { height: 30px; }
+#player #media-controls #media-time { font-size: 12px; color: #dae5f5; }
+#player #media-controls .transport { gap: clamp(14px, 3.5vw, 30px); padding: 2px 0 4px; }
+#player #media-controls .media-icon { width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 9px; }
+#player #media-controls .media-play { width: 56px; height: 56px; min-width: 56px; min-height: 56px; padding: 14px; }
+#player #media-controls .media-play svg { width: 27px; height: 27px; }
+#player #media-controls .player-utilities {
+  display: grid;
+  grid-template-columns: minmax(44px, 1fr) auto minmax(92px, 1fr);
+  align-items: center;
+  gap: 9px;
+}
+#player #media-controls .volume-control { min-width: 44px; }
+#player #media-controls #media-volume { width: min(82px, 100%); min-width: 0; }
+#player #media-controls .speed-label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-self: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #d7e2f0;
+  white-space: nowrap;
+}
+/* A CSS-drawn chevron avoids patterned/repeating native select graphics. */
+#player #media-controls #media-speed {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 91px;
+  min-width: 91px;
+  min-height: 44px;
+  padding: 8px 27px 8px 10px;
+  border: 1px solid #526780;
+  border-radius: 10px;
+  background-color: #293d59;
+  background-image: none !important;
+  background-repeat: no-repeat !important;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 650;
+  text-align: left;
+}
+#player #media-controls .speed-label::after {
+  content: '';
+  position: absolute;
+  right: 11px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  border-bottom: 2px solid #d3e0f2;
+  border-right: 2px solid #d3e0f2;
+  transform: translateY(-67%) rotate(45deg);
+  pointer-events: none;
+}
+#player #media-controls .media-display-actions { justify-self: end; gap: 4px; }
+#player #media-controls .preview-mode .player-utilities { display: flex; }
+#player .playback-status { margin: 8px 0; min-height: 18px; font-size: 12px; line-height: 1.45; }
+#player .player-actions { margin: 8px 0 2px; gap: 8px; }
+#player .player-actions .button { min-height: 42px; font-size: 13px; padding: 8px 12px; }
+#player #public-video-details:empty { display: none; }
+#player .public-video-details { padding-top: 8px; }
+#player.fullscreen-mode .video-resize,
+#full-stage:fullscreen .video-resize { display: none !important; }
+@media (max-width: 720px) {
+  #player:not(.fullscreen-mode) {
+    width: calc(100vw - 12px) !important;
+    max-width: calc(100vw - 12px);
+    max-height: calc(100dvh - 12px);
+    padding: 12px;
+    border-radius: 16px;
+  }
+  #player:not(.fullscreen-mode) .player-top { position: relative; top: auto; margin-top: 0; padding: 0 0 4px; }
+  #player .player-top h2 { font-size: 22px; }
+  #player .player-layout-tools { margin-bottom: 8px; }
+  #player:not(.fullscreen-mode) #video-frame {
+    height: var(--video-height, min(63dvh, 650px));
+    max-height: 78dvh;
+    min-height: 220px;
+  }
+  #player .player-actions { justify-content: space-between; }
+  #player .player-actions .button { flex: 1 1 auto; }
+  #player .player-utilities { gap: 6px; }
+}
+@media (max-width: 460px) {
+  #player:not(.fullscreen-mode) { padding: 10px; }
+  #player .player-top .eyebrow { font-size: 10px; }
+  #player .player-top h2 { font-size: 20px; }
+  #player .display-options > summary { font-size: 12px; }
+  #player .display-panel { padding: 10px; }
+  #player .display-panel > label { flex-wrap: wrap; }
+  #player .display-panel .height-control input { max-width: none; width: 100%; }
+  #player .video-resize { min-height: 34px; font-size: 10px; }
+  #player #media-controls { padding: 8px 10px 10px; }
+  #player #media-controls .timeline { gap: 8px; }
+  #player #media-controls .transport { gap: 16px; }
+  #player #media-controls .player-utilities { grid-template-columns: 44px auto 1fr; }
+  #player #media-controls #media-volume { display: none; }
+  #player #media-controls .speed-label { justify-self: center; gap: 5px; }
+  #player #media-controls .media-display-actions { gap: 2px; }
+  #player .player-actions .button { font-size: 12px; min-height: 42px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #player .video-resize { scroll-behavior: auto; }
+}
