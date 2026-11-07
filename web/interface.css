@@ -1362,3 +1362,115 @@ details > summary:hover::after { color: var(--blue); }
 #player.browser-wide .player-settings .settings-help { font-size: 12px; line-height: 1.4; }
 #player.browser-wide .player-settings .display-panel label,
 #player.browser-wide .player-settings .display-panel .button { color: var(--text); }
+
+
+/* Browser-wide polish: ensure two utility rows never collide on small phones,
+   settings unfold BELOW the player rather than covering the video, and user-set
+   video height remains adjustable after switching to the browser-wide layout. */
+#player.browser-wide #media-controls .player-utilities {
+  grid-template-columns: minmax(0, 1fr) auto max-content;
+  grid-template-areas: none;
+  min-width: 0;
+}
+#player.browser-wide #media-controls .volume-control {
+  grid-area: auto; max-width: 310px; min-width: 0;
+}
+#player.browser-wide #media-controls .speed-label {
+  grid-area: auto; min-width: 0; justify-self: center;
+}
+#player.browser-wide #media-controls .media-display-actions {
+  grid-area: auto; min-width: 88px; justify-self: end;
+}
+#player.browser-wide .player-settings[open] {
+  flex: 1 0 100%; width: 100%; order: 3;
+}
+#player.browser-wide .player-settings .display-panel {
+  position: static !important;
+  width: 100% !important;
+  max-width: 100%;
+  max-height: none;
+  margin: 8px 0 0;
+  box-shadow: none;
+  background: var(--bg);
+}
+#player.browser-wide[open]:has(.player-settings[open]) {
+  overflow-y: auto !important;
+}
+#player.browser-wide:has(.player-settings[open]) #full-stage {
+  flex: 0 0 auto;
+  min-height: min(69dvh, 560px);
+}
+#player.browser-wide:has(.player-settings[open]) #video-frame {
+  flex: 1 1 0;
+}
+#player.browser-wide #video-frame[style*="--video-height"] {
+  height: min(var(--video-height), 83dvh) !important;
+}
+#player.browser-wide:has(#video-frame[style*="--video-height"]) {
+  overflow-y: auto !important;
+}
+#player.browser-wide:has(#video-frame[style*="--video-height"]) #full-stage {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+#player.browser-wide:has(#video-frame[style*="--video-height"]) #video-frame {
+  flex: 0 0 auto;
+  height: min(var(--video-height), 83dvh) !important;
+  min-height: 220px !important;
+  max-height: 83dvh !important;
+}
+#player.browser-wide[open] > .player-top {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 20;
+}
+@media (max-width: 720px) {
+  #player.browser-wide #media-controls .player-utilities {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) max-content;
+    grid-template-areas: "volume volume" "speed display";
+    gap: 5px 8px;
+  }
+  #player.browser-wide #media-controls .volume-control {
+    grid-area: volume;
+    justify-self: stretch;
+    width: 100%;
+    max-width: none;
+    justify-content: center;
+    gap: 5px;
+  }
+  #player.browser-wide #media-controls #media-volume {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 180px;
+    min-width: 42px;
+  }
+  #player.browser-wide #media-controls .volume-step {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    min-width: 34px; width: 34px; flex: 0 0 34px;
+    min-height: 40px; height: 40px;
+  }
+  #player.browser-wide #media-controls .speed-label {
+    grid-area: speed; justify-self: start; gap: 8px;
+  }
+  #player.browser-wide #media-controls .speed-caption {
+    display: inline; font-size: 13px;
+  }
+  #player.browser-wide #media-controls .media-display-actions {
+    grid-area: display; min-width: 88px; justify-self: end;
+  }
+  #player.browser-wide .player-settings[open] { flex-basis: 100%; }
+  #player.browser-wide .player-settings .display-panel {
+    grid-template-columns: 1fr 1fr; padding: 12px; gap: 10px;
+  }
+  #player.browser-wide .player-settings .display-panel .height-control {
+    grid-column: 1 / -1;
+  }
+  #player.browser-wide .player-top { min-height: 58px; }
+}
+@media (max-width: 380px) {
+  #player.browser-wide #media-controls .speed-caption { display: inline; }
+  #player.browser-wide #media-controls .volume-value { display: none; }
+  #player.browser-wide .player-settings .display-panel { grid-template-columns: 1fr; }
+}
