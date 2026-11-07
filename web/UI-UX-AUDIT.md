@@ -207,3 +207,15 @@ Request: remove the Player settings part of the video viewer completely, without
 - Replaced obsolete tests that asserted the removed settings were present. Added checks that player configuration is absent, while source actions, browser-wide display, accessible drag control and owner-only editing still exist.
 
 Verification: GitHub web workflow (lint, typecheck, tests, build) and Netlify branch deployment. No physical phone-browser verification. Main remains untouched.
+
+## Video-only fullscreen · 7 November 2026 — develop only
+
+In response to the Android screenshot, the video frame now has a visible fullscreen icon in its lower-right corner. It is **separate from the browser-wide popup**: activating it requests native fullscreen only for the video shell (video plus an exit control), not the title, playback panel, resize grip, metadata, or source actions. The video's aspect ratio is preserved without cropping.
+
+- The fullscreen icon becomes an **Exit video fullscreen** control in the upper-right corner while fullscreen, avoiding interference with native video controls. Escape/Android Back can also exit, subject to browser behavior.
+- Native HTML5 video controls appear while video-only fullscreen is active, then revert to the BailaCue controls on exit without restarting playback. YouTube/Drive/Stream embeds keep their provider controls.
+- A rejected fullscreen request displays a clear message; older browsers with only `webkitEnterFullscreen` may use that native video fallback.
+- Opening from either the Library or a mix still uses the existing browser-wide viewer. Closing the player exits any active native fullscreen.
+- Added regression tests for control placement, source preservation, native fullscreen request/exit, rejection handling, and no accidental expansion of the entire dialog.
+
+Verification: GitHub Actions web workflow (lint/typecheck/tests/build) and Netlify `develop` branch deployment. A physical Android screenshot test remains outstanding. Production `main` remains unchanged.
