@@ -195,3 +195,15 @@ The next user feedback required that the library and mix playback popup fill the
 | Earlier draggable sizing needed to remain possible. | Preserved touch/keyboard video-height resizing and desktop width adjustments; the browser-view layout keeps the player within the viewport by default. |
 
 Verification: automatic GitHub Actions lint/typecheck/tests/build and Netlify deploy on `develop`. Automated checks are not equivalent to watching the real video on an Android phone; connected live-browser testing was unavailable. Production `main` remains unchanged.
+
+## Remove Player settings · 7 November 2026 — develop only
+
+Request: remove the Player settings part of the video viewer completely, without breaking playback and the owner's editing tools.
+
+- Removed the `Player settings` disclosure and the player-window width presets, custom width drag, settings sliders and reset buttons from the viewer markup and JavaScript.
+- Kept the full-browser viewer, visible Close button, play/pause, skip, volume, speed, mirror, next/previous mix and vertical drag grip beneath the video.
+- Retained the Google Drive fallback as a separate conditional source action and the original-source link; neither is a settings panel.
+- Kept `Edit video details` as an independent owner-only disclosure, so existing ratings, labels, notes and stream administration do not disappear with player configuration.
+- Replaced obsolete tests that asserted the removed settings were present. Added checks that player configuration is absent, while source actions, browser-wide display, accessible drag control and owner-only editing still exist.
+
+Verification: GitHub web workflow (lint, typecheck, tests, build) and Netlify branch deployment. No physical phone-browser verification. Main remains untouched.
