@@ -291,7 +291,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   if (v.provider !== 'local') { state.history = recordRecent(state.history, v.id); save(); }
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
-  $('#player').classList.add('browser-wide');
+  setPlayerViewport(true);
   studioPlayer.updateFullscreen();
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
@@ -301,6 +301,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
   const m = meta(id), labels = state.labels.filter(x => m.labelIds?.includes(x.id)), artists = state.labels.filter(x => m.artistIds?.includes(x.id));
   $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
+  $('#player-about').hidden = !(labels.length || artists.length || m.notes);
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
@@ -488,6 +489,18 @@ window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && e
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 /* The player supports preset sizes and custom drag widths without touching playback. */
 const playerDialog = $('#player');
+function setPlayerViewport(fill) {
+  playerDialog.classList.toggle('browser-wide', fill);
+  playerDialog.classList.remove('theater');
+  const toggle = $('#theater-button');
+  toggle.textContent = fill ? 'Windowed view' : 'Fill browser';
+  toggle.setAttribute('aria-pressed', String(!fill));
+  $('#player-size').disabled = fill;
+  $('#player-width-resize').setAttribute('aria-disabled', String(fill));
+  studioPlayer.updateFullscreen();
+  if (!fill) applyPlayerWidth(state.playerSize);
+  if (playerDialog.open) requestAnimationFrame(() => applyVideoHeight(state.playerHeight));
+}
 const widthResize = $('#player-width-resize');
 const widthPicker = $('#player-size');
 const playerWidthMaximum = () => Math.max(560, Math.min(1440, window.innerWidth - 24));
@@ -504,9 +517,7 @@ function applyPlayerWidth(value, persist = false) {
 }
 widthPicker.addEventListener('change', event => {
   if (event.target.value === 'custom') return;
-  playerDialog.classList.remove('theater');
-  $('#theater-button').textContent = 'Theater view';
-  $('#theater-button').setAttribute('aria-pressed', 'false');
+  setPlayerViewport(false);
   applyPlayerWidth(Number(event.target.value), true);
 });
 let activeWidthResize = null;
@@ -599,9 +610,6 @@ videoHeightSlider.addEventListener('input', event => applyVideoHeight(event.targ
 videoHeightSlider.addEventListener('change', event => applyVideoHeight(event.target.value, true));
 $('#player-height-reset').addEventListener('click', () => applyVideoHeight(0, true));
 $('#player-reset-size').addEventListener('click', () => {
-  playerDialog.classList.remove('theater');
-  $('#theater-button').textContent = 'Theater view';
-  $('#theater-button').setAttribute('aria-pressed', 'false');
   state.playerSize = 960;
   state.playerHeight = 0;
   applyPlayerWidth(state.playerSize);
@@ -612,7 +620,7 @@ $('#player-reset-size').addEventListener('click', () => {
 window.addEventListener('resize', () => {
   if (playerDialog.open) { applyPlayerWidth(state.playerSize); applyVideoHeight(state.playerHeight); }
 });
-$('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
+$('#theater-button').addEventListener('click', () => setPlayerViewport(!playerDialog.classList.contains('browser-wide')));
 for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
 $('.develop-badge').hidden = !location.hostname.startsWith('develop--') && location.hostname !== 'localhost';
