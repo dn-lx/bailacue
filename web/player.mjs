@@ -27,7 +27,7 @@ function loadYoutube() {
 export class StudioPlayer {
   constructor({ token, allowedFile, streamFor = _video => null, onEnded = _video => {}, toast }) {
     this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
-    this.frame = document.querySelector('#video-frame'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
+    this.frame = document.querySelector('#video-frame'); this.videoShell = document.querySelector('#video-only-shell'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.controls.innerHTML = `
       <div class="timeline"><input type="range" id="media-seek" aria-label="Video position" min="0" max="1000" step="1" value="0" aria-valuetext="0:00 of 0:00"><span id="media-time">0:00 / 0:00</span></div>
@@ -47,9 +47,10 @@ export class StudioPlayer {
         <label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button></div>
       </div>`;
-    const fullscreen = document.querySelector('#fullscreen-button');
-    fullscreen.className = 'media-icon'; fullscreen.innerHTML = mediaIcon('expand'); fullscreen.setAttribute('aria-label', 'Enter full screen'); fullscreen.setAttribute('title', 'Enter full screen');
-    this.$('.media-display-actions').append(fullscreen);
+    this.fullscreenButton = document.querySelector('#fullscreen-button');
+    this.fullscreenButton.innerHTML = mediaIcon('expand');
+    this.updateFullscreen();
+    document.addEventListener('fullscreenchange', () => this.updateFullscreen());
     document.getElementById('drive-preview-button').onclick = () => { if (this.video?.provider === 'drive') { clearTimeout(this.loadingTimer); this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.media = null; this.preview(this.video); } };
     this.$('#media-play').onclick = () => this.playPause();
     this.$('#media-back').onclick = () => this.seek(this.current() - 5);
@@ -61,7 +62,7 @@ export class StudioPlayer {
     this.$('#media-volume-up').onclick = () => this.setVolume(Number(this.$('#media-volume').value) + 10);
     this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.updateVolume(); };
     this.$('#media-mirror').onclick = () => { if (!this.media) return; const active = this.media.classList.toggle('mirrored'); this.$('#media-mirror').setAttribute('aria-pressed', String(active)); };
-    document.querySelector('#fullscreen-button').addEventListener('click', () => this.fullscreen());
+    this.fullscreenButton.addEventListener('click', () => this.fullscreen());
     /* The player fills the browser viewport, not the device screen, so Close and Escape remain available. */
     document.addEventListener('keydown', event => {
       if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof Element && event.target.closest('input,select,textarea,button,[contenteditable=true]'))) return;
@@ -196,9 +197,12 @@ export class StudioPlayer {
     this.$('#media-volume-value').textContent = `${this.$('#media-volume').value}%`;
   }
   updateFullscreen() {
-    const active = document.querySelector('#player').classList.contains('browser-wide');
-    const button = this.$('#fullscreen-button'), label = active ? 'Use compact player' : 'Expand player to browser viewport';
-    button.setAttribute('aria-label', label); button.title = label; button.setAttribute('aria-pressed', String(active)); button.innerHTML = mediaIcon(active ? 'shrink' : 'expand');
+    const active = document.fullscreenElement === this.videoShell;
+    const label = active ? 'Exit video fullscreen' : 'Fullscreen video';
+    this.fullscreenButton.setAttribute('aria-label', label);
+    this.fullscreenButton.title = label;
+    this.fullscreenButton.setAttribute('aria-pressed', String(active));
+    this.fullscreenButton.innerHTML = mediaIcon(active ? 'shrink' : 'expand');
   }
   current() { return this.media?.currentTime || this.youtube?.getCurrentTime?.() || 0; }
   duration() { return this.media?.duration || this.youtube?.getDuration?.() || 0; }
@@ -211,10 +215,24 @@ export class StudioPlayer {
     this.updateVolume();
     this.$('#media-seek').setAttribute('aria-valuetext', `${formatTime(current)} of ${formatTime(duration)}`);
   }
-  fullscreen() {
-    const dialog = document.querySelector('#player');
-    dialog.classList.toggle('browser-wide');
+  async fullscreen() {
+    if (document.fullscreenElement === this.videoShell) {
+      try { await document.exitFullscreen(); }
+      catch { this.toast('Could not exit fullscreen. Try the browser Back button.'); }
+      return;
+    }
+    try {
+      if (typeof this.videoShell.requestFullscreen === 'function') {
+        await this.videoShell.requestFullscreen();
+      } else if (typeof this.media?.webkitEnterFullscreen === 'function') {
+        this.media.webkitEnterFullscreen();
+      } else {
+        this.toast('Video fullscreen is unavailable in this browser.');
+      }
+    } catch {
+      this.toast('Video fullscreen was blocked. Try the video player’s own fullscreen control.');
+    }
     this.updateFullscreen();
   }
-  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); this.frame.classList.remove('portrait-video'); document.querySelector('#player').classList.remove('fullscreen-mode', 'browser-wide'); this.updateFullscreen(); }
+  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.frame.replaceChildren(); this.frame.classList.remove('portrait-video'); if (document.fullscreenElement === this.videoShell) document.exitFullscreen().catch(() => {}); document.querySelector('#player').classList.remove('fullscreen-mode', 'browser-wide'); this.updateFullscreen(); }
 }
