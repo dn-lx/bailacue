@@ -745,3 +745,49 @@ details > summary:hover::after { color: var(--blue); }
 @media (prefers-reduced-motion: reduce) {
   #player .player-width-resize { transition: none; }
 }
+
+
+/* Desktop-only width drag affordance lives inside the optional settings panel. */
+#player .player-width-resize {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  flex: 1 1 170px;
+  min-height: 44px;
+  max-width: 220px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+  white-space: nowrap;
+  cursor: ew-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+#player .player-width-resize:hover,
+#player .player-width-resize.dragging {
+  border-color: var(--blue);
+  background: var(--soft);
+}
+#player .player-width-resize:focus-visible {
+  outline: 3px solid #739dff;
+  outline-offset: 2px;
+}
+#player .width-grip {
+  display: inline-block;
+  flex: 0 0 20px;
+  width: 20px;
+  height: 16px;
+  border-left: 3px solid var(--blue);
+  border-right: 3px solid var(--blue);
+  background: linear-gradient(to right, transparent 7px, var(--blue) 7px, var(--blue) 10px, transparent 10px);
+  opacity: .9;
+}
+@media (max-width: 720px) {
+  #player .player-width-resize { display: none; }
+}
