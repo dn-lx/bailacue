@@ -133,3 +133,19 @@ Audit scope: Library source/rating/sort filters; label and artist search pickers
 | Small metadata and owner-only fields could overlap select arrows. | Right padding reserves room for the chevron, including the more-specific player metadata form rules. Focus indicators, disabled states and reduced-motion preferences remain supported. |
 
 Validation: BailaCue web lint, TypeScript, regression tests and build on `develop`; Netlify branch deployment. These are automated checks and do not constitute a physical Android visual review. No backend data, account permissions or production `main` changes.
+
+## Popup player redesign · 7 November 2026 — develop only
+
+Observed on an Android screenshot: the modal contained a relatively small video area, tall vertical chrome, and a speed selector that rendered a repeating chevron pattern instead of a legible rate. The visual problem affected the primary public viewing flow, particularly vertical Salsa and Bachata clips.
+
+| Area | Improvement |
+| --- | --- |
+| Viewing space | The phone modal now uses almost the full viewport width and reduces its inner margins. The viewing stage defaults substantially taller, with a portrait-specific height when native video metadata identifies vertical content. Videos remain `object-fit: contain`, never crop the dancers. |
+| Responsive controls | Tighter, consistent header, playback timeline, centered Play/skip transport, volume and action spacing. Mobile retains generous touch targets but hides the narrow-screen volume slider while keeping Mute/Unmute. |
+| Speed selector | Styled a single player-only CSS chevron instead of a potentially tiled image. The rate value retains readable text, a dark background and accessible selection. |
+| Resize video height | A visible grip directly below the video supports pointer drag on touch and mouse. It is also an accessible slider supporting arrow keys, Home/End and displayed height values. A range control inside Display settings is an alternative. |
+| Resize player width | On desktop, drag the horizontally oriented grip inside Display settings or use Compact / Comfortable / Wide presets. Width dragging is hidden on narrow mobile screens where the player automatically fills the available width. |
+| Persistence and recovery | Height and custom width remain browser-local settings, not Supabase metadata. **Auto height** restores responsive video height; **Reset size** restores both default width and auto height. |
+| Provider playback | For Drive preview and adaptive streaming iframe playback, the provider continues to own its controls. The native BailaCue controls are hidden in preview mode; full-screen behavior is retained. |
+
+Quality gates: GitHub Actions web syntax/lint, TypeScript, unit/regression tests and static build; successful Netlify branch deployment. Automated verification does not certify appearance or touch behavior on a physical Android device. Production `main` is unchanged.
