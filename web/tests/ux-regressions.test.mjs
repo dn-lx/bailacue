@@ -150,22 +150,19 @@ test('filter, label, display and video disclosures share a consistent CSS chevro
   assert.ok(css.includes('.label-picker > summary > .picker-count:last-child'));
 });
 
-test('popup player gives the video more mobile space with an accessible resize handle', () => {
+test('popup player preserves a touch and keyboard accessible video-height drag handle', () => {
   assert.match(html, /id="video-resize" class="video-resize" role="slider" tabindex="0"/);
   assert.match(html, /aria-orientation="vertical"/);
   assert.match(html, /id="video-resize-label">Drag to resize video/);
-  assert.match(html, /id="player-height" type="range" min="220" max="840"/);
-  assert.match(css, /#player:not\(\.fullscreen-mode\) #video-frame \{[\s\S]*?height: var\(--video-height, clamp\(380px, 58dvh, 680px\)\)/);
-  assert.match(css, /height: var\(--video-height, min\(63dvh, 650px\)\)/);
   assert.match(css, /#player \.video-resize \{[\s\S]*?touch-action: none/);
-  assert.match(css, /#player\.fullscreen-mode \.video-resize,/);
+  assert.match(css, /#player\.browser-wide #video-resize \{[\s\S]*?min-height: 44px/);
   assert.match(app, /videoResize\.addEventListener\('pointerdown'/);
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
   assert.match(app, /videoResize\.addEventListener\('pointerup'/);
   assert.match(app, /videoResize\.addEventListener\('pointercancel'/);
   assert.match(app, /videoResize\.addEventListener\('keydown'/);
   assert.match(app, /state\.playerHeight = height; save\(\)/);
-  assert.match(app, /requestAnimationFrame\(\(\) => \{ if \(\$\('#player'\)\.open\) applyVideoHeight\(state\.playerHeight\)/);
+  assert.match(app, /videoResize\.addEventListener\('dblclick'/);
 });
 
 test('popup transport stays readable, speed arrow does not tile on Android', () => {
@@ -174,7 +171,7 @@ test('popup transport stays readable, speed arrow does not tile on Android', () 
   assert.match(css, /#player #media-controls \.speed-label::after \{/);
   assert.match(css, /#player #media-controls \.player-utilities \{/);
   assert.match(css, /#player #media-controls \.media-play \{/);
-  assert.match(css, /#player \.display-panel \.height-control \{ display: flex; \}/);
+  assert.doesNotMatch(html, /class="display-panel"/);
   assert.match(css, /@media \(max-width: 460px\)/);
   assert.match(css, /#player #media-controls #media-volume \{ display: none; \}/);
 });
@@ -190,28 +187,21 @@ test('player uses a media-first portrait layout without cropping', () => {
   assert.match(app, /videoFrame\.addEventListener\('videoaspectchange'/);
 });
 
-test('player width can be dragged or keyboard resized, while mobile stays viewport-wide', () => {
-  assert.match(html, /id="player-width-resize" class="player-width-resize" role="slider" tabindex="0"/);
-  assert.match(html, /aria-orientation="horizontal"/);
-  assert.match(html, /id="player-reset-size"/);
-  assert.match(html, /<option value="custom" disabled>Custom width<\/option>/);
-  assert.match(app, /widthResize\.addEventListener\('pointerdown'/);
-  assert.match(app, /widthResize\.addEventListener\('pointermove'/);
-  assert.match(app, /widthResize\.addEventListener\('pointerup'/);
-  assert.match(app, /widthResize\.addEventListener\('pointercancel'/);
-  assert.match(app, /widthResize\.addEventListener\('keydown'/);
-  assert.match(app, /applyPlayerWidth\(Math\.min\(playerWidthMaximum\(\), keyValues\[event\.key\]\), true\)/);
-  assert.match(app, /state\.playerSize = width; save\(\)/);
-  assert.match(css, /#player \.player-width-resize \{[\s\S]*?touch-action: none/);
-  assert.match(css, /#player \.player-width-resize \{ display: none; \}/);
-  assert.match(css, /#player:not\(\.fullscreen-mode\) \{\s*width: calc\(100vw - 8px\) !important/);
+test('player no longer exposes width presets, width drag or display settings', () => {
+  for (const id of ['player-size','player-width-resize','player-reset-size','player-height','player-height-reset','theater-button']) {
+    assert.doesNotMatch(html, new RegExp('id="' + id + '"'));
+    assert.doesNotMatch(app, new RegExp('\\$\\(\\x27#' + id + '\\x27\\)'));
+  }
+  assert.doesNotMatch(html, /<summary>Player settings<\/summary>/);
+  assert.doesNotMatch(html, /class="display-options player-settings"/);
+  assert.doesNotMatch(html, /class="display-panel"/);
 });
 
-test('player Reset size restores comfortable width and responsive video height', () => {
-  assert.match(app, /\$\('#player-reset-size'\)\.addEventListener\('click'/);
-  assert.match(app, /state\.playerSize = 960;\s*state\.playerHeight = 0;/);
-  assert.match(app, /applyPlayerWidth\(state\.playerSize\);\s*applyVideoHeight\(state\.playerHeight\);/);
+test('video height uses the drag grip and can be reset without a settings section', () => {
   assert.match(app, /playerHeightMaximum = \(\) => Math\.max\(220, Math\.min\(840, Math\.floor\(window\.innerHeight \* 0\.82\)\)\)/);
+  assert.match(app, /videoResize\.addEventListener\('dblclick', \(\) => applyVideoHeight\(0, true\)\)/);
+  assert.match(app, /if \(playerDialog\.open\) applyVideoHeight\(state\.playerHeight\)/);
+  assert.doesNotMatch(html, /Reset size|Auto height|Window width|Compact<\/option>|Comfortable<\/option>/);
 });
 
 test('opening any video uses browser viewport with a permanent close control', () => {
@@ -225,17 +215,13 @@ test('opening any video uses browser viewport with a permanent close control', (
   assert.doesNotMatch(playerSource, /requestFullscreen\(/);
 });
 
-test('Player settings are below playback and Drive fallback is only inside settings', () => {
+test('player is settings-free while keeping visible source actions and owner editing', () => {
   const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
-  const settings = html.indexOf('class="display-options player-settings"');
-  const fallback = html.indexOf('id="drive-preview-button"');
-  assert.ok(stage > 0 && actions > stage && settings > actions && fallback > settings);
-  assert.match(html, /<summary>Player settings<\/summary>/);
+  const fallback = html.indexOf('id="drive-preview-button"'), provider = html.indexOf('id="provider-link"');
+  assert.ok(stage > 0 && actions > stage && fallback > actions && provider > fallback);
   assert.match(html, /id="drive-preview-button" hidden/);
-  assert.ok(css.includes('#player.browser-wide .player-settings .display-panel {'));
-  assert.ok(css.includes('position: static !important;'));
-  assert.ok(css.includes('#player.browser-wide .player-settings[open]'));
-  assert.ok(css.includes('#player.browser-wide[open]:has(.player-settings[open])'));
+  assert.match(html, /class="player-owner-edit" data-admin-only/);
+  assert.doesNotMatch(html, /class="player-settings"|<summary>Player settings<\/summary>/);
 });
 
 test('mobile playback controls align and retain usable volume and speed controls', () => {
@@ -254,19 +240,20 @@ test('mobile playback controls align and retain usable volume and speed controls
   assert.ok(css.includes('#player #media-controls .transport'));
 });
 
-test('video resize still works when browser-wide and the owner editor remains reachable', () => {
+test('browser-wide resizing and owner-only editor stay functional without Player settings', () => {
   assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
   assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
   assert.match(html, /class="player-owner-edit" data-admin-only/);
-  assert.match(html, /id="player-height-reset"/);
+  assert.match(html, /id="detail-labels"/);
+  assert.match(html, /id="detail-artists"/);
+  assert.match(html, /id="rating-buttons"/);
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
   assert.match(app, /videoResize\.addEventListener\('keydown'/);
 });
 
-test('browser-wide player fills the viewport by default and preserves Close and Escape', () => {
+test('browser-wide player fills the viewport with Close and Escape support', () => {
   assert.match(app, /setPlayerViewport\(true\)/);
   assert.match(app, /classList\.toggle\('browser-wide', fill\)/);
-  assert.match(app, /'Windowed view' : 'Fill browser'/);
   assert.match(html, /id="player" aria-labelledby="player-title"/);
   assert.match(html, /data-close="player" aria-label="Close player"/);
   assert.match(css, /#player\.browser-wide:not\(\.fullscreen-mode\) \{/);
@@ -277,18 +264,16 @@ test('browser-wide player fills the viewport by default and preserves Close and 
   assert.match(playerSource, /fullscreen\(\) \{[\s\S]*?classList\.toggle\('browser-wide'\)/);
 });
 
-test('settings are below the player, while source preview and metadata stay available', () => {
+test('preview and video metadata remain available without a settings accordion', () => {
   const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
-  const settings = html.indexOf('class="display-options player-settings"');
   const preview = html.indexOf('id="drive-preview-button"');
   const provider = html.indexOf('id="provider-link"');
-  assert.ok(stage > 0 && stage < actions && actions < settings && settings < preview && preview < provider);
-  assert.match(html, /<summary>Player settings<\/summary>/);
-  assert.match(html, /id="player-about" hidden/);
+  assert.ok(stage > 0 && stage < actions && actions < preview && preview < provider);
+  assert.match(html, /id="public-video-details"/);
   assert.match(html, /class="player-owner-edit" data-admin-only/);
-  assert.match(app, /\$\('#player-about'\)\.hidden = !\(labels\.length \|\| artists\.length \|\| m\.notes\)/);
-  assert.match(css, /#player\.browser-wide \.player-settings \[?\.?display-panel/);
-  assert.match(css, /#player\.browser-wide \.player-settings:not\(\[open\]\) > \.display-panel \{ display: none !important; \}/);
+  assert.match(app, /\$\('#public-video-details'\)\.innerHTML/);
+  assert.doesNotMatch(html, /id="player-about"/);
+  assert.doesNotMatch(html, /id="player-reset-size"|id="player-height-reset"|class="player-settings"/);
 });
 
 test('volume plus minus and slider remain usable on Android with separate speed row', () => {
