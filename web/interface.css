@@ -2150,9 +2150,8 @@ details > summary:hover::after { color: var(--blue); }
   width: 58px; height: 58px; min-width: 58px; min-height: 58px; padding: 14px;
 }
 #player #video-details-editor {
-  margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--line);
+  margin: 0; padding: 0; border: 0;
 }
-#player #video-details-editor[hidden] { display: none !important; }
 #player #video-details-editor .player-info {
   display: grid !important;
   grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);

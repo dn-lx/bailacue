@@ -224,7 +224,7 @@ test('player has no external or Drive source buttons and offers public metadata 
   assert.doesNotMatch(html, /id="drive-preview-button"|id="provider-link"|Open original|Try Google Drive player/);
   assert.doesNotMatch(app, /#provider-link/);
   assert.doesNotMatch(playerSource, /getElementById\('drive-preview-button'\)/);
-  assert.match(html, /class="video-metadata-editor" hidden/);
+  assert.match(html, /class="video-metadata-editor"/);
   assert.doesNotMatch(html, /class="player-settings"|<summary>Player settings<\/summary>/);
 });
 
@@ -247,7 +247,7 @@ test('mobile playback controls align and retain usable volume and speed controls
 test('browser-wide resizing and public editor stay functional without Player settings', () => {
   assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
   assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
-  assert.match(html, /class="video-metadata-editor" hidden/);
+  assert.match(html, /class="video-metadata-editor"/);
   assert.match(html, /id="detail-labels"/);
   assert.match(html, /id="detail-artists"/);
   assert.match(html, /id="rating-buttons"/);
@@ -273,14 +273,11 @@ test('video metadata is public, with rating, labels, artists and upload date', (
   const stage = html.indexOf('id="full-stage"'), section = html.indexOf('id="public-video-details"');
   assert.ok(stage > 0 && section > stage);
   assert.match(html, /id="public-video-details" class="public-video-details" aria-label="Video details"/);
-  assert.match(app, /function renderPublicVideoDetails\(\)/);
-  assert.match(app, /field\('Rating'/);
-  assert.match(app, /field\('Labels'/);
-  assert.match(app, /field\('Artists & teachers'/);
-  assert.match(app, /field\(uploadLabel, date\(video\.addedAt\)\)/);
-  assert.match(app, /field\('Recorded on', date\(details\.recordedAt\)\)/);
-  assert.match(app, /details\.notes/);
-  assert.match(app, /#video-details-summary'\)\.innerHTML/);
+  for (const id of ['rating-buttons', 'detail-labels', 'detail-artists', 'detail-recorded', 'notes']) {
+    assert.ok(html.includes('id="' + id + '"'));
+  }
+  assert.match(app, /readableDate\(v\.addedAt\)/);
+  assert.doesNotMatch(app, /Done editing|edit-video-details|renderPublicVideoDetails/);
   assert.match(css, /#player\.browser-wide\[open\] #public-video-details/);
   assert.match(css, /max-height: none !important/);
   assert.match(css, /overflow-y: auto !important/);
@@ -302,12 +299,12 @@ test('volume plus minus and slider remain usable on Android with separate speed 
 
 
 test('public editing and metadata are both reachable', () => {
-  assert.match(html, /<div id="video-details-editor" class="video-metadata-editor" hidden>/);
-  assert.match(app, /data-action="edit-video-details" aria-controls="video-details-editor"/);
-  assert.match(css, /#player #video-details-editor\[hidden\] \{ display: none !important; \}/);
+  assert.match(html, /<div id="video-details-editor" class="video-metadata-editor">/);
+  assert.doesNotMatch(app, /Done editing|edit-video-details/);
+  assert.doesNotMatch(html, /id="video-details-editor"[^>]*hidden/);
   assert.match(css, /#player\.browser-wide\[open\]:not\(\.fullscreen-mode\) \{/);
   assert.match(css, /overflow-y: auto !important/);
-  assert.match(app, /if \(selected\?\.id === id\) renderPublicVideoDetails\(\)/);
+  assert.match(app, /function mountVideoDetails\(\)/);
 });
 
 

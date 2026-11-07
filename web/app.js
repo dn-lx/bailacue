@@ -115,7 +115,6 @@ function queueMetaPublish(id) {
         pendingMetadata.delete(id);
         state.meta[id] = publicMetadata(canonical);
         save();
-        if (selected?.id === id) renderPublicVideoDetails();
         setMetadataStatus(id, 'saved');
       }
     } catch {
@@ -152,39 +151,6 @@ function cardDetails(v) { const m = meta(v.id); const labels = state.labels.filt
   return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${labels.length ? labels.slice(0, 2).map(l => `<span class="tag">${esc(l.name)}</span>`).join('') : ''}${labels.length > 2 ? `<span class="empty-tag">+${labels.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
 }
 
-/** Everyone can edit the shared metadata directly below the video. */
-function renderPublicVideoDetails() {
-  if (!selected) return;
-  const video = selected, details = meta(video.id);
-  const editing = !$('#video-details-editor').hidden;
-  const labels = state.labels.filter(item => details.labelIds?.includes(item.id));
-  const artists = state.labels.filter(item => details.artistIds?.includes(item.id));
-  const field = (name, value, extraClass = '') => `<div class="video-info-item ${extraClass}"><dt>${esc(name)}</dt><dd>${value}</dd></div>`;
-  const date = value => value && !Number.isNaN(Date.parse(value))
-    ? `<time datetime="${esc(new Date(value).toISOString())}">${esc(readableDate(value))}</time>`
-    : '<span class="video-info-unset">Not specified</span>';
-  const valueOrEmpty = value => value ? esc(value) : '<span class="video-info-unset">Not specified</span>';
-  const tags = values => values.length
-    ? `<span class="video-info-tags">${values.map(item => `<span class="tag">${esc(item.name)}</span>`).join('')}</span>`
-    : '<span class="video-info-unset">Not added</span>';
-  const uploadLabel = video.provider === 'drive' ? 'Uploaded to Drive' : 'Added to library';
-  const editableFields = [
-    field('Rating', details.rating ? `<span class="video-info-rating">${icon('star')} <strong>${details.rating}/10</strong></span>` : '<span class="video-info-unset">Not rated yet</span>', 'video-info-rating-item'),
-    field('Labels', tags(labels)),
-    field('Artists & teachers', tags(artists)),
-    field('Recorded on', date(details.recordedAt)),
-    ...(details.event ? [field('Event / class', valueOrEmpty(details.event))] : []),
-    ...(details.location ? [field('Location', valueOrEmpty(details.location))] : []),
-  ];
-  const fields = [
-    ...(!editing ? editableFields : []),
-    field(uploadLabel, date(video.addedAt)),
-    ...(video.duration ? [field('Duration', esc(formatTime(video.duration)))] : []),
-    ...(video.width && video.height ? [field('Resolution', `${video.width} × ${video.height}`)] : []),
-  ];
-  $('#video-details-summary').innerHTML = `<div class="video-info-header"><div><h3>About this video</h3><p>${editing ? 'Anyone can edit these details. Changes save for everyone.' : 'Dance details and community labels'}</p></div><button type="button" class="button subtle small" data-action="edit-video-details" aria-controls="video-details-editor" aria-expanded="${editing}">${editing ? 'Done editing' : 'Edit metadata'}</button></div><dl class="video-info-grid">${fields.join('')}</dl>${!editing && details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
-}
-
 function mountVideoDetails() { if (!selected) return; const v = selected, m = meta(v.id);
   $('#personal-title').value = m.title || '';
   $('#notes').value = m.notes || '';
@@ -218,7 +184,6 @@ function patchMeta(id, patch) {
     pendingMetadata.set(id, { ...pendingMetadata.get(id), ...change });
     queueMetaPublish(id);
   }
-  if (selected?.id === id) renderPublicVideoDetails();
   return saved;
 }
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimeout); toastTimeout = setTimeout(() => $('#toast').classList.remove('show'), 4200); }
@@ -367,7 +332,6 @@ function updatePlayer() {
   $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In mix' : 'Add to mix'}`;
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
-  renderPublicVideoDetails();
 }
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
@@ -380,9 +344,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`;
-  $('#video-details-editor').hidden = false;
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
-  // About this video is rendered from canonical source timestamps and published metadata.
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
@@ -476,7 +438,6 @@ $('#admin-form').addEventListener('submit', async event => {
     $('#admin-password').value = '';
     $('#admin-dialog').close(); applyAccess(); route();
     if (selected && $('#player').open) {
-      $('#video-details-editor').hidden = false;
       updatePlayer(); mountVideoDetails();
       $('#personal-title').focus();
     }
@@ -537,13 +498,6 @@ document.addEventListener('click', async event => {
         toast(`Moved video to position ${newIndex + 1} of ${updated.length}.`);
       }
     }
-  }
-  if (action === 'edit-video-details' && selected) {
-    const editor = $('#video-details-editor');
-    editor.hidden = !editor.hidden;
-    renderPublicVideoDetails();
-    if (!editor.hidden) { mountVideoDetails(); $('#personal-title').focus(); }
-    else $('#public-video-details [data-action="edit-video-details"]').focus({ preventScroll: true });
   }
   if (action === 'retry-video-save' && selected) queueMetaPublish(selected.id);
   if (action === 'rate' && selected) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }

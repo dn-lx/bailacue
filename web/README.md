@@ -15,7 +15,7 @@ mobile app is separate and has not been changed in this version.
   (`preload="auto"`) and waits until it is playable to enable controls.
 
 ## Video metadata and automatic dates
-Anyone can edit the title, rating (out of 10), labels, artists/teachers, recorded date, event, location and notes without signing in. These fields open ready to edit in **About this video**. New labels and artists can also be created there without an account. Changes save to the shared catalogue and are available to every viewer, including in a fresh browser. The status confirms publication or offers **Retry save** after a failure. **Done editing** shows the compact summary; **Edit metadata** reopens the fields without an authentication prompt.
+Anyone can edit the title, rating (out of 10), labels, artists/teachers, recorded date, event, location and notes without signing in. These fields are always visible in **Video details**. New labels and artists can also be created there without an account. Changes save to the shared catalogue and are available to every viewer, including in a fresh browser. The status confirms publication or offers **Retry save** after a failure. There is no editing mode or Done button. Automatic upload dates and original file facts remain available under **Video information**.
 
 Public metadata saves atomically merge changed fields through `bailacue_patch_web_metadata`. `bailacue_add_web_label` adds or reuses a shared label. Both RPCs use invoker rights, scoped row-level security and the public publishable key. The database validates field names, sizes, types, recording dates, ratings and known video identities. Existing shared label definitions cannot be overwritten or removed by public editors; video label assignments remain editable.
 

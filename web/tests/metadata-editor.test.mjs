@@ -88,10 +88,8 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     assert.equal($('#video-details-editor').hasAttribute('data-admin-only'),false);
     assert.equal($('#rating-buttons [data-rating="8"]').disabled,false);
     assert.equal(h.window.document.body.classList.contains('is-admin'),false);
-    $('[data-action="edit-video-details"]').click();
-    assert.equal($('#video-details-editor').hidden,true);
-    $('[data-action="edit-video-details"]').click();
-    assert.equal($('#video-details-editor').hidden,false);
+    assert.equal($('[data-action="edit-video-details"]'),null);
+    assert.equal($('#video-details-summary'),null);
     assert.equal($('#admin-dialog').open,false);
     assert.equal($('#video-frame video'),video); assert.equal(video.currentTime,15);
     fill('#personal-title','Editable partnerwork');
