@@ -1644,7 +1644,8 @@ details > summary:hover::after { color: var(--blue); }
 #player #video-only-shell:fullscreen #fullscreen-button {
   position: absolute;
   right: max(16px, env(safe-area-inset-right));
-  bottom: max(16px, env(safe-area-inset-bottom));
+  top: max(16px, env(safe-area-inset-top));
+  bottom: auto;
   background: #07162bcc;
 }
 @media (max-width: 720px) {
@@ -1653,6 +1654,7 @@ details > summary:hover::after { color: var(--blue); }
   }
   #player #video-only-shell:fullscreen #fullscreen-button {
     right: max(14px, env(safe-area-inset-right));
-    bottom: max(14px, env(safe-area-inset-bottom));
+    top: max(14px, env(safe-area-inset-top));
+    bottom: auto;
   }
 }
