@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, clampPlayerWidth, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -124,4 +124,17 @@ test('video resize heights stay bounded and the viewer preference survives backu
   assert.equal(cleanState({ ...emptyState(), playerHeight: 580 }).playerHeight, 580);
   assert.equal(cleanState({ ...emptyState(), playerHeight: 99999 }).playerHeight, 840);
   assert.equal(cleanState({ ...emptyState(), playerHeight: null }).playerHeight, 0);
+});
+
+test('custom player widths stay bounded and survive browser-state restoration', () => {
+  assert.equal(clampPlayerWidth(undefined), 960);
+  assert.equal(clampPlayerWidth(null), 960);
+  assert.equal(clampPlayerWidth(''), 960);
+  assert.equal(clampPlayerWidth('not-a-number'), 960);
+  assert.equal(clampPlayerWidth(325), 560);
+  assert.equal(clampPlayerWidth(750.6), 751);
+  assert.equal(clampPlayerWidth(1800), 1440);
+  assert.equal(cleanState({ ...emptyState(), playerSize: 1107 }).playerSize, 1107);
+  assert.equal(cleanState({ ...emptyState(), playerSize: 9000 }).playerSize, 1440);
+  assert.equal(cleanState({ ...emptyState(), playerSize: undefined }).playerSize, 960);
 });
