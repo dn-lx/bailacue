@@ -1555,3 +1555,104 @@ details > summary:hover::after { color: var(--blue); }
   overflow-wrap: anywhere;
 }
 #player .player-actions #drive-preview-button[hidden] { display: none !important; }
+
+
+/* Video-only fullscreen. The page remains a browser-wide viewer, but this
+   overlay enters native fullscreen for the film alone (no title, timeline,
+   resize grip or playback panel), with an always-reachable exit button. */
+#player #video-only-shell {
+  position: relative;
+  display: flex;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  background: #101723;
+}
+#player #video-only-shell #video-frame { flex: 1 1 0; min-width: 0; width: 100%; }
+#player #video-only-shell #fullscreen-button {
+  display: inline-flex !important;
+  position: absolute;
+  z-index: 12;
+  right: 12px;
+  bottom: 12px;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 46px;
+  min-height: 46px;
+  padding: 11px;
+  border: 1px solid #d9e5ff44;
+  border-radius: 12px;
+  background: #091a31d9;
+  color: #f7faff;
+  box-shadow: 0 3px 15px #0005;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+#player #video-only-shell #fullscreen-button svg {
+  display: block; width: 23px; height: 23px; pointer-events: none;
+}
+#player #video-only-shell #fullscreen-button:hover,
+#player #video-only-shell #fullscreen-button:focus-visible {
+  background: #2d4b72;
+  border-color: #bad0ff;
+}
+#player #video-only-shell #fullscreen-button:focus-visible { outline: 3px solid #89b1ff; outline-offset: 2px; }
+#player.browser-wide:has(#video-frame[style*="--video-height"]) #video-only-shell {
+  flex: 0 0 auto;
+}
+#player.browser-wide:has(> .player-owner-edit[open]) #video-only-shell { flex: 1 1 0; min-height: 0; }
+#player #video-only-shell:fullscreen {
+  display: flex !important;
+  position: fixed !important;
+  inset: 0 !important;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 100vw !important;
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  max-height: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  overflow: hidden;
+  background: #000;
+}
+#player #video-only-shell:fullscreen #video-frame,
+#player #video-only-shell:fullscreen #video-frame[style] {
+  flex: 1 1 auto !important;
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #000;
+}
+#player #video-only-shell:fullscreen #video-frame > video,
+#player #video-only-shell:fullscreen #video-frame > iframe {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-height: none !important;
+  object-fit: contain;
+}
+#video-only-shell::backdrop { background: #000; }
+#player #video-only-shell:fullscreen #fullscreen-button {
+  position: absolute;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  background: #07162bcc;
+}
+@media (max-width: 720px) {
+  #player #video-only-shell #fullscreen-button {
+    right: 10px; bottom: 10px; width: 48px; height: 48px;
+  }
+  #player #video-only-shell:fullscreen #fullscreen-button {
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+  }
+}
