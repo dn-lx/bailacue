@@ -29,6 +29,20 @@ export class StudioPlayer {
     this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.videoShell = document.querySelector('#video-only-shell'); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
+    this.fullscreenControls = document.querySelector('#fullscreen-controls');
+    this.fullscreenTapZone = document.querySelector('#fullscreen-tap-zone');
+    this.fsPlay = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-play'));
+    this.fsBack = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-back'));
+    this.fsForward = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-forward'));
+    this.fsSeek = /** @type {HTMLInputElement} */ (document.querySelector('#fs-seek'));
+    this.fsTime = document.querySelector('#fs-time');
+    this.fsMute = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-mute'));
+    this.fsVolume = /** @type {HTMLInputElement} */ (document.querySelector('#fs-volume'));
+    this.fsSpeed = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-speed'));
+    this.fullscreenHideTimer = null;
+    this.fsPointerDown = false;
+    this.fsKeyboardActive = false;
+    this.fsScrubbing = false;
     this.controls.innerHTML = `
       <div class="timeline"><input type="range" id="media-seek" aria-label="Video position" min="0" max="1000" step="1" value="0" aria-valuetext="0:00 of 0:00"><span id="media-time">0:00 / 0:00</span></div>
       <div class="transport" role="group" aria-label="Playback controls">
@@ -51,16 +65,50 @@ export class StudioPlayer {
     this.fullscreenButton.innerHTML = mediaIcon('expand');
     this.updateFullscreen();
     document.addEventListener('fullscreenchange', () => this.updateFullscreen());
+    this.fsPlay.innerHTML = mediaIcon('play');
+    this.fsBack.innerHTML = mediaIcon('back');
+    this.fsForward.innerHTML = mediaIcon('forward');
+    this.fsMute.innerHTML = mediaIcon('volume');
+    this.fsPlay.onclick = () => { this.playPause(); this.updateFullscreenControls(); this.showFullscreenControls(); };
+    this.fsBack.onclick = () => { this.seek(this.current() - 5); this.tick(); this.showFullscreenControls(); };
+    this.fsForward.onclick = () => { this.seek(this.current() + 5); this.tick(); this.showFullscreenControls(); };
+    this.fsSeek.addEventListener('pointerdown', () => { this.fsScrubbing = true; });
+    this.fsSeek.oninput = event => { this.seek(Number(event.target.value) / 1000 * this.duration()); this.tick(); this.showFullscreenControls(); };
+    this.fsSeek.onchange = () => { this.fsScrubbing = false; this.showFullscreenControls(); };
+    this.fsSeek.addEventListener('pointerup', () => { this.fsScrubbing = false; this.showFullscreenControls(); });
+    this.fsSeek.addEventListener('pointercancel', () => { this.fsScrubbing = false; this.showFullscreenControls(); });
+    this.fsMute.onclick = () => { this.toggleMute(); this.showFullscreenControls(); };
+    this.fsVolume.oninput = event => { this.setVolume(Number(event.target.value)); this.showFullscreenControls(); };
+    this.fsSpeed.onchange = event => { this.setSpeed(Number(event.target.value)); this.showFullscreenControls(); };
+    this.fullscreenTapZone.addEventListener('click', () => this.showFullscreenControls());
+    this.videoShell.addEventListener('pointermove', event => {
+      if (document.fullscreenElement === this.videoShell && event.pointerType === 'mouse') this.showFullscreenControls();
+    });
+    this.fullscreenControls.addEventListener('pointerdown', () => { this.fsPointerDown = true; this.fsKeyboardActive = false; });
+    this.fullscreenControls.addEventListener('pointerup', event => {
+      this.fsPointerDown = false;
+      if (event.target instanceof Element) event.target.closest('button')?.blur();
+      this.scheduleFullscreenHide();
+    });
+    this.fullscreenControls.addEventListener('pointercancel', () => { this.fsPointerDown = false; this.scheduleFullscreenHide(); });
+    this.fullscreenControls.addEventListener('focusin', () => {
+      if (!this.fsPointerDown) this.fsKeyboardActive = true;
+      this.showFullscreenControls();
+    });
+    this.videoShell.addEventListener('keydown', () => {
+      if (document.fullscreenElement !== this.videoShell) return;
+      this.fsKeyboardActive = true; this.showFullscreenControls();
+    });
     document.getElementById('drive-preview-button').onclick = () => { if (this.video?.provider === 'drive') { clearTimeout(this.loadingTimer); this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.media = null; this.preview(this.video); } };
     this.$('#media-play').onclick = () => this.playPause();
     this.$('#media-back').onclick = () => this.seek(this.current() - 5);
     this.$('#media-forward').onclick = () => this.seek(this.current() + 5);
     this.$('#media-seek').oninput = e => this.seek(Number(e.target.value) / 1000 * this.duration());
-    this.$('#media-speed').onchange = e => { const value = Number(e.target.value); if (this.media) this.media.playbackRate = value; if (this.youtube) this.youtube.setPlaybackRate(value); };
+    this.$('#media-speed').onchange = e => this.setSpeed(Number(e.target.value));
     this.$('#media-volume').oninput = e => this.setVolume(Number(e.target.value));
     this.$('#media-volume-down').onclick = () => this.setVolume(Number(this.$('#media-volume').value) - 10);
     this.$('#media-volume-up').onclick = () => this.setVolume(Number(this.$('#media-volume').value) + 10);
-    this.$('#media-mute').onclick = () => { if (this.media) this.media.muted = !this.media.muted; if (this.youtube) this.youtube.isMuted() ? this.youtube.unMute() : this.youtube.mute(); this.updateVolume(); };
+    this.$('#media-mute').onclick = () => this.toggleMute();
     this.$('#media-mirror').onclick = () => { if (!this.media) return; const active = this.media.classList.toggle('mirrored'); this.$('#media-mirror').setAttribute('aria-pressed', String(active)); };
     this.fullscreenButton.addEventListener('click', () => this.fullscreen());
     /* The player fills the browser viewport, not the device screen, so Close and Escape remain available. */
@@ -85,6 +133,7 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false');
     this.controls.classList.remove('preview-mode');
+    this.hideFullscreenControls();
     this.frame.classList.remove('portrait-video');
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
@@ -100,6 +149,7 @@ export class StudioPlayer {
       frame.addEventListener('load', () => this.frame.setAttribute('aria-busy', 'false'));
       this.frame.replaceChildren(frame);
       this.kind = 'stream';
+      this.updateFullscreen();
       this.controls.classList.add('preview-mode');
       this.controls.setAttribute('data-preview-label', 'Adaptive video player');
       this.setAvailable(false);
@@ -118,7 +168,7 @@ export class StudioPlayer {
         const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'auto';
         media.src = localUrl || (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`);
         media.setAttribute('aria-label', `${video.title} video`);
-        this.media = media; this.kind = 'native'; this.frame.replaceChildren(media);
+        this.media = media; this.kind = 'native'; this.frame.replaceChildren(media); this.updateFullscreen();
         document.getElementById('drive-preview-button').hidden = video.provider !== 'drive';
         const loading = setTimeout(() => {
           if (generation !== this.generation || media.readyState >= 1) return;
@@ -155,7 +205,7 @@ export class StudioPlayer {
         await loadYoutube(); if (generation !== this.generation) return;
         const mount = document.createElement('div'); this.frame.replaceChildren(mount); this.kind = 'youtube';
         const YT = (/** @type {any} */ (window)).YT;
-        this.youtube = new YT.Player(mount, { videoId: video.kind === 'playlist' ? undefined : video.providerId, playerVars: { origin: location.origin, playsinline: 1, controls: 1, rel: 0, ...(video.kind === 'playlist' ? { listType: 'playlist', list: video.providerId } : {}) }, host: 'https://www.youtube-nocookie.com', events: {
+        this.youtube = new YT.Player(mount, { videoId: video.kind === 'playlist' ? undefined : video.providerId, playerVars: { origin: location.origin, playsinline: 1, controls: 0, rel: 0, ...(video.kind === 'playlist' ? { listType: 'playlist', list: video.providerId } : {}) }, host: 'https://www.youtube-nocookie.com', events: {
           onReady: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status('YouTube · playback controls ready'); this.timer = setInterval(() => this.tick(), 300); if (this.autoStartPending) { this.autoStartPending = false; this.youtube?.playVideo(); } },
           onStateChange: event => { if (generation === this.generation && video.kind !== 'playlist' && event.data === 0) this.onEnded(video); },
           onError: () => { this.setAvailable(false); this.status('YouTube cannot play this source here. Open the original to continue.'); },
@@ -165,9 +215,9 @@ export class StudioPlayer {
   }
   preview(video) {
     const isDrive = video.provider === 'drive';
-    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture'; frame.allowFullscreen = true; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => this.frame.setAttribute('aria-busy', 'false'); this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
+    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.allowFullscreen = false; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => this.frame.setAttribute('aria-busy', 'false'); this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
     document.getElementById('drive-preview-button').hidden = true;
-    this.status(isDrive ? 'Drive preview · use Google’s controls. Full screen and player sizing remain available.' : 'Provider preview · use its controls, or open the original video.');
+    this.status(isDrive ? 'Drive preview · Google manages this embedded player. BailaCue fullscreen requires direct playback.' : 'Provider preview · use its controls, or open the original video.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }
   readyToPlay(media, localUrl) { this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); if (this.autoStartPending) { this.autoStartPending = false; media.play().catch(() => this.status('Next video is ready. Tap Play to continue the mix.')); } }
@@ -175,6 +225,7 @@ export class StudioPlayer {
     this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
     this.$('#media-mirror').disabled = !available || !this.media;
     this.controls.classList.toggle('controls-unavailable', !available);
+    this.updateFullscreen();
   }
   updatePlay(playing) {
     const button = this.$('#media-play'), label = playing ? 'Pause video' : 'Play video';
