@@ -373,3 +373,11 @@ test('fullscreen blocked by browser shows feedback without falsely entering full
     else globalThis.document = previousDocument;
   }
 });
+
+test('video-only fullscreen retains native playback controls and an unobstructed exit', () => {
+  assert.match(playerSource, /if \(this\.media\) this\.media\.controls = active/);
+  assert.match(playerSource, /this\.fullscreenButton\.setAttribute\('aria-label', label\)/);
+  assert.match(playerSource, /this\.fullscreenButton\.innerHTML = mediaIcon\(active \? 'shrink' : 'expand'\)/);
+  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{[\s\S]*?top: max\(16px, env\(safe-area-inset-top\)\)/);
+  assert.match(css, /#player #video-only-shell:fullscreen #fullscreen-button \{[\s\S]*?bottom: auto/);
+});
