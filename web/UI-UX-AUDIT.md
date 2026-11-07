@@ -232,3 +232,20 @@ The earlier video-only fullscreen exposed browser-native controls, which conflic
 - **Validation:** regression tests for controls, seek, volume, speed, auto-hide, fullscreen transitions, native-controls disabled, iframe restrictions and blocked-browser feedback; GitHub Actions lint/typecheck/tests/build and Netlify `develop` branch deployment. Real Android-browser visual testing remains outstanding.
 
 These changes do not affect backend permissions or the production `main` branch.
+
+## Player details and persistent fullscreen controls · 7 November 2026 — develop only
+
+Feedback from the Android screenshots:
+1. Remove the two redundant actions beneath playback (**Try Google Drive player** and **Open original**).
+2. Replace the previously hidden metadata with a visible, well-spaced information section: rating (1–10), labels, artists and teachers, upload date, recorded date, optional event/location, runtime/resolution when known, and notes.
+3. Keep all BailaCue fullscreen playback controls permanently visible at the **bottom**, using the normal player layout order (seek timeline, centered rewind/play/forward, then volume, speed, mirror and Exit fullscreen).
+
+Implementation:
+- Removed both source-link buttons and their event handlers. The existing automatic fallback can still render an iframe if a direct Drive stream fails; a cross-origin iframe is not promised BailaCue-controlled fullscreen.
+- The browser-wide dialog can scroll vertically and no longer collapses published metadata to zero height. A responsive, accessible details grid sits below the playback stage. Empty metadata is explicitly marked **Not added/Not rated/Not specified**, rather than inventing values.
+- Video **Uploaded to Drive** is automatically taken from the Drive file's `createdTime`; **Added to library** is used for YouTube. Recording date remains a distinct optional field, which avoids labelling the upload date as the recording date.
+- Changes to published metadata update the open player's information section without reloading playback. Existing Supabase admin-only edit permissions are unchanged.
+- Removed fullscreen inactivity hiding and tap-to-reveal logic. New permanent bottom bar includes seek, ±5 seconds, Play/Pause, mute, volume slider with +/- adjustments, speed, mirror (for direct video), and exit. Native video controls remain disabled. Video stays uncropped.
+- Verified with lint, type checking, automated unit/regression tests, and Netlify develop deployment. Actual Android Chrome visual verification is still outstanding, especially with fullscreen orientation changes.
+
+No production `main` changes.
