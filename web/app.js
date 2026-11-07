@@ -115,6 +115,35 @@ function cardDetails(v) { const m = meta(v.id); const labels = state.labels.filt
   return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${labels.length ? labels.slice(0, 2).map(l => `<span class="tag">${esc(l.name)}</span>`).join('') : ''}${labels.length > 2 ? `<span class="empty-tag">+${labels.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
 }
 
+/** Public catalogue metadata is always visible below the player; only the owner can edit it. */
+function renderPublicVideoDetails() {
+  if (!selected) return;
+  const video = selected, details = meta(video.id);
+  const labels = state.labels.filter(item => details.labelIds?.includes(item.id));
+  const artists = state.labels.filter(item => details.artistIds?.includes(item.id));
+  const field = (name, value, extraClass = '') => `<div class="video-info-item ${extraClass}"><dt>${esc(name)}</dt><dd>${value}</dd></div>`;
+  const date = value => value && !Number.isNaN(Date.parse(value))
+    ? `<time datetime="${esc(new Date(value).toISOString())}">${esc(readableDate(value))}</time>`
+    : '<span class="video-info-unset">Not specified</span>';
+  const valueOrEmpty = value => value ? esc(value) : '<span class="video-info-unset">Not specified</span>';
+  const tags = values => values.length
+    ? `<span class="video-info-tags">${values.map(item => `<span class="tag">${esc(item.name)}</span>`).join('')}</span>`
+    : '<span class="video-info-unset">Not added</span>';
+  const uploadLabel = video.provider === 'drive' ? 'Uploaded to Drive' : 'Added to library';
+  const fields = [
+    field('Rating', details.rating ? `<span class="video-info-rating">${icon('star')} <strong>${details.rating}/10</strong></span>` : '<span class="video-info-unset">Not rated yet</span>', 'video-info-rating-item'),
+    field('Labels', tags(labels)),
+    field('Artists & teachers', tags(artists)),
+    field(uploadLabel, date(video.addedAt)),
+    field('Recorded on', date(details.recordedAt)),
+    ...(details.event ? [field('Event / class', valueOrEmpty(details.event))] : []),
+    ...(details.location ? [field('Location', valueOrEmpty(details.location))] : []),
+    ...(video.duration ? [field('Duration', esc(formatTime(video.duration)))] : []),
+    ...(video.width && video.height ? [field('Resolution', `${video.width} × ${video.height}`)] : []),
+  ];
+  $('#public-video-details').innerHTML = `<div class="video-info-header"><h3>About this video</h3><p>Dance details and community labels</p></div><dl class="video-info-grid">${fields.join('')}</dl>${details.notes ? `<div class="video-info-notes"><h4>Notes</h4><p>${esc(details.notes)}</p></div>` : ''}`;
+}
+
 function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v = selected, m = meta(v.id);
   for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).value = m[key] || '';
   labelPicker($('#detail-labels'), { title: 'Labels', labels: () => state.labels, selected: m.labelIds || [], dance: v.dance, allowCreate: true, onChange: ids => { patchMeta(v.id, { labelIds: ids }); }, onCreate: addLabel });
@@ -137,7 +166,7 @@ function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageAvailable = true; return true; }
   catch { storageAvailable = false; toast('Browser storage is unavailable. Export a backup to keep your changes.'); return false; }
 }
-function patchMeta(id, patch) { if (!requireAdmin()) return false; state.meta[id] = { ...meta(id), ...patch }; const saved = save(); queueMetaPublish(id); if (state.drive.some(v => v.id === id)) publishDrive(); return saved; }
+function patchMeta(id, patch) { if (!requireAdmin()) return false; state.meta[id] = { ...meta(id), ...patch }; const saved = save(); queueMetaPublish(id); if (state.drive.some(v => v.id === id)) publishDrive(); if (selected?.id === id) renderPublicVideoDetails(); return saved; }
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimeout); toastTimeout = setTimeout(() => $('#toast').classList.remove('show'), 4200); }
 function applyTheme() { document.documentElement.dataset.theme = state.theme; $('#theme-toggle').innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon'); $('#theme-toggle').setAttribute('aria-label', `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`); }
 function dateLabel() { return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()); }
@@ -284,6 +313,7 @@ function updatePlayer() {
   $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In mix' : 'Add to mix'}`;
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
+  renderPublicVideoDetails();
 }
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
@@ -296,11 +326,9 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   $('#player').style.width = `${state.playerSize}px`;
-  $('#provider-link').hidden = v.provider === 'local';
-  if (v.provider !== 'local') $('#provider-link').href = v.provider === 'drive' ? `https://drive.google.com/file/d/${v.providerId}/view` : v.url; else $('#provider-link').removeAttribute('href');
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
-  const m = meta(id), labels = state.labels.filter(x => m.labelIds?.includes(x.id)), artists = state.labels.filter(x => m.artistIds?.includes(x.id));
-  $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
+  // About this video is rendered from canonical source timestamps and published metadata.
+
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
