@@ -213,3 +213,52 @@ test('player Reset size restores comfortable width and responsive video height',
   assert.match(app, /applyPlayerWidth\(state\.playerSize\);\s*applyVideoHeight\(state\.playerHeight\);/);
   assert.match(app, /playerHeightMaximum = \(\) => Math\.max\(220, Math\.min\(840, Math\.floor\(window\.innerHeight \* 0\.82\)\)\)/);
 });
+
+test('opening any video uses browser viewport with a permanent close control', () => {
+  assert.match(html, /<dialog id="player" aria-labelledby="player-title">/);
+  assert.match(html, /data-close="player" aria-label="Close player"/);
+  assert.match(app, /function openPlayer\(id, queue = null/);
+  assert.match(app, /setPlayerViewport\(true\)/);
+  assert.match(css, /#player\.browser-wide:not\(\.fullscreen-mode\) \{[\s\S]*?height: 100dvh !important/);
+  assert.match(css, /#player\.browser-wide \#full-stage \{[\s\S]*?flex: 1 1 0/);
+  assert.match(playerSource, /dialog\.classList\.toggle\('browser-wide'\)/);
+  assert.doesNotMatch(playerSource, /requestFullscreen\(/);
+});
+
+test('Player settings are below playback and Drive fallback is only inside settings', () => {
+  const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
+  const settings = html.indexOf('class="display-options player-settings"');
+  const fallback = html.indexOf('id="drive-preview-button"');
+  assert.ok(stage > 0 && actions > stage && settings > actions && fallback > settings);
+  assert.match(html, /<summary>Player settings<\/summary>/);
+  assert.match(html, /id="drive-preview-button" hidden/);
+  assert.ok(css.includes('#player.browser-wide .player-settings .display-panel {'));
+  assert.ok(css.includes('position: static !important;'));
+  assert.ok(css.includes('#player.browser-wide .player-settings[open]'));
+  assert.ok(css.includes('#player.browser-wide[open]:has(.player-settings[open])'));
+});
+
+test('mobile playback controls align and retain usable volume and speed controls', () => {
+  assert.match(playerSource, /id="media-volume-down"[^>]*aria-label="Decrease volume"/);
+  assert.match(playerSource, /id="media-volume-up"[^>]*aria-label="Increase volume"/);
+  assert.match(playerSource, /id="media-volume" aria-label="Adjust volume"/);
+  assert.match(playerSource, /id="media-speed" aria-label="Playback speed"/);
+  assert.match(playerSource, /this\.\$\('#media-volume-down'\)\.onclick/);
+  assert.match(playerSource, /this\.\$\('#media-volume-up'\)\.onclick/);
+  assert.match(playerSource, /setVolume\(value\) \{/);
+  assert.ok(css.includes('grid-template-areas: "volume volume" "speed display";'));
+  assert.ok(css.includes('grid-template-columns: minmax(0, 1fr) max-content;'));
+  assert.ok(css.includes('#player.browser-wide #media-controls #media-volume'));
+  assert.ok(css.includes('display: block !important;'));
+  assert.ok(css.includes('#player.browser-wide #media-controls .media-display-actions'));
+  assert.ok(css.includes('#player #media-controls .transport'));
+});
+
+test('video resize still works when browser-wide and the owner editor remains reachable', () => {
+  assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
+  assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
+  assert.match(html, /class="player-owner-edit" data-admin-only/);
+  assert.match(html, /id="player-height-reset"/);
+  assert.match(app, /videoResize\.addEventListener\('pointermove'/);
+  assert.match(app, /videoResize\.addEventListener\('keydown'/);
+});
