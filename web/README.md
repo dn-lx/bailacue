@@ -6,6 +6,7 @@ mobile app is separate and has not been changed in this version.
 
 ## Experience
 - Public video library, search, artist/style labels and the fixed Salsa/Bachata collections.
+- The video popup prioritizes portrait and landscape playback, includes touch/keyboard video-height dragging, optional desktop width dragging, and Reset size/Auto height controls. Preferences are stored locally and video frames remain uncropped.
 - Choose the number of videos (from 1 up to the available catalogue size), then create a Salsa mix, Bachata mix or combined Salsa + Bachata mix. Mix size is saved locally, and is limited to the number of videos available for the selected dance. Native HTML5 and individual YouTube videos advance automatically to the next mix item when a video ends, where autoplay is permitted; iframe fallback and adaptive Stream copies retain manual Next/Previous controls.
 - No favourites tab, learning status, BPM entry or saved A–B practice loops.
 - Footer: "Create your own BailaCue with your own videos", opening
