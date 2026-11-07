@@ -262,3 +262,44 @@ test('video resize still works when browser-wide and the owner editor remains re
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
   assert.match(app, /videoResize\.addEventListener\('keydown'/);
 });
+
+test('browser-wide player fills the viewport by default and preserves Close and Escape', () => {
+  assert.match(app, /setPlayerViewport\(true\)/);
+  assert.match(app, /classList\.toggle\('browser-wide', fill\)/);
+  assert.match(app, /'Windowed view' : 'Fill browser'/);
+  assert.match(html, /id="player" aria-labelledby="player-title"/);
+  assert.match(html, /data-close="player" aria-label="Close player"/);
+  assert.match(css, /#player\.browser-wide:not\(\.fullscreen-mode\) \{/);
+  assert.match(css, /height: 100dvh !important;/);
+  assert.match(css, /width: 100vw !important;/);
+  assert.match(css, /#player\.browser-wide #full-stage \{/);
+  assert.match(css, /flex: 1 1 0;/);
+  assert.match(playerSource, /fullscreen\(\) \{[\s\S]*?classList\.toggle\('browser-wide'\)/);
+});
+
+test('settings are below the player, while source preview and metadata stay available', () => {
+  const stage = html.indexOf('id="full-stage"'), actions = html.indexOf('class="player-actions"');
+  const settings = html.indexOf('class="display-options player-settings"');
+  const preview = html.indexOf('id="drive-preview-button"');
+  const provider = html.indexOf('id="provider-link"');
+  assert.ok(stage > 0 && stage < actions && actions < settings && settings < preview && preview < provider);
+  assert.match(html, /<summary>Player settings<\/summary>/);
+  assert.match(html, /id="player-about" hidden/);
+  assert.match(html, /class="player-owner-edit" data-admin-only/);
+  assert.match(app, /\$\('#player-about'\)\.hidden = !\(labels\.length \|\| artists\.length \|\| m\.notes\)/);
+  assert.match(css, /#player\.browser-wide \.player-settings \[?\.?display-panel/);
+  assert.match(css, /#player\.browser-wide \.player-settings:not\(\[open\]\) > \.display-panel \{ display: none !important; \}/);
+});
+
+test('volume plus minus and slider remain usable on Android with separate speed row', () => {
+  assert.match(playerSource, /id="media-volume-down"[^>]*aria-label="Decrease volume"/);
+  assert.match(playerSource, /id="media-volume-up"[^>]*aria-label="Increase volume"/);
+  assert.match(playerSource, /id="media-volume" aria-label="Adjust volume"/);
+  assert.match(playerSource, /this\.setVolume\(Number\(this\.\$\('#media-volume'\)\.value\) - 10\)/);
+  assert.match(playerSource, /this\.setVolume\(Number\(this\.\$\('#media-volume'\)\.value\) \+ 10\)/);
+  assert.match(playerSource, /Math\.max\(0, Math\.min\(100, Math\.round/);
+  assert.match(css, /#player\.browser-wide #media-controls #media-volume \{[\s\S]*?display: block !important/);
+  assert.match(css, /grid-template-areas: "volume volume" "speed display"/);
+  assert.match(css, /#player\.browser-wide #media-controls \.speed-label \{/);
+  assert.match(css, /#player\.browser-wide #media-controls \.volume-control \{/);
+});
