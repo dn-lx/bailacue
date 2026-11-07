@@ -585,7 +585,14 @@ details > summary:hover::after { color: var(--blue); }
   pointer-events: none;
 }
 #player #media-controls .media-display-actions { justify-self: end; gap: 4px; }
-#player #media-controls .preview-mode .player-utilities { display: flex; }
+/* Embedded Drive/Stream previews own their controls: never duplicate
+   BailaCue native transport, timeline or speed actions over an iframe. */
+#player #media-controls.preview-mode .timeline,
+#player #media-controls.preview-mode .transport,
+#player #media-controls.preview-mode .volume-control,
+#player #media-controls.preview-mode .speed-label,
+#player #media-controls.preview-mode .practice-tools { display: none; }
+#player #media-controls.preview-mode .player-utilities { display: flex; justify-content: flex-end; }
 #player .playback-status { margin: 8px 0; min-height: 18px; font-size: 12px; line-height: 1.45; }
 #player .player-actions { margin: 8px 0 2px; gap: 8px; }
 #player .player-actions .button { min-height: 42px; font-size: 13px; padding: 8px 12px; }
