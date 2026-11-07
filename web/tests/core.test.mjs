@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -106,4 +106,22 @@ test('mix count is configurable, bounded and kept when recovering saved browser 
   assert.equal(cleanState({ ...emptyState(), mixSize: 24 }).mixSize, 24);
   assert.equal(cleanState({ ...emptyState(), mixSize: 0 }).mixSize, 1);
   assert.equal(cleanState({ ...emptyState(), mixSize: undefined }).mixSize, 10);
+});
+
+test('video resize heights stay bounded and the viewer preference survives backups', () => {
+  assert.equal(clampPlayerHeight(0), 0);
+  assert.equal(clampPlayerHeight(null), 0);
+  assert.equal(clampPlayerHeight(undefined), 0);
+  assert.equal(clampPlayerHeight(''), 0);
+  assert.equal(clampPlayerHeight('not-height'), 0);
+  assert.equal(clampPlayerHeight(540), 540);
+  assert.equal(clampPlayerHeight('620'), 620);
+  assert.equal(clampPlayerHeight(90), 220);
+  assert.equal(clampPlayerHeight(1600), 840);
+  assert.equal(clampPlayerHeight(740, 510), 510);
+  assert.equal(clampPlayerHeight(-100, 180), 220);
+  assert.equal(emptyState().playerHeight, 0);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: 580 }).playerHeight, 580);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: 99999 }).playerHeight, 840);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: null }).playerHeight, 0);
 });
