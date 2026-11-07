@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampPlayerWidth, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
 import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -292,7 +292,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
   $('#player').classList.toggle('local-preview', v.provider === 'local');
-  $('#player').style.width = `${state.playerSize}px`; $('#player-size').value = String(state.playerSize);
+  applyPlayerWidth(state.playerSize);
   $('#provider-link').hidden = v.provider === 'local';
   if (v.provider !== 'local') $('#provider-link').href = v.provider === 'drive' ? `https://drive.google.com/file/d/${v.providerId}/view` : v.url; else $('#provider-link').removeAttribute('href');
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
@@ -483,13 +483,67 @@ document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.a
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
-$('#player-size').addEventListener('change', event => { state.playerSize = Number(event.target.value); $('#player').classList.remove('theater'); $('#theater-button').textContent = 'Theater view'; $('#theater-button').setAttribute('aria-pressed', 'false'); $('#player').style.width = `${state.playerSize}px`; save(); });
+/* The player supports preset sizes and custom drag widths without touching playback. */
+const playerDialog = $('#player');
+const widthResize = $('#player-width-resize');
+const widthPicker = $('#player-size');
+const playerWidthMaximum = () => Math.max(560, Math.min(1440, window.innerWidth - 24));
+function applyPlayerWidth(value, persist = false) {
+  const width = clampPlayerWidth(value);
+  playerDialog.style.width = `${width}px`;
+  widthPicker.value = [680, 960, 1280].includes(width) ? String(width) : 'custom';
+  const effectiveWidth = Math.min(width, playerWidthMaximum());
+  widthResize.setAttribute('aria-valuemax', String(Math.round(playerWidthMaximum())));
+  widthResize.setAttribute('aria-valuenow', String(Math.round(effectiveWidth)));
+  widthResize.setAttribute('aria-valuetext', `${Math.round(effectiveWidth)} pixels wide`);
+  if (persist) { state.playerSize = width; save(); }
+  return width;
+}
+widthPicker.addEventListener('change', event => {
+  if (event.target.value === 'custom') return;
+  playerDialog.classList.remove('theater');
+  $('#theater-button').textContent = 'Theater view';
+  $('#theater-button').setAttribute('aria-pressed', 'false');
+  applyPlayerWidth(Number(event.target.value), true);
+});
+let activeWidthResize = null;
+widthResize.addEventListener('pointerdown', event => {
+  if (!playerDialog.open || playerDialog.classList.contains('fullscreen-mode') || window.innerWidth <= 720 || event.button !== 0) return;
+  event.preventDefault();
+  widthResize.focus({ preventScroll: true });
+  const startWidth = playerDialog.getBoundingClientRect().width;
+  activeWidthResize = { id: event.pointerId, startX: event.clientX, startWidth, width: startWidth };
+  widthResize.setPointerCapture(event.pointerId);
+  widthResize.classList.add('dragging');
+});
+widthResize.addEventListener('pointermove', event => {
+  if (!activeWidthResize || activeWidthResize.id !== event.pointerId) return;
+  activeWidthResize.width = applyPlayerWidth(Math.min(playerWidthMaximum(), activeWidthResize.startWidth + (event.clientX - activeWidthResize.startX)));
+});
+function endWidthResize(event) {
+  if (!activeWidthResize || activeWidthResize.id !== event.pointerId) return;
+  const { width, startWidth } = activeWidthResize;
+  activeWidthResize = null;
+  widthResize.classList.remove('dragging');
+  if (widthResize.hasPointerCapture(event.pointerId)) widthResize.releasePointerCapture(event.pointerId);
+  applyPlayerWidth(event.type === 'pointercancel' ? startWidth : width, true);
+}
+widthResize.addEventListener('pointerup', endWidthResize);
+widthResize.addEventListener('pointercancel', endWidthResize);
+widthResize.addEventListener('keydown', event => {
+  const current = playerDialog.getBoundingClientRect().width || state.playerSize;
+  const keyValues = { ArrowRight: current + 32, ArrowLeft: current - 32, Home: 560, End: playerWidthMaximum() };
+  if (!Object.hasOwn(keyValues, event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  applyPlayerWidth(Math.min(playerWidthMaximum(), keyValues[event.key]), true);
+});
 /* Resize the video without restarting playback. Pointer drag and keyboard sliders
    write the same browser-local preference; neither touches video metadata. */
 const videoFrame = $('#video-frame');
 const videoResize = $('#video-resize');
 const videoHeightSlider = $('#player-height');
-const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.78)));
+const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.82)));
 function applyVideoHeight(value, persist = false) {
   const max = playerHeightMaximum();
   const height = clampPlayerHeight(value, max);
@@ -521,10 +575,11 @@ videoResize.addEventListener('pointermove', event => {
 function endVideoResize(event) {
   if (!activeVideoResize || activeVideoResize.id !== event.pointerId) return;
   const height = activeVideoResize.height;
+  const initialHeight = activeVideoResize.startHeight;
   activeVideoResize = null;
   videoResize.classList.remove('dragging');
   if (videoResize.hasPointerCapture(event.pointerId)) videoResize.releasePointerCapture(event.pointerId);
-  applyVideoHeight(height, true);
+  applyVideoHeight(event.type === 'pointercancel' ? initialHeight : height, true);
 }
 videoResize.addEventListener('pointerup', endVideoResize);
 videoResize.addEventListener('pointercancel', endVideoResize);
@@ -539,7 +594,20 @@ videoResize.addEventListener('keydown', event => {
 videoHeightSlider.addEventListener('input', event => applyVideoHeight(event.target.value));
 videoHeightSlider.addEventListener('change', event => applyVideoHeight(event.target.value, true));
 $('#player-height-reset').addEventListener('click', () => applyVideoHeight(0, true));
-window.addEventListener('resize', () => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
+$('#player-reset-size').addEventListener('click', () => {
+  playerDialog.classList.remove('theater');
+  $('#theater-button').textContent = 'Theater view';
+  $('#theater-button').setAttribute('aria-pressed', 'false');
+  state.playerSize = 960;
+  state.playerHeight = 0;
+  applyPlayerWidth(state.playerSize);
+  applyVideoHeight(state.playerHeight);
+  save();
+  toast('Player size reset to automatic video height and comfortable width.');
+});
+window.addEventListener('resize', () => {
+  if (playerDialog.open) { applyPlayerWidth(state.playerSize); applyVideoHeight(state.playerHeight); }
+});
 $('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
 for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
