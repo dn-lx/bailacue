@@ -47,7 +47,7 @@ export class StudioPlayer {
         <label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button></div>
       </div>`;
-    this.fullscreenButton = document.querySelector('#fullscreen-button');
+    this.fullscreenButton = /** @type {HTMLButtonElement} */ (document.querySelector('#fullscreen-button'));
     this.fullscreenButton.innerHTML = mediaIcon('expand');
     this.updateFullscreen();
     document.addEventListener('fullscreenchange', () => this.updateFullscreen());
@@ -221,11 +221,12 @@ export class StudioPlayer {
       catch { this.toast('Could not exit fullscreen. Try the browser Back button.'); }
       return;
     }
+    const legacyVideo = /** @type {(HTMLVideoElement & { webkitEnterFullscreen?: () => void }) | null} */ (this.media);
     try {
       if (typeof this.videoShell.requestFullscreen === 'function') {
         await this.videoShell.requestFullscreen();
-      } else if (typeof this.media?.webkitEnterFullscreen === 'function') {
-        this.media.webkitEnterFullscreen();
+      } else if (typeof legacyVideo?.webkitEnterFullscreen === 'function') {
+        legacyVideo.webkitEnterFullscreen();
       } else {
         this.toast('Video fullscreen is unavailable in this browser.');
       }
