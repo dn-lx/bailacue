@@ -292,6 +292,8 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
   $('#player').classList.add('browser-wide');
+  studioPlayer.updateFullscreen();
+  $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
   applyPlayerWidth(state.playerSize);
   $('#provider-link').hidden = v.provider === 'local';
