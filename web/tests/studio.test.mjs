@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { cleanState, emptyState, filterVideos, SOURCES } from '../core.mjs';
-import { cleanLabels, cleanDetails, createLabel, seedLabels, nextNumber, numberedName } from '../studio-model.mjs';
+import { cleanLabels, cleanDetails, createLabel, seedLabels, nextNumber, numberedName, mapDriveFile } from '../studio-model.mjs';
 import { DriveConnection, acknowledgedOffset } from '../drive.mjs';
 
 test('labels distinguish their type, deduplicate Unicode/case/spacing and keep deleted suggestions deleted', () => {
@@ -91,4 +91,18 @@ test('an expired upload URL checks the reserved ID instead of creating a duplica
   connection.request = async () => { calls++; if (calls === 1) throw Object.assign(new Error('Session expired'), { status: 404 }); return Response.json({ id: job.id, name: job.name, size: '1024', parents: [job.folderId] }); };
   const result = await connection.upload(job, () => {}, new AbortController().signal);
   assert.equal(result.providerId, job.id); assert.equal(calls, 2);
+});
+
+test('uploaded Drive videos use the actual creation timestamp, not the optional recording date', () => {
+  const video = mapDriveFile({
+    id: '1abcdEFGHijKLmnopQrSTuvWXyZ_12345', name: '0116.mp4',
+    createdTime: '2026-11-07T11:22:35.000Z',
+    modifiedTime: '2026-11-07T11:22:45.000Z',
+    mimeType: 'video/mp4', size: '10485760',
+  }, 'Bachata', SOURCES[1].folderId);
+  assert.equal(video.addedAt, '2026-11-07T11:22:35.000Z');
+  assert.equal(video.updatedAt, '2026-11-07T11:22:45.000Z');
+  assert.equal(video.dance, 'Bachata');
+  assert.equal(video.filename, '0116.mp4');
+  assert.equal(cleanDetails({}).recordedAt, '');
 });
