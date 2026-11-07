@@ -538,6 +538,7 @@ videoResize.addEventListener('keydown', event => {
 });
 videoHeightSlider.addEventListener('input', event => applyVideoHeight(event.target.value));
 videoHeightSlider.addEventListener('change', event => applyVideoHeight(event.target.value, true));
+$('#player-height-reset').addEventListener('click', () => applyVideoHeight(0, true));
 window.addEventListener('resize', () => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 $('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
 for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
