@@ -153,6 +153,7 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
+    this.updateQualityControls(video);
     this.hideFullscreenControls();
     this.frame.classList.remove('portrait-video');
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
