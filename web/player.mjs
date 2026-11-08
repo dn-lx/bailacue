@@ -27,8 +27,9 @@ function loadYoutube() {
 export class StudioPlayer {
   constructor({ token, allowedFile, streamFor = _video => null, posterFor = _video => null, onEnded = _video => {}, toast }) {
     this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.posterFor = posterFor; this.onEnded = onEnded; this.toast = toast;
-    this.frame = document.querySelector('#video-frame'); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
+    this.frame = /** @type {HTMLElement} */ (document.querySelector('#video-frame')); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
+    this.lastLocalUrl = ''; this.lastAutoPlay = false; this.slowTimer = null;
     this.retryButton = /** @type {HTMLButtonElement} */ (document.querySelector('#retry-playback'));
     this.retryButton.onclick = () => { if (this.video) this.open(this.video, this.lastLocalUrl || '', this.lastAutoPlay || false); };
     this.fullscreenControls = /** @type {HTMLElement} */ (document.querySelector('#fullscreen-controls'));
