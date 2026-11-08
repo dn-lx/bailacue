@@ -2,7 +2,7 @@ import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitl
 import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
-import { renderStreamAdmin, cancelStreamUpload } from './stream-admin.mjs';
+import { renderStreamAdmin, cancelStreamUpload, finishSavedConversions } from './stream-admin.mjs';
 import { DriveConnection } from './drive.mjs';
 import { StudioPlayer } from './player.mjs';
 import { labelPicker, renderLabelManager, renderUpload, uploadRunning } from './studio-ui.mjs';
@@ -441,10 +441,12 @@ $('#admin-form').addEventListener('submit', async event => {
       updatePlayer(); mountVideoDetails();
       $('#personal-title').focus();
     }
+    finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {});
     toast('Signed in. You can now edit video metadata.');
   } catch (error) { $('#admin-error').textContent = error.message; }
   finally { button.disabled = false; }
 });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && admin.isAdmin) finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {}); });
 document.addEventListener('keydown', event => {
   if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('dialog[open]')) return;
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -537,7 +539,7 @@ for (const id of ['settings-nav', 'mobile-settings']) $(`#${id}`).addEventListen
 document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.addEventListener('click', () => { if (!(button instanceof HTMLElement)) return; filters = { dance: button.dataset.dance, provider: 'drive', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }));
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
-async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
+async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); if (admin.isAdmin) finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {}); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 /* Video opens browser-wide, with the native media control to toggle compact view. */
 const playerDialog = $('#player');
 function setPlayerViewport(fill) {
