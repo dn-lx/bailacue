@@ -2207,11 +2207,20 @@ details > summary:hover::after { color: var(--blue); }
 }
 
 
-/* Show loading feedback over the video until playback is ready. */
-#player #video-frame { position: relative; isolation: isolate; }
+/* Immediate video thumbnail and recoverable startup/buffering feedback. */
+#player #video-frame {
+  position: relative;
+  isolation: isolate;
+  background-color: #101723;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+#player #video-frame[data-starting="true"] > video,
+#player #video-frame[data-starting="true"] > iframe { opacity: 0; }
 #player #video-frame[aria-busy="true"] { animation: none; }
 #player #video-frame[aria-busy="true"]::before {
-  content: "Loading video…";
+  content: "Preparing video…";
   position: absolute;
   inset: 0;
   z-index: 2;
@@ -2219,11 +2228,13 @@ details > summary:hover::after { color: var(--blue); }
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
-  padding-top: 80px;
-  background: #101723b3;
+  padding: 94px 16px 0;
+  background: linear-gradient(180deg, #10172335, #10172388);
   color: #f4f7fd;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: .01em;
+  text-shadow: 0 1px 6px #101723d9;
   pointer-events: none;
 }
 #player #video-frame[aria-busy="true"]::after {
@@ -2233,15 +2244,25 @@ details > summary:hover::after { color: var(--blue); }
   top: 50%;
   left: 50%;
   box-sizing: border-box;
-  width: 48px;
-  height: 48px;
-  margin: -24px 0 0 -24px;
-  border: 4px solid #aac5ff40;
-  border-top-color: #aac5ff;
+  width: 44px;
+  height: 44px;
+  margin: -32px 0 0 -22px;
+  border: 3px solid #aac5ff55;
+  border-top-color: #d1e1ff;
   border-radius: 50%;
   pointer-events: none;
   animation: video-loading-spin .8s linear infinite;
 }
+#player .playback-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#player .playback-feedback .playback-status { flex: 1 1 180px; }
+#player .playback-feedback #retry-playback { min-height: 38px; flex: 0 0 auto; }
+#player #retry-playback[hidden] { display: none; }
 @keyframes video-loading-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   #player #video-frame[aria-busy="true"]::after { animation: none; }
