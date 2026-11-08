@@ -1,38 +1,54 @@
-// Free FFmpeg H.264/AAC Google Drive renditions. A single owner-published
-// manifest connects each original stable BailaCue video ID to a derived copy.
-// Only the two dedicated derived folders are permitted.
+// Owner-published free H.264/AAC Google Drive copies. Originals keep their IDs.
 export const OPTIMIZED_ROOT = '1CErkH8BmExpKGZXHSl1hnDbs6fgr08PQ';
 export const OPTIMIZED_FOLDERS = Object.freeze({
   Salsa: '1Z8yfu20bLFKChQGXYQQ8uZZoEDMTSx1f',
   Bachata: '1rOwr5utjZ-gfCj5Zj6KlOjmqdFRu8ncq',
 });
-export const OPTIMIZED_PRESET = 'h264-aac-faststart-720p-v1';
+export const OPTIMIZED_PRESET = 'h264-aac-ladder-v2';
+export const LEGACY_PRESET = 'h264-aac-faststart-720p-v1';
+export const QUALITIES = Object.freeze(['360p','720p','1080p']);
 const FILE_ID = /^[A-Za-z0-9_-]{10,100}$/;
 const SOURCE_ID = /^drive:[A-Za-z0-9_-]{10,100}$/;
+const NAME = /^[A-Za-z0-9_.()-]{1,190}\.mp4$/i;
 
 export function parseOptimizedManifest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
-      input.version !== 1 || input.rootFolderId !== OPTIMIZED_ROOT ||
-      input.preset !== OPTIMIZED_PRESET || !Array.isArray(input.entries) ||
-      input.entries.length > 1000) return null;
-  const entries = [], seenOriginal = new Set(), seenCopy = new Set();
+      input.rootFolderId !== OPTIMIZED_ROOT || !Array.isArray(input.entries) ||
+      input.entries.length > 1000 ||
+      !((input.version === 1 && input.preset === LEGACY_PRESET) ||
+        (input.version === 2 && input.preset === OPTIMIZED_PRESET))) return null;
+  const entries = [], seenSources = new Set(), seenIds = new Set();
   for (const raw of input.entries) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw) ||
-        !SOURCE_ID.test(raw.sourceId || '') || !FILE_ID.test(raw.driveId || '') ||
+        !SOURCE_ID.test(raw.sourceId || '') ||
         !Object.hasOwn(OPTIMIZED_FOLDERS, raw.dance) ||
-        raw.folderId !== OPTIMIZED_FOLDERS[raw.dance] ||
-        !Number.isSafeInteger(raw.size) || raw.size < 1024 ||
-        raw.size > 2 * 1024 * 1024 * 1024 ||
-        typeof raw.filename !== 'string' ||
-        !/^[A-Za-z0-9_.()-]{1,190}\.mp4$/i.test(raw.filename) ||
-        seenOriginal.has(raw.sourceId) || seenCopy.has(raw.driveId)) return null;
-    seenOriginal.add(raw.sourceId); seenCopy.add(raw.driveId);
-    entries.push({
-      sourceId: raw.sourceId, driveId: raw.driveId,
-      dance: raw.dance, folderId: raw.folderId, filename: raw.filename, size: raw.size,
+        seenSources.has(raw.sourceId)) return null;
+    const legacy = input.version === 1;
+    const variants = legacy ? [{ ...raw, quality: '720p' }] : raw.renditions;
+    if (!Array.isArray(variants) || variants.length < 1 || variants.length > 3) return null;
+    const seenQualities = new Set();
+    for (const variant of variants) {
+      if (!variant || typeof variant !== 'object' || Array.isArray(variant) ||
+          !QUALITIES.includes(variant.quality) ||
+          !FILE_ID.test(variant.driveId || '') ||
+          variant.folderId !== OPTIMIZED_FOLDERS[raw.dance] ||
+          !Number.isSafeInteger(variant.size) || variant.size < 1024 ||
+          variant.size > 2 * 1024 * 1024 * 1024 ||
+          typeof variant.filename !== 'string' || !NAME.test(variant.filename) ||
+          seenQualities.has(variant.quality) || seenIds.has(variant.driveId)) return null;
+      seenQualities.add(variant.quality); seenIds.add(variant.driveId);
+    }
+    seenSources.add(raw.sourceId);
+    if (legacy) entries.push({ ...raw });
+    else entries.push({
+      sourceId: raw.sourceId, dance: raw.dance,
+      renditions: variants.map(v => ({
+        quality: v.quality, driveId: v.driveId,
+        folderId: v.folderId, filename: v.filename, size: v.size,
+      })),
     });
   }
-  return { version: 1, rootFolderId: OPTIMIZED_ROOT, preset: OPTIMIZED_PRESET, entries };
+  return { version: input.version, rootFolderId: OPTIMIZED_ROOT, preset: input.preset, entries };
 }
 
 export function optimizedForSource(manifest, sourceId) {
@@ -40,17 +56,29 @@ export function optimizedForSource(manifest, sourceId) {
   return manifest.entries.find(entry => entry.sourceId === sourceId) || null;
 }
 
-export function asOptimizedFile(entry) {
-  if (!entry) return null;
+export function renditions(entry) {
+  if (!entry) return [];
+  return Array.isArray(entry.renditions) ? entry.renditions :
+    (FILE_ID.test(entry.driveId || '') ? [{ quality: '720p', driveId: entry.driveId, folderId: entry.folderId, filename: entry.filename, size: entry.size }] : []);
+}
+export function chooseRendition(entry, quality = 'auto') {
+  const options = renditions(entry);
+  if (!options.length) return null;
+  if (quality !== 'auto') {
+    const exact = options.find(v => v.quality === quality);
+    if (exact) return exact;
+  }
+  return options.find(v => v.quality === '720p') ||
+    options.find(v => v.quality === '360p') || options[0];
+}
+
+export function asOptimizedFile(entry, selected = chooseRendition(entry)) {
+  if (!entry || !selected || !SOURCE_ID.test(entry.sourceId || '')) return null;
   return {
-    id: 'drive:' + entry.driveId,
-    provider: 'drive',
-    providerId: entry.driveId,
-    dance: entry.dance,
-    folderId: entry.folderId,
-    filename: entry.filename,
-    size: entry.size,
-    sourceId: entry.sourceId,
-    optimizedPreset: OPTIMIZED_PRESET,
+    id: 'drive:' + selected.driveId,
+    provider: 'drive', providerId: selected.driveId,
+    dance: entry.dance, folderId: selected.folderId,
+    filename: selected.filename, size: selected.size, sourceId: entry.sourceId,
+    optimizedPreset: Array.isArray(entry.renditions) ? OPTIMIZED_PRESET : LEGACY_PRESET,
   };
 }
