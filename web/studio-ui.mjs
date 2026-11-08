@@ -164,7 +164,17 @@ export function renderUpload(page, ctx) {
       }
       if (!all.length) throw new Error('The fixed Salsa and Bachata folders have no readable video files.');
       const pending = all.filter(video => !ctx.streamFor(video));
-      backfillStatus.textContent = `${pending.length} of ${all.length} videos require optimization. Processing sequentially; keep this tab active.`;
+      const knownMinutes = Math.ceil(pending.filter(v => Number(v.duration) > 0).reduce((sum, v) => sum + v.duration, 0) / 60);
+      const unknown = pending.filter(v => !Number(v.duration) || v.duration < 1).length;
+      const totalGiB = (pending.reduce((sum, v) => sum + (Number(v.size) || 0), 0) / (1024 ** 3)).toFixed(1);
+      const summary = `${pending.length} of ${all.length} videos need optimization · ${totalGiB} GiB · ${knownMinutes} known video minutes · ${unknown} missing duration and will be skipped.`;
+      backfillStatus.textContent = summary;
+      if (!pending.length) return;
+      if (!window.confirm(`${summary}\n\nThis transfers existing videos through your device to paid Cloudflare Stream storage. Streaming delivery can incur additional charges. Google Drive originals remain unchanged. Start this one-time conversion?`)) {
+        backfillStatus.textContent = 'No conversion started. ' + summary;
+        return;
+      }
+      backfillStatus.textContent = summary + ' Processing sequentially; keep this tab active.';
       const outcome = await backfillStreamLibrary({
         videos: all, connection, admin: ctx.admin, signal: backfillSession.controller.signal,
         isPublished: video => !!ctx.streamFor(video),
