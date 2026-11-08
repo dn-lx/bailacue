@@ -1,9 +1,8 @@
-import catalogue from '../../catalogue.json' with { type: 'json' };
-import publicConfig from '../../public-config.json' with { type: 'json' };
-import { createStreamHandler } from '../../stream-api.mjs';
-
-// The Cloudflare API token is read at runtime only. It never enters the browser
-// bundle, Supabase, public config, or GitHub source.
-const readEnv = name => (/** @type {any} */ (globalThis)).Netlify?.env?.get(name) || '';
-export default createStreamHandler({ catalogue, publicConfig, env: readEnv });
+// Paid Cloudflare Stream ingestion is retired for BailaCue's free local-FFmpeg workflow.
+// Keep the old route explicitly disabled to avoid accidentally incurring conversion fees.
+// Playback of any preexisting validated Stream metadata remains backwards compatible.
+export default async function retiredStreamEndpoint() {
+  return Response.json({ enabled: false, error: 'Paid Stream conversion is disabled. Use the free local FFmpeg studio and Google Drive optimized copies.' },
+    { status: 410, headers: { 'Cache-Control': 'no-store' } });
+}
 export const config = { path: '/api/stream/:action' };
