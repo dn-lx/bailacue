@@ -133,7 +133,7 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, preview: file => {
+function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, streamFor: video => streamMap.get(video.id), onStreamPublished: (video, delivery) => { streamMap.set(video.id, delivery); }, publishOriginal: video => admin.put('drive:' + video.id, video), preview: file => {
   if (!requireAdmin()) return;
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
