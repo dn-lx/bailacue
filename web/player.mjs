@@ -1,6 +1,7 @@
 import { embedUrl } from './core.mjs';
 import { formatTime } from './studio-model.mjs';
 import { streamEmbedUrl } from './stream-delivery.mjs';
+import { chooseRendition, renditions } from './optimized-delivery.mjs';
 const paths = {
   play: '<path d="m9 5 12 9-12 9Z" fill="currentColor" stroke="none"/>',
   pause: '<path d="M9 5v18M19 5v18" stroke-width="4"/>',
