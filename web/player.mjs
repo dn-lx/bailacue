@@ -90,6 +90,7 @@ export class StudioPlayer {
     this.fsVolumeDown.onclick = () => this.setVolume(Number(this.fsVolume.value) - 10);
     this.fsVolumeUp.onclick = () => this.setVolume(Number(this.fsVolume.value) + 10);
     this.fsSpeed.onchange = () => this.setSpeed(Number(this.fsSpeed.value));
+    this.fsQuality.onchange = () => this.changeQuality(this.fsQuality.value);
     this.fsMirror.onclick = () => this.toggleMirror();
     this.fsExit.onclick = () => this.fullscreen();
     this.$('#media-play').onclick = () => this.playPause();
