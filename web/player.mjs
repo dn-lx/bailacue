@@ -25,8 +25,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = _video => null, posterFor = _video => null, onEnded = _video => {}, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.posterFor = posterFor; this.onEnded = onEnded; this.toast = toast;
+  constructor({ token, allowedFile, streamFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = /** @type {HTMLElement} */ (document.querySelector('#video-frame')); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.lastLocalUrl = ''; this.lastAutoPlay = false; this.slowTimer = null;
@@ -116,6 +116,15 @@ export class StudioPlayer {
   }
   /** @returns {any} */
   $(selector) { return this.controls.querySelector(selector); }
+  posterFor(video) {
+    if (video.provider === 'drive' && /^[A-Za-z0-9_-]{10,100}$/.test(video.providerId || '')) {
+      return `https://drive.google.com/thumbnail?id=${encodeURIComponent(video.providerId)}&sz=w1280`;
+    }
+    if (video.provider === 'youtube' && /^[A-Za-z0-9_-]{11}$/.test(video.providerId || '')) {
+      return `https://i.ytimg.com/vi/${video.providerId}/hqdefault.jpg`;
+    }
+    return null;
+  }
   dismissLoading() {
     clearTimeout(this.slowTimer);
     this.frame.dataset.starting = 'false';
