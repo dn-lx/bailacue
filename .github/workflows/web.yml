@@ -23,5 +23,7 @@ jobs:
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - run: python3 -m py_compile tools/convert_drive_library.py
+      - run: python3 -m py_compile tools/convert_drive_library.py tools/convert_library_multi.py tools/local_upload_server.py
+      - run: python3 tools/convert_library_multi.py --help
+      - run: python3 tools/local_upload_server.py --help
       - run: python3 tools/convert_drive_library.py --help
