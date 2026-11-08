@@ -276,6 +276,15 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
                             service, ffmpeg, ffprobe, manifest, max_videos=0,
                             dry_run=False, requested=qualities, progress=update,
                         )
+                        # Reconcile in-memory copies: a subsequent new-file upload must
+                        # never replace a full backfill manifest with stale mappings.
+                        refreshed_sources = originals(service)
+                        refreshed_copies = existing_renditions(service, refreshed_sources)
+                        source_map.clear()
+                        source_map.update(refreshed_sources)
+                        copied.clear()
+                        copied.update(refreshed_copies)
+                        save_manifest(manifest, copied)
                         update("One-time backfill finished. Download the latest manifest.")
                     except Exception as error:
                         update("Backfill stopped: "+str(error)+" · run again to resume.")
