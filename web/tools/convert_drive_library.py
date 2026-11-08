@@ -68,7 +68,7 @@ def list_children(service, folder_id: str):
         page = service.files().list(
             q=f"'{folder_id}' in parents and trashed = false",
             pageSize=1000,
-            fields="nextPageToken,files(id,name,mimeType,size,parents,appProperties)",
+            fields="nextPageToken,files(id,name,mimeType,size,parents,appProperties,videoMediaMetadata(width,height))",
             pageToken=token,
             supportsAllDrives=True,
             includeItemsFromAllDrives=True,
