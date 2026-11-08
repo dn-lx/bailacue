@@ -1,4 +1,5 @@
 import { SOURCES } from './core.mjs';
+import { OPTIMIZED_FOLDERS, OPTIMIZED_PRESET } from './optimized-delivery.mjs';
 
 // Stay below Netlify's buffered binary response limit, even if the platform buffers.
 export const MAX_CHUNK = 4 * 1024 * 1024;
@@ -57,7 +58,7 @@ function streamBounded(response, expected, finish, abort) {
 }
 
 /** Only the deployed, fixed-folder catalogue can be read. No arbitrary URL proxy. */
-export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile = async () => null) {
+export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile = async () => null, loadOptimizedFile = async () => null) {
   const files = new Map();
   if (catalogue?.rootFolderId !== '1elTpDpgefwwlnrSEFc8vyREt3HUpDS8P') throw new Error('Unexpected Drive source.');
   for (const video of catalogue.videos || []) {
@@ -86,6 +87,30 @@ export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile
           file = candidate;
         }
       } catch { /* Deny an unavailable or invalid dynamic catalogue record. */ }
+    }
+    if (!file && match && !url.search) {
+      try {
+        const derived = await loadOptimizedFile(match[1]);
+        if (derived?.provider === 'drive' &&
+            derived.id === 'drive:' + match[1] && derived.providerId === match[1] &&
+            derived.optimizedPreset === OPTIMIZED_PRESET &&
+            derived.folderId === OPTIMIZED_FOLDERS[derived.dance] &&
+            derived.filename?.endsWith('.mp4') &&
+            Number.isSafeInteger(derived.size) && derived.size >= 1024 &&
+            /^drive:[A-Za-z0-9_-]{10,100}$/.test(derived.sourceId || '')) {
+          const originalId = derived.sourceId.slice(6);
+          const original = files.get(originalId) || await loadPublishedFile(originalId);
+          const folder = SOURCES.find(s => s.dance === derived.dance);
+          if (original?.id === derived.sourceId &&
+              original.providerId === originalId &&
+              original.provider === 'drive' &&
+              original.dance === derived.dance &&
+              folder && (!original.folderId || original.folderId === folder.folderId)) {
+            files.set(match[1], derived);
+            file = derived;
+          }
+        }
+      } catch { /* An unknown or unverified optimized ID must never be proxied. */ }
     }
     if (!file || url.search) return fail(404, 'This video is not in the published dance library.');
     const range = byteRange(request.headers.get('Range'), file.size);
