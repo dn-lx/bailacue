@@ -91,6 +91,33 @@ async function uploadChunks(file, job, onProgress, signal) {
 
 export function cancelStreamUpload() { activeController?.abort(); activeController = null; }
 
+/** Reconcile already-uploaded, encoding videos whenever the owner returns. */
+export async function finishSavedConversions(admin, onPublished) {
+  if (!admin?.isAdmin || !await streamServiceEnabled()) return 0;
+  const keys = [];
+  for (let index = 0; index < localStorage.length; index++) {
+    const key = localStorage.key(index);
+    if (key?.startsWith('bailacue:stream-job:')) keys.push(key);
+  }
+  let finished = 0;
+  for (const key of keys.slice(0, 30)) {
+    const videoId = key.slice('bailacue:stream-job:'.length);
+    if (!/^drive:[A-Za-z0-9_-]{10,100}$/.test(videoId)) continue;
+    let job;
+    try { job = JSON.parse(localStorage.getItem(key) || 'null'); } catch { continue; }
+    if (!job?.completed || job.videoId !== videoId || !/^[a-f0-9]{32}$/i.test(job.uid || '')) continue;
+    try {
+      const result = await ownerRequest(admin, 'status', { videoId, uid: job.uid });
+      if (result.status === 'ready' && result.delivery) {
+        clearCompletedJob(videoId);
+        onPublished(videoId, result.delivery);
+        finished++;
+      }
+    } catch { /* Provider processing may be pending; preserve job for next session. */ }
+  }
+  return finished;
+}
+
 /** Read a bounded byte range from an owner's already-authorized fixed Drive video. */
 export async function readDriveChunk(connection, video, start, end, signal) {
   const id = video?.providerId || '';
