@@ -1,6 +1,6 @@
 # BailaCue adaptive video delivery — pilot integration
 
-Status: **implemented behind an off-by-default provider switch** on the `develop`
+Status: **automatic conversion and a one-time resumable existing-library backfill are implemented behind an off-by-default provider switch** on the `develop`
 web deployment. No Cloudflare Stream account, payment plan, credentials, or upload
 has been activated by this repository. The Google Drive video catalogue remains
 the source of truth and continues to play through its existing validated range
@@ -59,7 +59,18 @@ upload bytes.
 15 minutes reserved by default. Cloudflare reserves video storage capacity
 when a TUS upload is prepared and bills actual duration once processed.
 The owner must check provider balance/limits before enabling uploads.
-There is no batch migration or automatic paid job.
+Enabling the provider makes **future owner uploads through BailaCue** automatically submit a derived Stream copy. A one-time backfill of existing videos remains an **explicit, separate owner action**, with a charge acknowledgement. Nothing begins automatically on deploy.
+
+## Automatic conversion and one-time existing-video backfill
+
+- **New uploads:** once Stream is explicitly enabled, the owner uploads normally to Google Drive. After Drive confirms the original, BailaCue confirms that original is published and uploads the already-selected file directly to Cloudflare Stream through its existing TUS workflow. A failure in optimization does **not** delete, overwrite, or roll back the original.
+- **Existing videos (one-time):** sign in as BailaCue admin, connect the Google account that can read the two fixed Drive folders, open **Add videos**, and choose **Optimize existing library** under **Optional video optimization**. The page reads the existing Salsa/Bachata folders and transfers each unoptimized video in 10 MiB Drive-to-browser-to-Cloudflare chunks, **one video at a time**. The original stays untouched and is never downloaded as one giant browser Blob.
+- Before a backfill run the owner must tick a checkbox acknowledging **Cloudflare Stream costs**. If the provider is not configured, the button remains disabled. The browser never receives the Cloudflare API token.
+- The backfill checks existing public Stream mappings and skips already converted originals. Incomplete TUS uploads are resumable; their short-lived upload reference is kept in browser local storage to help recover after a tab closes. A processed video is only publicly published after the server confirms readiness and source association.
+- Keep the browser tab open and the device awake. This is **not an unattended server-side migration**: Google OAuth access tokens can expire (reconnect and resume), the browser can be suspended on Android, and the two networks collectively transfer the original library size once to the device and once from the device.
+- Videos without Drive duration metadata are skipped, not guessed: Cloudflare requires an explicit maximum duration reservation. Very long originals may exceed the configured 15-minute reservation cap and require deliberate limit changes. The tool reports skipped videos so they can be addressed separately.
+- **Idempotency limitation:** in-progress provider copies not yet published and with an expired/lost upload reference could be recreated on a fresh device, incurring duplicate storage charges. Do not start backfill simultaneously in two browsers. Check the provider dashboard before retrying an uncertain or failed video.
+- Do not enable all-library processing until capacity and budget are planned from actual video durations. There is no hard aggregate budget cap enforced by this browser workflow.
 
 ## Trial steps
 
@@ -100,14 +111,12 @@ with viewing volume and preloading.
 - Keep the original Drive preview available for fallback.
 - Limiting who uploads is enforced in the Netlify API, not merely the UI.
 - Existing catalogue URLs, labels and user-visible public video IDs are unchanged.
-- Current pilot assumes the owner already has (or downloads) a local copy of
-  the matching original. The browser Google OAuth token is intentionally not
-  sent to Cloudflare or stored on the server.
-- **Automatic Drive-to-Stream migration of all 266 originals is not implemented**.
-  Google Drive share links are unsuitable as reliable Stream copy URLs.
-  A later server-side migrator should use the authorized Drive API and
-  Cloudflare resumable uploads with bounded concurrency, audit records,
-  retry/idempotency, capacity planning and an explicit spending limit.
+- Manual per-video conversion still supports selecting the matching original file.
+  The automatic upload flow reuses that file after Drive confirms its save.
+  The one-time backfill reads known originals via authenticated Google Drive API
+  byte ranges in the owner's browser, without sharing a Google token with Cloudflare.
+- A fully unattended server migration has **not** been activated or configured;
+  the browser-based backfill needs an active owner session and can be resumed.
 - If a paid Stream copy is unpublished, Cloudflare will still bill for stored
   video **until that video is deleted from Cloudflare**. The UI does not
   automatically delete provider assets.
@@ -115,7 +124,9 @@ with viewing volume and preloading.
 ## Files and checks
 
 - `stream-delivery.mjs`: validates ready provider metadata and playback hosts.
-- `stream-admin.mjs`: owner browser uploader and processing status.
+- `stream-admin.mjs`: owner browser uploader, auto-conversion engine, bounded Drive byte-range backfill, resumable TUS and status publication.
+- `studio-ui.mjs`: upload-triggered optimization and explicit one-time backfill controls.
+- `tests/stream-automation.test.mjs`: disabled-provider and validated Drive-range checks.
 - `stream-api.mjs`: authenticated, disabled-by-default ingestion and publication.
 - `netlify/functions/stream.mjs`: Netlify function entry point and secret access.
 - `player.mjs`: adaptive player with Drive fallback.
