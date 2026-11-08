@@ -1,0 +1,227 @@
+# Manual-only, opt-in. API calls happen only after the owner configures credentials and starts a run.
+# This workflow must exist on the default branch before GitHub exposes workflow_dispatch in Actions.
+name: Claude supervises Codex
+on:
+  workflow_dispatch:
+    inputs:
+      task:
+        description: "A specific development task with acceptance criteria"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: supervised-codex-${{ github.repository }}-develop
+  cancel-in-progress: false
+
+jobs:
+  supervised-development:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    env:
+      INTEGRATION_BRANCH: "develop"
+      DIRECT_INTEGRATION: "false"
+      CHECK_CMD: "npm run typecheck && npm test && npm run lint"
+    steps:
+      - name: Verify opt-in credentials
+        env:
+          HAS_OPENAI: ${{ secrets.OPENAI_API_KEY != '' }}
+          HAS_ANTHROPIC_API: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+          HAS_ANTHROPIC_OAUTH: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+        run: |
+          if [ "$HAS_OPENAI" != "true" ] || { [ "$HAS_ANTHROPIC_API" != "true" ] && [ "$HAS_ANTHROPIC_OAUTH" != "true" ]; }; then
+            echo "Missing OPENAI_API_KEY and/or Claude credential. No AI was invoked."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v6
+        with:
+          ref: "develop"
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Prepare isolated, non-production work
+        id: branch
+        run: |
+          set -euo pipefail
+          mkdir -p .ai-review
+          printf '\n.ai-review/\n' >> .git/info/exclude
+          if [ "$DIRECT_INTEGRATION" = "true" ]; then
+            echo "branch=$INTEGRATION_BRANCH" >> "$GITHUB_OUTPUT"
+          else
+            work_branch="chore/ai-${{ github.run_id }}-${{ github.run_attempt }}"
+            git switch -c "$work_branch"
+            echo "branch=$work_branch" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+
+      - name: Install project dependencies before isolated AI execution
+        run: npm ci
+
+      - name: Claude plans the task
+        id: plan
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are the supervisor, not the code implementer. Read AGENTS.md and relevant
+            repository instructions. Produce a concise implementation plan and acceptance
+            checklist for the requested task, while respecting the integration branch
+            and production restrictions. Do not modify the repository.
+            OWNER TASK:
+            ${{ inputs.task }}
+          claude_args: |
+            --max-turns 8
+            --allowedTools Read,Grep,Glob
+            --json-schema '{"type":"object","properties":{"plan":{"type":"string"},"acceptance":{"type":"string"}},"required":["plan","acceptance"],"additionalProperties":false}'
+
+      - name: Codex implements Claude's plan
+        id: implement
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt: |
+            Implement the owner's request following CLAUDE's plan below. Read AGENTS.md
+            and applicable project rules. Keep changes scoped and add or update tests.
+            Do not merge, deploy, or alter credentials. Do not write to .ai-review.
+            OWNER TASK: ${{ inputs.task }}
+            CLAUDE PLAN: ${{ steps.plan.outputs.structured_output }}
+
+      - name: Check the first candidate
+        id: check1
+        shell: bash
+        run: |
+          set +e
+          bash -lc "$CHECK_CMD" > .ai-review/checks.log 2>&1
+          code=$?
+          tail -n 100 .ai-review/checks.log
+          if [ "$code" -eq 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Prepare independent evidence
+        run: |
+          git diff --no-ext-diff > .ai-review/changes.diff
+          git ls-files --others --exclude-standard > .ai-review/new-files.txt
+          git status --short > .ai-review/status.txt
+
+      - name: Claude independently reviews implementation
+        id: review1
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            You are a read-only independent reviewer, not an implementer. Read
+            .ai-review/changes.diff, .ai-review/new-files.txt, .ai-review/checks.log,
+            relevant files, AGENTS.md and REVIEW.md if available. Assess the
+            original task and actual code, including new files. A FAILING test means
+            FIX, never PASS. Identify concrete defects only, not stylistic preferences.
+            Respond with verdict PASS or FIX and actionable feedback.
+            OWNER TASK: ${{ inputs.task }}
+          claude_args: |
+            --max-turns 9
+            --allowedTools Read,Grep,Glob
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["PASS","FIX"]},"feedback":{"type":"string"}},"required":["verdict","feedback"],"additionalProperties":false}'
+
+      - name: Decide whether to request Codex correction
+        id: decision
+        env:
+          REVIEW_JSON: ${{ steps.review1.outputs.structured_output }}
+          FIRST_CHECK_OK: ${{ steps.check1.outputs.ok }}
+        run: |
+          node -e 'const fs=require("fs"); const d=JSON.parse(process.env.REVIEW_JSON); if(!["PASS","FIX"].includes(d.verdict))process.exit(1); fs.writeFileSync(".ai-review/feedback.json", JSON.stringify(d,null,2)); fs.appendFileSync(process.env.GITHUB_OUTPUT, "needs_fix="+(d.verdict==="FIX"||process.env.FIRST_CHECK_OK!=="true")+"\n");'
+
+      - name: Codex repairs confirmed findings (one bounded attempt)
+        if: ${{ steps.decision.outputs.needs_fix == 'true' }}
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt: |
+            Repair the reviewed candidate. Read .ai-review/feedback.json and
+            .ai-review/checks.log. Follow AGENTS.md and the original owner task.
+            Correct confirmed issues, preserving existing functionality and tests.
+            Do not merge, deploy, or modify .ai-review.
+            OWNER TASK: ${{ inputs.task }}
+
+      - name: Recheck candidate after correction
+        id: check2
+        if: ${{ steps.decision.outputs.needs_fix == 'true' }}
+        shell: bash
+        run: |
+          set +e
+          bash -lc "$CHECK_CMD" > .ai-review/checks.log 2>&1
+          code=$?
+          tail -n 100 .ai-review/checks.log
+          if [ "$code" -eq 0 ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; else echo "ok=false" >> "$GITHUB_OUTPUT"; fi
+          exit 0
+
+      - name: Refresh final review evidence
+        if: ${{ steps.decision.outputs.needs_fix == 'true' }}
+        run: |
+          git diff --no-ext-diff > .ai-review/changes.diff
+          git ls-files --others --exclude-standard > .ai-review/new-files.txt
+
+      - name: Claude verifies the corrected candidate
+        id: review2
+        if: ${{ steps.decision.outputs.needs_fix == 'true' }}
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Independently review the FINAL candidate. Use .ai-review/changes.diff,
+            .ai-review/new-files.txt, .ai-review/checks.log, project policy and
+            relevant source. Decide PASS or FIX. Do not modify files. Any
+            failing tests, security regression or unmet acceptance criteria are FIX.
+            OWNER TASK: ${{ inputs.task }}
+          claude_args: |
+            --max-turns 9
+            --allowedTools Read,Grep,Glob
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["PASS","FIX"]},"feedback":{"type":"string"}},"required":["verdict","feedback"],"additionalProperties":false}'
+
+      - name: Enforce test and review gates
+        env:
+          NEEDS_FIX: ${{ steps.decision.outputs.needs_fix }}
+          FIRST_OK: ${{ steps.check1.outputs.ok }}
+          SECOND_OK: ${{ steps.check2.outputs.ok }}
+          FIRST_REVIEW: ${{ steps.review1.outputs.structured_output }}
+          FINAL_REVIEW: ${{ steps.review2.outputs.structured_output }}
+        run: |
+          node -e 'const fixed=process.env.NEEDS_FIX==="true"; const ok=(fixed?process.env.SECOND_OK:process.env.FIRST_OK)==="true"; const d=JSON.parse(fixed?process.env.FINAL_REVIEW:process.env.FIRST_REVIEW); if(!ok||d.verdict!=="PASS"){console.error("Blocked: tests or independent Claude review did not pass.");process.exit(1)} console.log("Tests and Claude review passed. Publishing integration-only changes.");'
+
+      - name: Commit and publish approved development changes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TASK_BRANCH: ${{ steps.branch.outputs.branch }}
+        run: |
+          set -euo pipefail
+          git add -A -- . ':!.ai-review'
+          files="$(git diff --cached --name-only)"
+          if [ -z "$files" ]; then
+            echo "No implementation changes to publish."
+            exit 1
+          fi
+          if printf '%s\n' "$files" | grep -Ei '(^|/)\.env($|\.)|(^|/)\.ai-review/|\.pem$|\.key$|(^|/)secrets?\.'; then
+            echo "Possible credential or review evidence file in changes. Publication blocked."
+            exit 1
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "chore: Claude-supervised Codex task ${{ github.run_id }}"
+          gh auth setup-git
+          git push origin "HEAD:$TASK_BRANCH"
+          if [ "$DIRECT_INTEGRATION" != "true" ]; then
+            gh pr create --base "$INTEGRATION_BRANCH" --head "$TASK_BRANCH" \
+              --title "Claude-supervised Codex task ${{ github.run_id }}" \
+              --body "AI-assisted development. Claude planned and independently reviewed; Codex implemented and corrected once if necessary. Deterministic commands: \`$CHECK_CMD\`. Merge into development only after reviewing the PR and current-head CI."
+          fi
