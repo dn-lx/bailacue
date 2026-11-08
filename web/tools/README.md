@@ -1,89 +1,148 @@
-# BailaCue: free original-preserving video conversion
+# BailaCue free multi-video conversion studio
 
-The BailaCue library has 266 Google Drive originals, around 44.69 GiB. All
-originals stay in their existing Salsa/Bachata folders. A free Python + FFmpeg
-script processes **one original at a time** on your own computer, then uploads a
-new playback-friendly MP4 to the dedicated Drive folders. No paid encoding,
-Cloudflare Stream, or other video provider is required.
+BailaCue supports a **local desktop browser** for uploading several raw videos,
+converting them into separate **360p, 720p and 1080p** H.264/AAC MP4 copies
+where the original has sufficient resolution, and saving them in Google Drive.
+No paid transcoding, Cloudflare Stream or video hosting product is required.
 
-Optimized folders:
-- Root: https://drive.google.com/drive/folders/1CErkH8BmExpKGZXHSl1hnDbs6fgr08PQ
-- Salsa: https://drive.google.com/drive/folders/1Z8yfu20bLFKChQGXYQQ8uZZoEDMTSx1f
-- Bachata: https://drive.google.com/drive/folders/1rOwr5utjZ-gfCj5Zj6KlOjmqdFRu8ncq
+The existing original library currently contains **266 videos (44.69 GiB)**.
+No originals are modified or deleted. All processing is performed with the free
+FFmpeg/ffprobe programs on your own computer, and originals and optimized
+copies are held in their respective, fixed Google Drive folders.
 
-**Google Drive storage used by optimized copies is not free if it exceeds your
-existing quota.** You must have adequate Drive space, and a computer that can
-run FFmpeg. The program uses CPU encoding; bandwidth and electricity may also
-have real costs.
+**Important cost distinction:** the software has no conversion fee, but
+Google Drive's storage quota still applies. Additional optimized copies can
+consume substantial space; estimate the available quota before the full batch.
+The local machine also needs free temporary disk space and a stable Internet
+connection.
 
-## Set up your computer
+## One-time computer setup
 
-1. Install Python 3.10+ and FFmpeg (both ffmpeg and ffprobe in PATH).
-2. In a terminal from the repository root, run:
+1. Install **Python 3.10+** and **FFmpeg** (both `ffmpeg` and `ffprobe`
+   should work from Terminal, PowerShell, or Command Prompt).
+2. Download the BailaCue repo or clone it onto the computer and open a
+   terminal in the repository root.
+3. Install the Python dependencies:
+
+   ```sh
    python -m pip install -r web/tools/requirements-free-video.txt
-3. Use a Google Cloud OAuth **Desktop** application for the Google account
-   authorized to read the original Drive folders and write the two optimized
-   folders. Enable the Google Drive API in that project, and download its
-   Desktop OAuth client JSON. Do not put the OAuth JSON or token in GitHub.
-4. Dry run and inspect the video count, without uploading:
-   python web/tools/convert_drive_library.py --oauth-client /path/to/client_secret.json
-5. Pilot **one** source video, listen/watch/seek/fullscreen-test the result:
-   python web/tools/convert_drive_library.py --oauth-client /path/to/client_secret.json --run --max-videos 1
-6. Continue the rest of the originals:
-   python web/tools/convert_drive_library.py --oauth-client /path/to/client_secret.json --run
+   ```
 
-The temporary original and converted copy are deleted after each successful
-upload. Google Drive is searched for already-processed copies, using their
-recorded original source ID and preset. The program saves a local JSON manifest
-after each successful video, so rerunning the command resumes where it left off.
-Do not run two workers simultaneously.
+4. In Google Cloud Console, use the Google account with access to the
+   Salsa and Bachata source folders and the new optimized folders.
+   Enable Google Drive API and create a **Desktop** Google OAuth client.
+   Download the OAuth Desktop JSON onto your computer.
+   Do not copy its JSON or the generated token into the repository.
+   On first run a Google authorization window opens.
 
-The manifest filename is bailacue-optimized-manifest.json.
+## Option A — easiest: upload from your computer browser
 
-## Publish in BailaCue
+Start the private local BailaCue processing studio:
 
-In the develop website, sign in as BailaCue administrator, choose **Add videos**,
-and find **Free video optimization**. Select the generated manifest JSON and
-choose **Publish optimized copies**. This validates original IDs/dance folders
-and saves the mapping to the existing protected public catalogue.
+```sh
+python web/tools/local_upload_server.py --oauth-client /path/to/desktop-client.json
+```
 
-The app preferentially plays the derived MP4; if it errors, it retries the
-unchanged original. Video IDs, user metadata, ratings and tags stay associated
-with the original.
+It opens **http://127.0.0.1:38221/** on that computer only.
 
-Publish once after the single-video pilot and again after the full batch.
-A later import replaces the manifest with the converter's complete list.
+1. Choose **Salsa** or **Bachata**.
+2. Select or drag in **multiple videos at once**. MP4, MOV, WebM, M4V,
+   MKV, AVI and 3GP are accepted (maximum 2 GiB each).
+3. Click **Upload & optimize selected videos**. The local studio processes
+   each source sequentially, saves its untouched original in the fixed
+   numbered Drive collection, and creates separate optimized copies.
+4. The browser displays the per-video queue and current processing status.
+5. Download `bailacue-optimized-manifest.json` from the studio.
 
-## Future uploads: optional free incremental desktop processing
+The local server listens only on `127.0.0.1`. No credentials or raw video
+bytes go through the public Netlify website; originals and processed files
+are uploaded to the Google Drive account you authorized locally.
 
-The same script can automatically discover new BailaCue Drive uploads every
-15 minutes while your computer is running:
+**Import Google Photos and iPhone videos:** Google Photos shared links,
+Google Photos albums and iCloud share pages are not raw download URLs.
+Open them in the browser and **download** the actual video files first.
+An iPhone can also send files to a Mac using AirDrop, or to Windows/Mac
+using a supported wired transfer. Add the downloaded/transferred files
+with the same multi-select file picker. Do not paste private share links
+into unknown third-party downloaders.
 
-python web/tools/convert_drive_library.py --oauth-client /path/to/client_secret.json --run --watch --interval-minutes 15
+## Option B — existing 266 videos in Drive
 
-This **automatically converts and uploads copies to Drive** but does not yet
-automatically import the revised manifest into BailaCue; the administrator
-must re-import the updated JSON in the Add videos screen.
+Open the local studio and click **Convert existing Drive videos**.
+Alternatively, for a one-video pilot (recommended), run:
 
-**Android caveat:** Browser-only video conversion on a phone may be slow,
-memory-intensive and interrupted by OS background suspension, especially for
-200–700 MB sources. This computer worker is the reliable, free fallback.
-Native in-browser conversion for small files is a separate, unimplemented
-enhancement, not something promised as working today.
+```sh
+python web/tools/convert_library_multi.py --oauth-client /path/to/desktop-client.json --run --max-videos 1
+```
 
-## Encoding and safeguards
+Then start the remaining one-time migration:
 
-- Video: MP4, H.264 x264, 8-bit yuv420p, CRF 24, veryfast preset; max
-  dimension 1280 pixels without upscaling (approx. 720p).
-- Audio: AAC stereo 96 kbps if the original contains audio.
-- MP4 fast-start moov atom for a faster playable first frame.
-- Original folders are only read, never changed or overwritten.
-- Files are only written into the two dedicated optimized folders.
-- Every download, codec and upload size is validated before it is published.
-- The generated JSON manifest never contains Google credentials.
-- Google video share permissions and API quotas can limit playback.
-- Optimized playback still uses BailaCue's existing 4 MiB Drive range proxy;
-  it is not a dedicated CDN, so startup performance is not guaranteed.
+```sh
+python web/tools/convert_library_multi.py --oauth-client /path/to/desktop-client.json --run
+```
 
-This converter requires a **computer executing it**. Committing these files
-to the website does not initiate conversion or create any optimized video.
+Dry-run (no encoding or file uploads) is the default when `--run` is
+omitted. If interrupted, restart: completed copies are discovered via their
+original video ID, selected quality, and conversion preset. Partial
+quality ladders resume rather than overwriting completed outputs.
+
+## Option C — new videos uploaded through the BailaCue website
+
+The existing BailaCue **Add videos** file picker already accepts multiple
+files and uploads originals to their fixed Google Drive folders. A computer
+worker can detect and optimize any newly uploaded originals:
+
+```sh
+python web/tools/convert_library_multi.py --oauth-client /path/to/desktop-client.json --run --watch --interval-minutes 15
+```
+
+This mode requires the computer to stay awake and running. It **does not**
+silently execute FFmpeg inside the Android browser or on Netlify.
+
+## Publish quality choices in BailaCue
+
+Open [BailaCue develop](https://develop--bailacue.netlify.app/#upload),
+sign in as administrator, and go to **Add videos**. If you used the local
+studio to upload new originals, connect Google from BailaCue and click
+**Refresh both collections** so these new original IDs enter the catalogue.
+Then select the downloaded manifest under **Free video optimization** and
+press **Publish optimized copies**.
+
+BailaCue validates that every quality version belongs to the corresponding
+original, then keeps the original ID, title, ratings, labels, and metadata
+unchanged. The video player has a **Quality** control: Auto (prefer 720p),
+360p, 720p, 1080p (when available) and Original. Changing resolution
+keeps the same video identity and attempts to keep the same playback position.
+If an optimized file is unavailable, it tries the original.
+
+You can repeat the import whenever additional videos are converted; use
+the newest **full** generated manifest. This avoids overwriting older
+optimized copy mappings with a partial file.
+
+## Quality and safeguards
+
+| Output | Maximum landscape raster | Codec | Purpose |
+| --- | --- | --- | --- |
+| 360p | 640 × 360 | H.264/AAC | Fast mobile playback |
+| 720p | 1280 × 720 | H.264/AAC | Default |
+| 1080p | 1920 × 1080 | H.264/AAC | High-quality viewing |
+
+Portrait orientation is preserved. No rendition is scaled above the
+original dimensions. All outputs are **MP4 + fast-start**; this is a
+manually selectable set of MP4 versions, **not HLS adaptive streaming**.
+
+- Original files never move or overwrite.
+- Optimized copies are stored only in the new Salsa/Bachata folders under:
+  https://drive.google.com/drive/folders/1CErkH8BmExpKGZXHSl1hnDbs6fgr08PQ
+- Temporary local video bytes are deleted after each completed conversion.
+- Downloaded size, output codec, dimensions and uploaded size are validated.
+- Existing conversions are discovered via Google Drive `appProperties`.
+- No paid streaming conversion endpoints remain active.
+- Google Drive still serves bytes through BailaCue's existing bounded media
+  proxy. Quality and start time depend on public Drive access/quota/network;
+  it is not a guaranteed CDN or instant playback.
+
+The files in this repository do not convert anything on their own.
+They need a real computer running FFmpeg with Google Drive credentials
+and sufficient quota. The current code has been exercised in automated
+lint/type/build/syntax tests, not yet against all actual 266 sources.
