@@ -2,7 +2,8 @@ import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitl
 import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
-import { renderStreamAdmin, cancelStreamUpload, finishSavedConversions } from './stream-admin.mjs';
+import { cancelStreamUpload } from './stream-admin.mjs';
+import { parseOptimizedManifest } from './optimized-delivery.mjs';
 import { DriveConnection } from './drive.mjs';
 import { StudioPlayer } from './player.mjs';
 import { labelPicker, renderLabelManager, renderUpload, uploadRunning } from './studio-ui.mjs';
@@ -63,6 +64,7 @@ let localPreviewUrl = '';
 const connection = new DriveConnection(state.googleClientId);
 const admin = new BailaCueAdmin();
 const streamMap = new Map();
+const optimizedMap = new Map();
 const publishTimers = new Map();
 const publishChains = new Map();
 const metadataVersions = new Map();
@@ -72,6 +74,7 @@ const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
   streamFor: video => streamMap.get(video.id),
+  optimizedFor: video => optimizedMap.get(video.id),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
     const following = playbackQueue[playbackIndex + 1];
@@ -133,7 +136,7 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, streamFor: video => streamMap.get(video.id), onStreamPublished: (video, delivery) => { streamMap.set(video.id, delivery); }, publishOriginal: video => admin.put('drive:' + video.id, video), preview: file => {
+function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
   if (!requireAdmin()) return;
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
@@ -160,10 +163,7 @@ function mountVideoDetails() { if (!selected) return; const v = selected, m = me
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
   $('#file-facts').innerHTML = facts.map(([key,value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join('');
-  renderStreamAdmin($('#stream-admin'), {
-    video: v, admin, currentDelivery: streamMap.get(v.id), toast,
-    onPublished: delivery => { streamMap.set(v.id, delivery); studioPlayer.open(v); toast('Adaptive playback enabled for this video.'); },
-  }); 
+  $('#stream-admin').replaceChildren();
 }
 
 
@@ -389,7 +389,7 @@ function protectLegacyBrowserData() {
     if (Object.keys(old.meta).length || old.drive.length || old.youtube.length || old.labels.some(x => x.id.startsWith('custom-'))) localStorage.setItem(LEGACY_BACKUP_KEY, raw);
   } catch { /* Existing storage remains untouched when unreadable. */ }
 }
-function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; streamMap.clear(); }
+function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; streamMap.clear(); optimizedMap.clear(); }
 async function loadSharedContent() {
   if (!admin.ready) return;
   const rows = await admin.readContent();
@@ -399,6 +399,7 @@ async function loadSharedContent() {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
+    if (key === 'optimized:manifest') { const manifest = parseOptimizedManifest(v); if (manifest) for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }
     if (key?.startsWith('stream:') && /^drive:[A-Za-z0-9_-]{10,100}$/.test(key.slice(7))) { const converted = parseStreamDelivery(v); if (converted) streamMap.set(key.slice(7), converted); }
     if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = publicMetadata(v);
     if (key?.startsWith('youtube:') && v.provider === 'youtube' && ['Salsa','Bachata'].includes(v.dance) && v.id === key.slice(8)) {
@@ -441,12 +442,10 @@ $('#admin-form').addEventListener('submit', async event => {
       updatePlayer(); mountVideoDetails();
       $('#personal-title').focus();
     }
-    finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {});
     toast('Signed in. You can now edit video metadata.');
   } catch (error) { $('#admin-error').textContent = error.message; }
   finally { button.disabled = false; }
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden && admin.isAdmin) finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {}); });
 document.addEventListener('keydown', event => {
   if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || document.querySelector('dialog[open]')) return;
   if (event.target instanceof Element && event.target.closest('input, textarea, select, [contenteditable="true"]')) return;
@@ -539,7 +538,7 @@ for (const id of ['settings-nav', 'mobile-settings']) $(`#${id}`).addEventListen
 document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.addEventListener('click', () => { if (!(button instanceof HTMLElement)) return; filters = { dance: button.dataset.dance, provider: 'drive', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }));
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
-async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); if (admin.isAdmin) finishSavedConversions(admin, (videoId, delivery) => streamMap.set(videoId, delivery)).catch(() => {}); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
+async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
 /* Video opens browser-wide, with the native media control to toggle compact view. */
 const playerDialog = $('#player');
 function setPlayerViewport(fill) {
