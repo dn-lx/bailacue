@@ -71,7 +71,7 @@ async function uploadChunks(file, job, onProgress, signal) {
     const response = await fetch(job.uploadUrl, {
       method: 'PATCH',
       headers: { 'Tus-Resumable': '1.0.0', 'Upload-Offset': String(offset), 'Content-Type': 'application/offset+octet-stream' },
-      body: file.slice(offset, end), signal, cache: 'no-store',
+      body: typeof file.readChunk === 'function' ? await file.readChunk(offset, end, signal) : file.slice(offset, end), signal, cache: 'no-store',
     });
     if (response.status !== 204) throw new Error('Video upload interrupted. Select the same file and resume.');
     const next = Number(response.headers.get('Upload-Offset'));
@@ -81,6 +81,136 @@ async function uploadChunks(file, job, onProgress, signal) {
 }
 
 export function cancelStreamUpload() { activeController?.abort(); activeController = null; }
+
+/** Read a bounded byte range from an owner's already-authorized fixed Drive video. */
+export async function readDriveChunk(connection, video, start, end, signal) {
+  const id = video?.providerId || '';
+  if (!/^[A-Za-z0-9_-]{10,100}$/.test(id) ||
+      !Number.isSafeInteger(video?.size) || video.size <= 0 ||
+      !Number.isSafeInteger(start) || !Number.isSafeInteger(end) ||
+      start < 0 || end <= start || end > video.size || end - start > SIZE)
+    throw new Error('Invalid original video range.');
+  const url = `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}?alt=media&supportsAllDrives=true`;
+  const response = await connection.request(url, {
+    headers: { Range: `bytes=${start}-${end - 1}` },
+    cache: 'no-store', signal,
+  });
+  if (response.status !== 206 || response.headers.get('Content-Range') !== `bytes ${start}-${end - 1}/${video.size}`)
+    throw new Error('Google Drive did not return the requested video bytes. Conversion is paused safely.');
+  const blob = await response.blob();
+  if (blob.size !== end - start) throw new Error('Drive video download was incomplete; resume conversion.');
+  return blob;
+}
+
+export async function streamServiceEnabled() {
+  try {
+    const response = await fetch('/api/stream/config', { cache: 'no-store' });
+    return response.ok && (await response.json()).enabled === true;
+  } catch { return false; }
+}
+
+function conversionSignal(signal) {
+  if (signal?.aborted) throw Object.assign(new Error('Video conversion paused.'), { name: 'AbortError' });
+}
+
+async function processingDelay(signal) {
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, 4000);
+    function abort() {
+      clearTimeout(timeout);
+      reject(Object.assign(new Error('Video conversion paused.'), { name: 'AbortError' }));
+    }
+    signal?.addEventListener('abort', abort, { once: true });
+    if (signal?.aborted) abort();
+  });
+}
+
+/**
+ * Convert a newly uploaded File or an owner-authorized Drive source to adaptive
+ * Cloudflare Stream playback. Idempotency is keyed on the original Drive ID and
+ * the existing resumable TUS session. Never forwards a Google token to Cloudflare.
+ * The billed provider MUST already be explicitly enabled server-side.
+ */
+export async function publishStreamAutomatically({ video, file, admin, signal, onProgress = () => {}, onPublished = () => {} }) {
+  if (!video || video.provider !== 'drive' || !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId || '') ||
+      !file || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size !== video.size)
+    throw new Error('Cannot optimize a video without its verified Drive original.');
+  if (!await streamServiceEnabled()) return { status: 'disabled' };
+  conversionSignal(signal);
+  const seconds = Number(video.duration) > 0 ? Number(video.duration)
+    : typeof file.readChunk === 'function' ? 0 : await originalDuration(file);
+  if (!Number.isFinite(seconds) || seconds <= 0)
+    throw new Error('Drive has no video duration yet. Wait for Google to process its metadata, then retry.');
+  const name = String(file.name || video.filename || '');
+  const modified = Number(file.lastModified) || 0;
+  let job = savedJob(video.id);
+  if (job && (job.size !== file.size || job.name !== name || Number(job.modified || 0) !== modified))
+    throw new Error('A different original is already being processed for this video. Resume its original upload.');
+  if (!job) {
+    onProgress('Reserving adaptive encoding capacity…');
+    const created = await ownerRequest(admin, 'prepare', {
+      videoId: video.id,
+      file: { size: file.size, name, durationSeconds: Math.ceil(seconds) },
+    });
+    if (!safeUploadUrl(created.uploadUrl)) throw new Error('Unsafe video upload destination.');
+    job = { ...created, size: file.size, name, modified, videoId: video.id };
+    sessionStorage.setItem(jobKey(video.id), JSON.stringify(job));
+  }
+  if (!job.completed) {
+    onProgress('Sending video to the adaptive encoder…');
+    await uploadChunks(file, job, (sent, total) => {
+      onProgress(`Optimizing ${video.filename || name}: ${Math.floor(sent / total * 100)}% uploaded`);
+    }, signal);
+    job.completed = true;
+    sessionStorage.setItem(jobKey(video.id), JSON.stringify(job));
+  }
+  for (let attempt = 0; attempt < 24; attempt++) {
+    conversionSignal(signal);
+    onProgress('Encoding streaming-friendly video…');
+    const result = await ownerRequest(admin, 'status', { videoId: video.id, uid: job.uid });
+    if (result.status === 'ready' && result.delivery) {
+      sessionStorage.removeItem(jobKey(video.id));
+      onPublished(result.delivery);
+      return { status: 'ready', delivery: result.delivery };
+    }
+    if (attempt < 23) await processingDelay(signal);
+  }
+  // Stay paused instead of reserving another paid copy. Resume by checking this job.
+  return { status: 'processing' };
+}
+
+/** Process one original at a time; reruns skip already-published videos. */
+export async function backfillStreamLibrary({ videos, connection, admin, isPublished, onPublished, onProgress, signal }) {
+  if (!await streamServiceEnabled()) return { status: 'disabled', total: 0, completed: 0, skipped: 0 };
+  if (!connection?.connected || !admin?.isAdmin) throw new Error('Sign in as owner and connect Google Drive.');
+  const valid = videos.filter(video => video.provider === 'drive' &&
+    /^(?:Salsa|Bachata)$/.test(video.dance) &&
+    /^[A-Za-z0-9_-]{10,100}$/.test(video.providerId || '') &&
+    Number.isSafeInteger(video.size) && video.size >= 1024 &&
+    !isPublished(video));
+  const result = { status: 'ready', total: valid.length, completed: 0, skipped: 0 };
+  for (const video of valid) {
+    conversionSignal(signal);
+    if (isPublished(video)) { result.skipped++; continue; }
+    if (!Number(video.duration) || video.duration < 1) {
+      result.skipped++; onProgress(`Skipped ${video.filename}: Google has no duration metadata.`);
+      continue;
+    }
+    const source = {
+      name: video.filename, size: video.size,
+      lastModified: Number.isFinite(Date.parse(video.updatedAt)) ? Date.parse(video.updatedAt) : 0,
+      readChunk: (start, end, requestSignal) => readDriveChunk(connection, video, start, end, requestSignal),
+    };
+    onProgress(`Optimizing ${result.completed + result.skipped + 1}/${valid.length}: ${video.filename}`);
+    const outcome = await publishStreamAutomatically({
+      video, file: source, admin, signal, onProgress,
+      onPublished: delivery => onPublished(video, delivery),
+    });
+    if (outcome.status === 'ready') result.completed++;
+    else { result.status = outcome.status; break; }
+  }
+  return result;
+}
 
 /** @param {HTMLElement} container */
 export function renderStreamAdmin(container, { video, admin, currentDelivery, onPublished, toast }) {
