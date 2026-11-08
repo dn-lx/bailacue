@@ -52,6 +52,7 @@ test('automatic next-video playback is attempted once with a useful blocked-auto
   const instance = {
     frame: { setAttribute(name, value) { assert.equal(name, 'aria-busy'); assert.equal(value, 'false'); } },
     setAvailable(available) { assert.equal(available, true); },
+    dismissLoading() {},
     status(message) { notices.push(message); },
     autoStartPending: true,
   };
