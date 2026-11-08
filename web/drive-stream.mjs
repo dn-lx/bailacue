@@ -24,19 +24,36 @@ export function byteRange(value, size) {
   return { start, end, partial: true };
 }
 
-async function readBounded(response, expected) {
+// Stream a validated range progressively rather than buffering the entire 4 MiB
+// before the first response byte. Limit every chunk and verify the final count.
+function streamBounded(response, expected, finish, abort) {
   const reader = response.body?.getReader();
   if (!reader) throw new Error('Missing media body.');
-  const bytes = new Uint8Array(expected); let offset = 0;
-  try {
-    while (true) {
-      const { done, value } = await reader.read(); if (done) break;
-      if (offset + value.byteLength > expected) throw new Error('Unexpected media length.');
-      bytes.set(value, offset); offset += value.byteLength;
-    }
-    if (offset !== expected) throw new Error('Incomplete media range.');
-    return bytes;
-  } catch (error) { await reader.cancel().catch(() => {}); throw error; }
+  let received = 0;
+  let finished = false;
+  const close = () => { if (!finished) { finished = true; finish(); } };
+  return new ReadableStream({
+    async pull(controller) {
+      try {
+        const { done, value } = await reader.read();
+        if (done) {
+          if (received !== expected) throw new Error('Incomplete media range.');
+          close(); controller.close(); return;
+        }
+        if (!value || received + value.byteLength > expected) throw new Error('Unexpected media length.');
+        received += value.byteLength;
+        controller.enqueue(value);
+      } catch (error) {
+        close(); abort();
+        await reader.cancel().catch(() => {});
+        controller.error(error);
+      }
+    },
+    async cancel(reason) {
+      close(); abort();
+      await reader.cancel(reason).catch(() => {});
+    },
+  });
 }
 
 /** Only the deployed, fixed-folder catalogue can be read. No arbitrary URL proxy. */
@@ -82,6 +99,8 @@ export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile
     const abort = new AbortController();
     const cancel = () => abort.abort(); request.signal.addEventListener('abort', cancel, { once: true });
     const timeout = setTimeout(cancel, 18000);
+    let streaming = false;
+    const finish = () => { clearTimeout(timeout); request.signal.removeEventListener('abort', cancel); };
     try {
       const download = new URL(DOWNLOAD); download.search = new URLSearchParams({ id: file.providerId, export: 'download', confirm: 't' }).toString();
       const response = await fetcher(download.href, { headers: { Range: `bytes=${start}-${end}` }, redirect: 'error', signal: abort.signal, cache: 'no-store' });
@@ -94,9 +113,10 @@ export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile
       if (!validType || (!confirmedRange && !wholeSmall) || (length !== null && Number(length) !== end - start + 1)) {
         await response.body?.cancel(); return fail(502, 'Google Drive did not confirm the video range. Try Drive preview.');
       }
-      const bytes = await readBounded(response, end - start + 1);
-      return new Response(bytes, { status: partial ? 206 : 200, headers: resultHeaders });
+      const body = streamBounded(response, end - start + 1, finish, cancel);
+      streaming = true;
+      return new Response(body, { status: partial ? 206 : 200, headers: resultHeaders });
     } catch { return fail(abort.signal.aborted ? 504 : 502, 'Drive playback timed out or was interrupted. Retry, use Drive preview or open the original.'); }
-    finally { clearTimeout(timeout); request.signal.removeEventListener('abort', cancel); }
+    finally { if (!streaming) finish(); }
   };
 }
