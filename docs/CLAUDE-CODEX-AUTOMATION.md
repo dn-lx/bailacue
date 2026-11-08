@@ -7,12 +7,13 @@ Claude is the planning and independent-review supervisor. OpenAI Codex implement
 The configuration is installed but **not activated or tested**. It is manual-only; it does not monitor continuously, trigger itself, or automatically make production releases. Before the first run the workflow must exist on GitHub's default branch, and the owner must configure provider credentials. No service credentials are stored in Git.
 
 ## Setup (Android browser is sufficient)
-1. Configure repository Actions secrets in Settings → Secrets and variables → Actions:
+1. Install the official [Claude GitHub app](https://github.com/apps/claude) and authorize this repository (repository admin required). Check the GitHub Actions workflow permissions and ensure write access is permitted for the bot when publishing development changes.
+2. Configure repository Actions secrets in Settings → Secrets and variables → Actions:
    - `OPENAI_API_KEY` (required for Codex GitHub Action)
    - `ANTHROPIC_API_KEY` **or** `CLAUDE_CODE_OAUTH_TOKEN` (required for Claude Code Action)
-2. Review API pricing/budgets. These GitHub Actions use provider API/OAuth authentication; **ChatGPT Plus does not pay for OpenAI API usage**, and Claude subscription availability for OAuth depends on account support. Limit spending in provider settings.
-3. After the workflow is approved and promoted through the existing repository release rules so it is on the *default branch*, open GitHub → Actions → **Claude supervises Codex** → Run workflow. Enter one specific task with acceptance criteria.
-4. Check the Actions run, test logs and the resulting development branch or PR. Do not treat model review as a replacement for production verification.
+3. Review API pricing/budgets. These GitHub Actions use provider API/OAuth authentication; **ChatGPT Plus does not pay for OpenAI API usage**, and Claude subscription availability for OAuth depends on account support. Limit spending in provider settings.
+4. After the workflow is approved and promoted through the existing repository release rules so it is on the *default branch*, open GitHub → Actions → **Claude supervises Codex** → Run workflow. Enter one specific task with acceptance criteria.
+5. Check the Actions run, test logs and the resulting development branch or PR. Do not treat model review as a replacement for production verification.
 
 ## Repository-specific safety
 - Integration branch: `develop`.
