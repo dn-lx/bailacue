@@ -145,7 +145,7 @@ def save_manifest(path: Path, copies):
     os.replace(temp, path)
 
 
-def upload_rendition(service, source, dance, quality, output):
+def upload_rendition(service, source, dance, quality, output, source_dimensions):
     from googleapiclient.http import MediaFileUpload
 
     media = MediaFileUpload(
@@ -159,6 +159,8 @@ def upload_rendition(service, source, dance, quality, output):
             "bailacueSourceId": source["id"],
             "bailacuePreset": PRESET,
             "bailacueQuality": quality,
+            "bailacueSourceWidth": str(source_dimensions[0]),
+            "bailacueSourceHeight": str(source_dimensions[1]),
         },
     }
     request = service.files().create(
@@ -195,7 +197,7 @@ def convert_one(service, source_id, dance, original, copies, ffmpeg, ffprobe,
             progress(f"Encoding {quality}: {original['name']}…")
             encode_rendition(ffmpeg, ffprobe, src, output, quality)
             progress(f"Uploading {quality} optimized copy to Google Drive…")
-            copy = upload_rendition(service, original, dance, quality, output)
+            copy = upload_rendition(service, original, dance, quality, output, dimensions)
             copies.setdefault(source_id, {})[quality] = (dance, copy)
             save_manifest(manifest, copies)
             output.unlink(missing_ok=True)
@@ -207,8 +209,26 @@ def process_existing(service, ffmpeg, ffprobe, manifest, max_videos=0,
                      dry_run=True, requested=VALID_QUALITIES, progress=print):
     sources = originals(service)
     copies = existing_renditions(service, sources)
+    def expected_quality_set(source_id, source_item):
+        details = source_item.get("videoMediaMetadata") or {}
+        try:
+            raster = (int(details.get("width") or 0), int(details.get("height") or 0))
+        except (TypeError, ValueError):
+            raster = (0, 0)
+        if min(raster) <= 0:
+            for _, copy in copies.get(source_id, {}).values():
+                props = copy.get("appProperties") or {}
+                try:
+                    raster = (int(props.get("bailacueSourceWidth") or 0),
+                              int(props.get("bailacueSourceHeight") or 0))
+                except (TypeError, ValueError):
+                    raster = (0, 0)
+                if min(raster) > 0:
+                    break
+        return set(supported_qualities(raster, requested)) if min(raster) > 0 else set(requested)
+
     pending = [(sid, dance, item) for sid, (dance, item) in sources.items()
-               if not set(requested).issubset(set(copies.get(sid, {})))]
+               if not expected_quality_set(sid, item).issubset(set(copies.get(sid, {})))]
     pending.sort(key=lambda x: (x[1], x[2].get("name", "")))
     progress(f"Found {len(sources)} originals, {len(copies)} with quality copies, {len(pending)} pending.")
     save_manifest(manifest, copies)
