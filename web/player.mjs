@@ -273,6 +273,53 @@ export class StudioPlayer {
     if (button.getAttribute('aria-label') === label) return;
     button.innerHTML = mediaIcon(playing ? 'pause' : 'play'); button.setAttribute('aria-label', label); button.title = label;
   }
+  updateQualityControls(video) {
+    const entries = video?.provider === 'drive' ? renditions(this.optimizedFor(video)) : [];
+    const available = new Set(entries.map(item => item.quality));
+    for (const select of [this.$('#media-quality'), this.fsQuality]) {
+      if (!select) continue;
+      const label = select.closest('label');
+      if (label) label.hidden = entries.length === 0;
+      for (const option of select.options) {
+        option.disabled = option.value !== 'auto' && option.value !== 'original' && !available.has(option.value);
+      }
+      select.value = this.preferredQuality !== 'original' &&
+        this.preferredQuality !== 'auto' && !available.has(this.preferredQuality)
+        ? 'auto' : this.preferredQuality;
+    }
+  }
+  changeQuality(value) {
+    if (!['auto','360p','720p','1080p','original'].includes(value) || !this.video) return;
+    const entries = renditions(this.optimizedFor(this.video));
+    if (!entries.length) return;
+    if (value !== 'auto' && value !== 'original' && !entries.some(item => item.quality === value)) return;
+    this.preferredQuality = value;
+    this.updateQualityControls(this.video);
+    if (this.kind !== 'native' || !this.media || this.video.provider !== 'drive') return;
+    const variant = value === 'original' ? null : chooseRendition(this.optimizedFor(this.video), value);
+    const src = variant
+      ? '/api/drive-video/' + variant.driveId
+      : '/api/drive-video/' + this.video.providerId;
+    if (this.media.getAttribute('src') === src) return;
+    const current = this.current();
+    const playing = !this.media.paused;
+    const speed = this.media.playbackRate;
+    const media = this.media;
+    this.frame.dataset.starting = 'true';
+    this.frame.setAttribute('aria-busy', 'true');
+    this.status('Switching video quality…');
+    media.addEventListener('loadedmetadata', () => {
+      if (media !== this.media) return;
+      if (Number.isFinite(current) && current > 0) {
+        try { media.currentTime = Math.min(current, Number.isFinite(media.duration) ? media.duration : current); }
+        catch { /* Some source formats do not allow an immediate seek. */ }
+      }
+      media.playbackRate = speed;
+      if (playing) media.play().catch(() => this.status('Tap Play to continue.'));
+    }, { once: true });
+    media.src = src;
+    media.load();
+  }
   setSpeed(value) {
     const speed = Number.isFinite(value) && value > 0 ? value : 1;
     if (this.media) this.media.playbackRate = speed;
