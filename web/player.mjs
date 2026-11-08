@@ -25,8 +25,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = _video => null, onEnded = _video => {}, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
+  constructor({ token, allowedFile, streamFor = _video => null, optimizedFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.optimizedFor = optimizedFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = /** @type {HTMLElement} */ (document.querySelector('#video-frame')); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.lastLocalUrl = ''; this.lastAutoPlay = false; this.slowTimer = null;
@@ -138,7 +138,7 @@ export class StudioPlayer {
       this.status('This video is taking longer than expected. You can retry without leaving the page.');
     }, 6000);
   }
-  async open(video, localUrl = '', autoPlay = false) {
+  async open(video, localUrl = '', autoPlay = false, forceOriginal = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
     this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay;
     const poster = this.posterFor(video);
@@ -154,7 +154,8 @@ export class StudioPlayer {
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
     this.scheduleSlowNotice(generation);
-    const deliveryUrl = !localUrl && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
+    const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive' ? this.optimizedFor(video) : null;
+    const deliveryUrl = !localUrl && !optimizedCopy && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
     if (deliveryUrl) {
       const frame = document.createElement('iframe');
       frame.src = autoPlay ? deliveryUrl + '&autoplay=true' : deliveryUrl;
@@ -174,14 +175,16 @@ export class StudioPlayer {
     }
     if (localUrl || video.provider === 'drive') {
       try {
-        if (!localUrl && this.token()) {
+        if (!localUrl && !optimizedCopy && this.token()) {
           if (!('serviceWorker' in navigator)) throw new Error('This browser does not support connected streaming. Use Drive preview.');
           await navigator.serviceWorker.register('/media-worker.js', { scope: '/' }); await navigator.serviceWorker.ready;
           if (!navigator.serviceWorker.controller) await new Promise((resolve, reject) => { const timeout = setTimeout(() => reject(new Error('Reload once to enable connected streaming.')), 5000); navigator.serviceWorker.addEventListener('controllerchange', () => { clearTimeout(timeout); resolve(undefined); }, { once: true }); });
         }
         if (generation !== this.generation) return;
         const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'auto';
-        media.src = localUrl || (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`);
+        media.src = localUrl || (optimizedCopy
+          ? `/api/drive-video/${optimizedCopy.driveId}`
+          : (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`));
         media.setAttribute('aria-label', `${video.title} video`);
         this.media = media; this.kind = 'native'; this.frame.replaceChildren(media); this.updateFullscreen();
         const loading = setTimeout(() => {
@@ -210,6 +213,14 @@ export class StudioPlayer {
         media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); } });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
+          if (optimizedCopy) {
+            // A missing/restricted optimized file never strands the viewer:
+            // retry the unchanged Google Drive original in the same player.
+            this.open(video, localUrl, autoPlay, true).then(() => {
+              if (this.video === video) this.status('Optimized copy is unavailable; loading the original video.');
+            }).catch(() => {});
+            return;
+          }
           clearTimeout(loading); clearTimeout(this.slowTimer); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
           this.frame.dataset.starting = 'false'; this.retryButton.hidden = false;
           this.status('Direct playback failed. You can retry this video.');
