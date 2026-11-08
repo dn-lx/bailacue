@@ -42,6 +42,8 @@ export class StudioPlayer {
     this.fsMute = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-mute'));
     this.fsVolume = /** @type {HTMLInputElement} */ (document.querySelector('#fs-volume'));
     this.fsSpeed = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-speed'));
+    this.fsQuality = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-quality'));
+    this.preferredQuality = 'auto';
     this.fsVolumeDown = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-down'));
     this.fsVolumeUp = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-up'));
     this.fsMirror = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-mirror'));
