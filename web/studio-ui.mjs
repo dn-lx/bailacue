@@ -1,5 +1,6 @@
 import { LABEL_TYPES, createLabel, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
 import { SOURCES } from './core.mjs';
+import { backfillStreamLibrary, publishStreamAutomatically, streamServiceEnabled } from './stream-admin.mjs';
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 const esc = escapeHtml;
 let pickerSequence = 0;
@@ -59,10 +60,11 @@ export function renderLabelManager(page, ctx) {
 }
 
 const uploadSession = { files: [], jobs: new Map(), running: false, controller: null, labelIds: [], artistIds: [], dance: 'Salsa', recordedAt: '', notes: '' };
-export function uploadRunning() { return uploadSession.running; }
+const backfillSession = { running: false, controller: null };
+export function uploadRunning() { return uploadSession.running || backfillSession.running; }
 export function renderUpload(page, ctx) {
   const connection = ctx.connection;
-  page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">FROM YOUR CAMERA TO YOUR COLLECTION</span><h1>Add your next good move.</h1><p>Preview it, label it, and upload a numbered video to Salsa or Bachata.</p></div></div><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos to add</strong><span>MP4, MOV, WebM and more · select several at once</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected for this session.' : 'Your folders. Your permission.'}</h2><p>Shared Drive originals play in BailaCue without signing in. Connect Google to add videos to Drive or refresh the original folders.</p><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Authorization stays in memory and expires with Google.' : (connection.clientId ? 'Ready to connect.' : 'Google web client setup is still required.')}</p></section><section class="numbering-card"><span class="eyebrow">NUMBERED, AUTOMATICALLY</span><div class="number-example">0115<span>.mp4</span></div><p>Each dance has its own sequence. BailaCue checks Drive before assigning the next free number and keeps the original file untouched.</p><small>The final number is checked in Drive before upload. Use Recheck number if another device has just uploaded.</small></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><details class="connection-setup"><summary>Owner connection setup</summary><p>Set a public Google OAuth web client ID with this site’s origin registered. No client secret is used in the browser.</p><label class="field"><span class="field-label">Google web client ID</span><input id="google-client-id" value="${esc(connection.clientId)}" placeholder="…apps.googleusercontent.com" autocomplete="off"></label><button class="button subtle small" id="save-google-client">Save client ID</button><p class="helper-text">Owner setup: enable Drive API and register https://develop--bailacue.netlify.app and https://bailacue.netlify.app as JavaScript origins. Google Drive authorization is separate from your Supabase BailaCue administrator sign-in.</p></details></aside></div>`;
+  page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">FROM YOUR CAMERA TO YOUR COLLECTION</span><h1>Add your next good move.</h1><p>Preview it, label it, and upload a numbered video to Salsa or Bachata.</p></div></div><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos to add</strong><span>MP4, MOV, WebM and more · select several at once</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected for this session.' : 'Your folders. Your permission.'}</h2><p>Shared Drive originals play in BailaCue without signing in. Connect Google to add videos to Drive or refresh the original folders.</p><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Authorization stays in memory and expires with Google.' : (connection.clientId ? 'Ready to connect.' : 'Google web client setup is still required.')}</p></section><section class="numbering-card"><span class="eyebrow">NUMBERED, AUTOMATICALLY</span><div class="number-example">0115<span>.mp4</span></div><p>Each dance has its own sequence. BailaCue checks Drive before assigning the next free number and keeps the original file untouched.</p><small>The final number is checked in Drive before upload. Use Recheck number if another device has just uploaded.</small></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><section class="connection-card" id="backfill-card"><span class="eyebrow">OPTIONAL VIDEO OPTIMIZATION</span><h2>Optimize existing videos once</h2><p>When the paid adaptive service is explicitly activated, new Drive uploads can optimize automatically. You can also process existing Salsa and Bachata originals one time without replacing them. Each video downloads from Drive and uploads to the encoder in bounded chunks through this device.</p><p id="backfill-service-state" class="helper-text" role="status">Checking whether adaptive video conversion is activated…</p><label class="field"><input type="checkbox" id="backfill-consent"> I understand that provider video storage and delivery charges apply, and I will keep this tab open for the one-time conversion.</label><div class="upload-actions"><button class="button primary" type="button" id="backfill-start" disabled>Optimize existing library</button><button class="button subtle" type="button" id="backfill-pause" disabled>Pause</button></div><p id="backfill-status" role="status" class="helper-text">Already optimized videos will be skipped. Interrupted uploads can be resumed.</p></section><details class="connection-setup"><summary>Owner connection setup</summary><p>Set a public Google OAuth web client ID with this site’s origin registered. No client secret is used in the browser.</p><label class="field"><span class="field-label">Google web client ID</span><input id="google-client-id" value="${esc(connection.clientId)}" placeholder="…apps.googleusercontent.com" autocomplete="off"></label><button class="button subtle small" id="save-google-client">Save client ID</button><p class="helper-text">Owner setup: enable Drive API and register https://develop--bailacue.netlify.app and https://bailacue.netlify.app as JavaScript origins. Google Drive authorization is separate from your Supabase BailaCue administrator sign-in.</p></details></aside></div>`;
   const fileInput = page.querySelector('#upload-files'), danceInput = page.querySelector('#upload-dance'), status = page.querySelector('#upload-status');
   danceInput.value = uploadSession.dance;
   page.querySelector('#upload-recorded').value = uploadSession.recordedAt;
@@ -82,10 +84,10 @@ export function renderUpload(page, ctx) {
       return `<article class="upload-file"><span class="file-number">${esc(proposed)}</span><div><strong>${esc(file.name)}</strong><small>${(file.size / 1048576).toFixed(1)} MB${job?.completed ? ' · Uploaded' : ''}</small></div><button class="text-button" data-preview="${index}">Preview</button></article>`;
     }).join('');
     page.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => ctx.preview(uploadSession.files[Number(button.dataset.preview)])));
-    page.querySelector('#upload-start').disabled = uploadSession.running || !uploadSession.files.length;
+    page.querySelector('#upload-start').disabled = uploadRunning() || !uploadSession.files.length;
     page.querySelector('#upload-pause').disabled = !uploadSession.running;
-    for (const selector of ['#connect-google', '#save-google-client', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running);
-    danceInput.disabled = uploadSession.running || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
+    for (const selector of ['#connect-google', '#save-google-client', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadRunning());
+    danceInput.disabled = uploadRunning() || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
   }
   fileInput.addEventListener('change', () => { if (uploadSession.running) return; try { const files = [...fileInput.files]; for (const file of files) numberedName(1, file.name); uploadSession.files = files; uploadSession.jobs.clear(); page.querySelector('#upload-error').textContent = ''; status.textContent = `${files.length} video${files.length === 1 ? '' : 's'} selected. Review the destination and details.`; renderFiles(); } catch (error) { page.querySelector('#upload-error').textContent = error.message; } });
   danceInput.onchange = () => { uploadSession.dance = danceInput.value; renderFiles(); };
@@ -106,12 +108,82 @@ export function renderUpload(page, ctx) {
         status.textContent = `Uploading ${job.name}… keep this tab open.`;
         const result = await connection.upload(job, (bytes, total) => { const percent = Math.floor(bytes / total * 100); page.querySelector('#upload-progress').value = percent; status.textContent = `${job.name} · ${percent}% uploaded`; }, uploadSession.controller.signal);
         ctx.state().drive = [...ctx.state().drive.filter(v => v.id !== result.id), result]; ctx.patchMeta(result.id, details); ctx.save(); renderFiles();
+        // The original is committed first. Optimizer failures never undo a Drive upload.
+        if (await streamServiceEnabled()) {
+          try {
+            status.textContent = `Original ${job.name} saved. Automatically preparing adaptive playback…`;
+            await ctx.publishOriginal(result);
+            const outcome = await publishStreamAutomatically({
+              video: result, file, admin: ctx.admin, signal: uploadSession.controller.signal,
+              onProgress: message => { status.textContent = message; },
+              onPublished: delivery => ctx.onStreamPublished(result, delivery),
+            });
+            if (outcome.status === 'processing') status.textContent = `${job.name} uploaded · encoding continues. Open its video details to check later.`;
+          } catch (error) {
+            if (error.name === 'AbortError') throw error;
+            status.textContent = `${job.name} saved in Drive. Optimization needs attention: ${error.message}`;
+          }
+        }
       }
       status.textContent = 'Upload confirmed by Google Drive. Your videos are in the library.'; ctx.toast('Numbered videos uploaded to Drive');
     };
     try { if (navigator.locks) await navigator.locks.request(`bailacue-upload-${dance}`, run); else await run(); }
     catch (error) { if (error.name === 'AbortError') status.textContent = 'Paused. Press Upload to resume the same files in this tab.'; else { page.querySelector('#upload-error').textContent = error.message; status.textContent = 'Not completed. Retry resumes an existing session instead of creating a duplicate.'; } }
     finally { uploadSession.running = false; uploadSession.controller = null; fileInput.disabled = false; renderFiles(); }
+  };
+
+  const backfillStart = page.querySelector('#backfill-start');
+  const backfillPause = page.querySelector('#backfill-pause');
+  const backfillConsent = page.querySelector('#backfill-consent');
+  const backfillStatus = page.querySelector('#backfill-status');
+  const backfillService = page.querySelector('#backfill-service-state');
+  let adaptiveEnabled = false;
+  streamServiceEnabled().then(enabled => {
+    adaptiveEnabled = enabled;
+    backfillService.textContent = enabled
+      ? 'Adaptive Stream is enabled. Existing copies remain in Google Drive; conversion incurs provider charges.'
+      : 'Adaptive Stream is not activated. Conversion is disabled and cannot incur charges.';
+    backfillStart.disabled = !enabled || !backfillConsent.checked || uploadRunning();
+  });
+  backfillConsent.onchange = () => { backfillStart.disabled = !adaptiveEnabled || !backfillConsent.checked || uploadRunning(); };
+  backfillPause.onclick = () => backfillSession.controller?.abort();
+  backfillStart.onclick = async () => {
+    if (!adaptiveEnabled || !backfillConsent.checked || uploadRunning()) return;
+    if (!connection.connected || !ctx.admin.isAdmin) {
+      backfillStatus.textContent = 'Connect Google Drive and sign in as BailaCue administrator first.';
+      return;
+    }
+    backfillSession.running = true;
+    backfillSession.controller = new AbortController();
+    backfillStart.disabled = true; backfillPause.disabled = false; renderFiles();
+    try {
+      backfillStatus.textContent = 'Reading the two fixed Google Drive collections…';
+      const all = [];
+      for (const dance of ['Salsa', 'Bachata']) {
+        all.push(...(await connection.list(dance)).videos);
+      }
+      if (!all.length) throw new Error('The fixed Salsa and Bachata folders have no readable video files.');
+      const pending = all.filter(video => !ctx.streamFor(video));
+      backfillStatus.textContent = `${pending.length} of ${all.length} videos require optimization. Processing sequentially; keep this tab active.`;
+      const outcome = await backfillStreamLibrary({
+        videos: all, connection, admin: ctx.admin, signal: backfillSession.controller.signal,
+        isPublished: video => !!ctx.streamFor(video),
+        onPublished: (video, delivery) => ctx.onStreamPublished(video, delivery),
+        onProgress: message => { backfillStatus.textContent = message; },
+      });
+      backfillStatus.textContent = outcome.status === 'ready'
+        ? `One-time run finished: ${outcome.completed} optimized, ${outcome.skipped} skipped (usually missing Drive duration metadata). Already optimized videos were not reprocessed.`
+        : `${outcome.completed} optimized, ${outcome.skipped} skipped. ${outcome.status === 'processing' ? 'Last upload is still encoding. Reopen this screen and resume after processing.' : 'Adaptive service is not available.'}`;
+    } catch (error) {
+      backfillStatus.textContent = error.name === 'AbortError'
+        ? 'Paused. Already completed copies remain saved. Press Optimize existing library to resume.'
+        : `Conversion paused safely: ${error.message}. Reconnect Google and retry if required.`;
+    } finally {
+      backfillSession.controller = null; backfillSession.running = false;
+      backfillPause.disabled = true;
+      backfillStart.disabled = !adaptiveEnabled || !backfillConsent.checked;
+      renderFiles();
+    }
   };
   connection.prepare().catch(error => { const el = page.querySelector('#connection-status'); if (el) el.textContent = error.message; });
   renderFiles();
