@@ -7,9 +7,18 @@ const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;
 function jobKey(id) { return 'bailacue:stream-job:' + id; }
 function savedJob(id) {
   try {
-    const job = JSON.parse(sessionStorage.getItem(jobKey(id)) || 'null');
+    const job = JSON.parse(localStorage.getItem(jobKey(id)) || sessionStorage.getItem(jobKey(id)) || 'null');
     return job?.videoId === id && (job.completed === true || Date.parse(job.expiresAt || '') > Date.now()) ? job : null;
   } catch { return null; }
+}
+function saveAutomaticJob(id, job) {
+  // A short-lived upload capability is kept locally for resume after a tab closes.
+  // It is never written to a public database, bundle, or URL.
+  localStorage.setItem(jobKey(id), JSON.stringify(job));
+}
+function clearCompletedJob(id) {
+  localStorage.removeItem(jobKey(id));
+  sessionStorage.removeItem(jobKey(id));
 }
 function safeUploadUrl(value) {
   try {
@@ -154,7 +163,7 @@ export async function publishStreamAutomatically({ video, file, admin, signal, o
     });
     if (!safeUploadUrl(created.uploadUrl)) throw new Error('Unsafe video upload destination.');
     job = { ...created, size: file.size, name, modified, videoId: video.id };
-    sessionStorage.setItem(jobKey(video.id), JSON.stringify(job));
+    saveAutomaticJob(video.id, job);
   }
   if (!job.completed) {
     onProgress('Sending video to the adaptive encoder…');
@@ -162,14 +171,14 @@ export async function publishStreamAutomatically({ video, file, admin, signal, o
       onProgress(`Optimizing ${video.filename || name}: ${Math.floor(sent / total * 100)}% uploaded`);
     }, signal);
     job.completed = true;
-    sessionStorage.setItem(jobKey(video.id), JSON.stringify(job));
+    saveAutomaticJob(video.id, job);
   }
   for (let attempt = 0; attempt < 24; attempt++) {
     conversionSignal(signal);
     onProgress('Encoding streaming-friendly video…');
     const result = await ownerRequest(admin, 'status', { videoId: video.id, uid: job.uid });
     if (result.status === 'ready' && result.delivery) {
-      sessionStorage.removeItem(jobKey(video.id));
+      clearCompletedJob(video.id);
       onPublished(result.delivery);
       return { status: 'ready', delivery: result.delivery };
     }
