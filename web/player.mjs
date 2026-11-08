@@ -98,6 +98,7 @@ export class StudioPlayer {
     this.$('#media-forward').onclick = () => this.seek(this.current() + 5);
     this.$('#media-seek').oninput = e => this.seek(Number(e.target.value) / 1000 * this.duration());
     this.$('#media-speed').onchange = e => this.setSpeed(Number(e.target.value));
+    this.$('#media-quality').onchange = e => this.changeQuality(e.target.value);
     this.$('#media-volume').oninput = e => this.setVolume(Number(e.target.value));
     this.$('#media-volume-down').onclick = () => this.setVolume(Number(this.$('#media-volume').value) - 10);
     this.$('#media-volume-up').onclick = () => this.setVolume(Number(this.$('#media-volume').value) + 10);
