@@ -1,7 +1,7 @@
 import catalogue from '../../catalogue.json' with { type: 'json' };
 import publicConfig from '../../public-config.json' with { type: 'json' };
 import { createMediaHandler } from '../../drive-stream.mjs';
-import { asOptimizedFile, parseOptimizedManifest } from '../../optimized-delivery.mjs';
+import { asOptimizedFile, parseOptimizedManifest, renditions } from '../../optimized-delivery.mjs';
 
 async function loadPublishedFile(id) {
   if (!publicConfig.supabaseUrl || !publicConfig.supabasePublishableKey) return null;
