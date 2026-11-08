@@ -39,8 +39,9 @@ async function loadOptimizedFile(id) {
       }
     } catch { /* Fail closed until the next refresh attempt. */ }
   }
-  const item = manifestCache?.entries.find(entry => entry.driveId === id);
-  return asOptimizedFile(item);
+  const item = manifestCache?.entries.find(entry => renditions(entry).some(variant => variant.driveId === id));
+  const variant = item && renditions(item).find(variant => variant.driveId === id);
+  return asOptimizedFile(item, variant);
 }
 
 export default createMediaHandler(catalogue, fetch, loadPublishedFile, loadOptimizedFile);
