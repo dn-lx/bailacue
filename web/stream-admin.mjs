@@ -131,7 +131,7 @@ async function processingDelay(signal) {
  * the existing resumable TUS session. Never forwards a Google token to Cloudflare.
  * The billed provider MUST already be explicitly enabled server-side.
  */
-export async function publishStreamAutomatically({ video, file, admin, signal, onProgress = () => {}, onPublished = () => {} }) {
+export async function publishStreamAutomatically({ video, file, admin, signal, onProgress = _message => {}, onPublished = _delivery => {} }) {
   if (!video || video.provider !== 'drive' || !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId || '') ||
       !file || !Number.isSafeInteger(file.size) || file.size <= 0 || file.size !== video.size)
     throw new Error('Cannot optimize a video without its verified Drive original.');
