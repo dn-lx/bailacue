@@ -93,7 +93,7 @@ export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile
         const derived = await loadOptimizedFile(match[1]);
         if (derived?.provider === 'drive' &&
             derived.id === 'drive:' + match[1] && derived.providerId === match[1] &&
-            derived.optimizedPreset === OPTIMIZED_PRESET &&
+            [OPTIMIZED_PRESET, LEGACY_PRESET].includes(derived.optimizedPreset) &&
             derived.folderId === OPTIMIZED_FOLDERS[derived.dance] &&
             derived.filename?.endsWith('.mp4') &&
             Number.isSafeInteger(derived.size) && derived.size >= 1024 &&
