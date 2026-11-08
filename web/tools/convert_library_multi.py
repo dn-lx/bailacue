@@ -264,7 +264,13 @@ def create_original(service, dance, name, input_path):
     numbered = f"{number:04d}{extension}"
     if any(item.get("name") == numbered for item in listing):
         raise RuntimeError("Original filename already exists in Drive. Retry before upload.")
-    media = MediaFileUpload(str(input_path), mimetype="video/" + ("quicktime" if extension == ".mov" else "mp4"),
+    media_type = {
+        ".mp4": "video/mp4", ".m4v": "video/x-m4v",
+        ".mov": "video/quicktime", ".webm": "video/webm",
+        ".mkv": "video/x-matroska", ".avi": "video/x-msvideo",
+        ".3gp": "video/3gpp",
+    }[extension]
+    media = MediaFileUpload(str(input_path), mimetype=media_type,
                             resumable=True, chunksize=CHUNK)
     metadata = {
         "name": numbered, "parents": [ORIGINAL[dance]],
