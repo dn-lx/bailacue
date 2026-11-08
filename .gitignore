@@ -39,8 +39,8 @@ __pycache__/
 **/credentials*.json
 **/google_token*.json
 **/bailacue-optimized-manifest.json
-**/*.mp4
-**/*.mov
-**/*.mkv
-**/*.avi
-**/*.m4v
+/web/tools/*.mp4
+/web/tools/*.mov
+/web/tools/*.mkv
+/web/tools/*.avi
+/web/tools/*.m4v
