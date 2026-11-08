@@ -1,5 +1,5 @@
 import { SOURCES } from './core.mjs';
-import { OPTIMIZED_FOLDERS, OPTIMIZED_PRESET } from './optimized-delivery.mjs';
+import { OPTIMIZED_FOLDERS, OPTIMIZED_PRESET, LEGACY_PRESET } from './optimized-delivery.mjs';
 
 // Stay below Netlify's buffered binary response limit, even if the platform buffers.
 export const MAX_CHUNK = 4 * 1024 * 1024;
