@@ -25,10 +25,12 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = _video => null, onEnded = _video => {}, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.onEnded = onEnded; this.toast = toast;
+  constructor({ token, allowedFile, streamFor = _video => null, posterFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.posterFor = posterFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = document.querySelector('#video-frame'); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
+    this.retryButton = /** @type {HTMLButtonElement} */ (document.querySelector('#retry-playback'));
+    this.retryButton.onclick = () => { if (this.video) this.open(this.video, this.lastLocalUrl || '', this.lastAutoPlay || false); };
     this.fullscreenControls = /** @type {HTMLElement} */ (document.querySelector('#fullscreen-controls'));
     this.fsPlay = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-play'));
     this.fsBack = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-back'));
@@ -113,8 +115,26 @@ export class StudioPlayer {
   }
   /** @returns {any} */
   $(selector) { return this.controls.querySelector(selector); }
+  dismissLoading() {
+    clearTimeout(this.slowTimer);
+    this.frame.dataset.starting = 'false';
+    this.retryButton.hidden = true;
+  }
+  scheduleSlowNotice(generation) {
+    clearTimeout(this.slowTimer);
+    this.slowTimer = setTimeout(() => {
+      if (generation !== this.generation || this.frame.getAttribute('aria-busy') !== 'true') return;
+      this.retryButton.hidden = false;
+      this.status('This video is taking longer than expected. You can retry without leaving the page.');
+    }, 6000);
+  }
   async open(video, localUrl = '', autoPlay = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
+    this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay;
+    const poster = this.posterFor(video);
+    this.frame.style.backgroundImage = poster ? `url(${JSON.stringify(poster)})` : '';
+    this.frame.dataset.starting = 'true';
+    this.retryButton.hidden = true;
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
@@ -123,6 +143,7 @@ export class StudioPlayer {
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
+    this.scheduleSlowNotice(generation);
     const deliveryUrl = !localUrl && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
     if (deliveryUrl) {
       const frame = document.createElement('iframe');
@@ -131,7 +152,7 @@ export class StudioPlayer {
       frame.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
       frame.allowFullscreen = true;
       frame.referrerPolicy = 'strict-origin-when-cross-origin';
-      frame.addEventListener('load', () => { if (generation === this.generation && frame.parentElement === this.frame) this.frame.setAttribute('aria-busy', 'false'); });
+      frame.addEventListener('load', () => { if (generation === this.generation && frame.parentElement === this.frame) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); } });
       this.frame.replaceChildren(frame);
       this.kind = 'stream';
       this.updateFullscreen();
@@ -154,17 +175,19 @@ export class StudioPlayer {
         media.setAttribute('aria-label', `${video.title} video`);
         this.media = media; this.kind = 'native'; this.frame.replaceChildren(media); this.updateFullscreen();
         const loading = setTimeout(() => {
-          if (generation !== this.generation || media.readyState >= 1) return;
-          media.pause(); media.removeAttribute('src'); media.load();
-          this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
-          this.status('Video is taking longer than expected. This source may be unavailable.');
-        }, 22000); this.loadingTimer = loading;
+          if (generation !== this.generation || media !== this.media || media.readyState >= HTMLMediaElement.HAVE_FUTURE_DATA) return;
+          this.frame.setAttribute('aria-busy', 'false');
+          this.retryButton.hidden = false;
+          this.status('This video has not become playable. Try Retry video or select another video.');
+        }, 18000); this.loadingTimer = loading;
         media.addEventListener('loadedmetadata', () => {
           if (generation !== this.generation || media !== this.media) return;
-          clearTimeout(loading);
           if (!media.videoWidth || !media.videoHeight) {
+            clearTimeout(loading);
+            clearTimeout(this.slowTimer);
+            this.frame.dataset.starting = 'false';
             media.pause(); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
-            this.status('This video format cannot be played directly in your browser.');
+            this.status('This original video format is not supported by your browser. A compatible optimized copy is needed.');
             return;
           }
           this.frame.classList.toggle('portrait-video', media.videoHeight > media.videoWidth);
@@ -173,12 +196,13 @@ export class StudioPlayer {
           else this.status('Video opened · preparing playback buffer…');
         });
         media.addEventListener('canplay', () => { if (generation === this.generation && media === this.media && media.videoWidth) this.readyToPlay(media, localUrl); });
-        media.addEventListener('waiting', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); } });
-        media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.status('Playing · BailaCue player'); } });
+        media.addEventListener('waiting', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); this.scheduleSlowNotice(generation); } });
+        media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); } });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
-          clearTimeout(loading); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
-          this.status('Direct playback failed. An embedded preview may be needed for this video.');
+          clearTimeout(loading); clearTimeout(this.slowTimer); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
+          this.frame.dataset.starting = 'false'; this.retryButton.hidden = false;
+          this.status('Direct playback failed. You can retry this video.');
         });
         for (const type of ['play', 'pause', 'ended', 'timeupdate', 'durationchange', 'volumechange']) media.addEventListener(type, () => this.tick());
         media.addEventListener('ended', () => { if (generation === this.generation && media === this.media) this.onEnded(video); });
@@ -189,14 +213,14 @@ export class StudioPlayer {
         const mount = document.createElement('div'); this.frame.replaceChildren(mount); this.kind = 'youtube';
         const YT = (/** @type {any} */ (window)).YT;
         this.youtube = new YT.Player(mount, { videoId: video.kind === 'playlist' ? undefined : video.providerId, playerVars: { origin: location.origin, playsinline: 1, controls: 0, rel: 0, ...(video.kind === 'playlist' ? { listType: 'playlist', list: video.providerId } : {}) }, host: 'https://www.youtube-nocookie.com', events: {
-          onReady: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status('YouTube · playback controls ready'); this.timer = setInterval(() => this.tick(), 300); if (this.autoStartPending) { this.autoStartPending = false; this.youtube?.playVideo(); } },
+          onReady: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.setAvailable(true); this.status('YouTube · playback controls ready'); this.timer = setInterval(() => this.tick(), 300); if (this.autoStartPending) { this.autoStartPending = false; this.youtube?.playVideo(); } },
           onStateChange: event => {
             if (generation !== this.generation) return;
-            if (event.data === 3) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); }
-            else if ([0, 1, 2, 5].includes(event.data)) { this.frame.setAttribute('aria-busy', 'false'); if (event.data === 1) this.status('Playing · YouTube player'); }
+            if (event.data === 3) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); this.scheduleSlowNotice(generation); }
+            else if ([0, 1, 2, 5].includes(event.data)) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); if (event.data === 1) this.status('Playing · YouTube player'); }
             if (video.kind !== 'playlist' && event.data === 0) this.onEnded(video);
           },
-          onError: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false); this.status('YouTube playback is unavailable in this browser.'); },
+          onError: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false); clearTimeout(this.slowTimer); this.frame.dataset.starting = 'false'; this.retryButton.hidden = false; this.status('YouTube playback failed. Try Retry video.'); },
         } });
       } catch (error) { if (generation === this.generation) { this.preview(video); this.status(error.message); } }
     } else this.preview(video);
@@ -206,11 +230,11 @@ export class StudioPlayer {
     const generation = this.generation;
     this.frame.setAttribute('aria-busy', 'true');
     const isDrive = video.provider === 'drive';
-    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.allowFullscreen = false; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => { if (generation === this.generation && frame.parentElement === this.frame) this.frame.setAttribute('aria-busy', 'false'); }; this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
+    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.allowFullscreen = false; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => { if (generation === this.generation && frame.parentElement === this.frame) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); } }; this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
     this.status(isDrive ? 'Drive preview · playback managed by Google; BailaCue fullscreen unavailable for this source.' : 'Embedded preview · fullscreen controls unavailable for this source.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }
-  readyToPlay(media, localUrl) { this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); if (this.autoStartPending) { this.autoStartPending = false; media.play().catch(() => this.status('Next video is ready. Tap Play to continue the mix.')); } }
+  readyToPlay(media, localUrl) { clearTimeout(this.loadingTimer); this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); if (this.autoStartPending) { this.autoStartPending = false; media.play().catch(() => this.status('Next video is ready. Tap Play to continue the mix.')); } }
   setAvailable(available) {
     this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
     this.$('#media-mirror').disabled = !available || !this.media;
@@ -344,5 +368,5 @@ export class StudioPlayer {
     }
     this.updateFullscreen();
   }
-  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearInterval(this.timer); this.timer = null; this.hideFullscreenControls(); this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.kind = 'preview'; this.frame.replaceChildren(); this.frame.setAttribute('aria-busy', 'false'); this.frame.classList.remove('portrait-video'); if (document.fullscreenElement === this.videoShell) document.exitFullscreen().catch(() => {}); document.querySelector('#player').classList.remove('fullscreen-mode', 'browser-wide'); this.updateFullscreen(); }
+  stop() { this.generation++; this.autoStartPending = false; clearTimeout(this.loadingTimer); clearTimeout(this.slowTimer); this.retryButton.hidden = true; this.frame.dataset.starting = 'false'; this.frame.style.backgroundImage = ''; clearInterval(this.timer); this.timer = null; this.hideFullscreenControls(); this.media?.pause(); this.media?.removeAttribute('src'); this.media?.load(); this.youtube?.destroy(); this.youtube = null; this.media = null; this.kind = 'preview'; this.frame.replaceChildren(); this.frame.setAttribute('aria-busy', 'false'); this.frame.classList.remove('portrait-video'); if (document.fullscreenElement === this.videoShell) document.exitFullscreen().catch(() => {}); document.querySelector('#player').classList.remove('fullscreen-mode', 'browser-wide'); this.updateFullscreen(); }
 }
