@@ -89,3 +89,22 @@ test('YouTube buffering and failures clear correctly without stale callbacks aff
     assert.equal(busy(), 'true');
   });
 });
+
+test('thumbnail appears immediately and retry starts a fresh player attempt', async () => {
+  await withPlayer(async (player, window) => {
+    player.posterFor = () => 'https://example.test/dance-thumbnail.jpg';
+    await player.open(video, 'blob:first');
+    assert.match(player.frame.style.backgroundImage, /dance-thumbnail/);
+    assert.equal(player.frame.dataset.starting, 'true');
+    assert.equal(player.retryButton.hidden, true);
+    player.media.dispatchEvent(new window.Event('error'));
+    assert.equal(player.retryButton.hidden, false);
+    player.retryButton.click();
+    await Promise.resolve();
+    assert.equal(player.frame.getAttribute('aria-busy'), 'true');
+    assert.equal(player.retryButton.hidden, true);
+    player.stop();
+    assert.equal(player.frame.style.backgroundImage, '');
+    assert.equal(player.retryButton.hidden, true);
+  });
+});
