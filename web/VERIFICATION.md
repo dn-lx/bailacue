@@ -1,4 +1,6 @@
-# Latest continuation checkpoint · 7 November 2026
+# Latest continuation checkpoint · 8 November 2026
+
+Playback loading follow-up: a centered loading wheel and Loading video message appear immediately when a video opens, remain until native playback can start, and return during native/YouTube buffering. Ready, playing, error, timeout and close events clear the indicator; stale callbacks cannot hide the next video’s loader. The overlay also works in video fullscreen and respects reduced motion. Web lint, typecheck, all 83 tests (including native and YouTube loading lifecycle regressions), static build and diff checks pass. Work remains on develop.
 
 UI follow-up: removed the redundant About this video summary and its Done editing/Edit metadata toggle. Video details now stays open, with the same public editing, automatic saves and retry status. Upload timestamps remain in Video information.
 

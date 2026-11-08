@@ -2205,3 +2205,44 @@ details > summary:hover::after { color: var(--blue); }
     width: 52px; height: 52px; min-width: 52px; min-height: 52px; padding: 12px;
   }
 }
+
+
+/* Show loading feedback over the video until playback is ready. */
+#player #video-frame { position: relative; isolation: isolate; }
+#player #video-frame[aria-busy="true"] { animation: none; }
+#player #video-frame[aria-busy="true"]::before {
+  content: "Loading video…";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding-top: 80px;
+  background: #101723b3;
+  color: #f4f7fd;
+  font-size: 14px;
+  font-weight: 500;
+  pointer-events: none;
+}
+#player #video-frame[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  z-index: 3;
+  top: 50%;
+  left: 50%;
+  box-sizing: border-box;
+  width: 48px;
+  height: 48px;
+  margin: -24px 0 0 -24px;
+  border: 4px solid #aac5ff40;
+  border-top-color: #aac5ff;
+  border-radius: 50%;
+  pointer-events: none;
+  animation: video-loading-spin .8s linear infinite;
+}
+@keyframes video-loading-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  #player #video-frame[aria-busy="true"]::after { animation: none; }
+}
