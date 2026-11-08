@@ -159,7 +159,7 @@ export class StudioPlayer {
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
     this.scheduleSlowNotice(generation);
-    const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive' ? this.optimizedFor(video) : null;
+    const optimizedCopy = !localUrl && !forceOriginal && this.preferredQuality !== 'original' && video.provider === 'drive' ? chooseRendition(this.optimizedFor(video), this.preferredQuality) : null;
     const deliveryUrl = !localUrl && !optimizedCopy && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
     if (deliveryUrl) {
       const frame = document.createElement('iframe');
