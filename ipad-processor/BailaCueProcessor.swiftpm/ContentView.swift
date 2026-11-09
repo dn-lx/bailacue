@@ -144,7 +144,7 @@ struct ProcessorHome: View {
                                 if enabled { studio.selectedQualities.insert(quality) }
                                 else { studio.selectedQualities.remove(quality) }
                             }
-                        )).toggleStyle(.checkbox)
+                        )).toggleStyle(.switch)
                     }
                 }
                 Text("H.264/AAC MP4. No upscaling. 360p, 720p and 1080p are generated when the source resolution supports them.")
