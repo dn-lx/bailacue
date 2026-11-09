@@ -55,8 +55,8 @@ def supported_qualities(dimensions, requested=VALID_QUALITIES):
         if (quality != "360p" and width < target_width and height < target_height):
             continue
         available.append(quality)
-    if not available:
-        available = ["360p"]
+    # Respect the user's selected formats: do not silently output 360p if
+    # only a higher resolution was requested from a smaller original.
     return available
 
 
