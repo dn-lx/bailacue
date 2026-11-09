@@ -36,6 +36,15 @@ class FreeVideoTests(unittest.TestCase):
         self.assertEqual([x["quality"] for x in entry["renditions"]],["360p","720p"])
         self.assertTrue(all(x["folderId"] == DERIVED["Salsa"] for x in entry["renditions"]))
 
+    def test_local_studio_accepts_multiple_videos_and_links(self):
+        from local_upload_server import PAGE
+        self.assertIn('id="files" multiple', PAGE)
+        self.assertIn('id="share-link"', PAGE)
+        self.assertIn("photos.app.goo.gl", PAGE)
+        self.assertIn("share.icloud.com", PAGE)
+        for quality in ("360p", "720p", "1080p"):
+            self.assertIn(f'value="{quality}" checked', PAGE)
+
     def test_quality_copy_names_keep_original_id_and_quality(self):
         video = {"id": "abcdefghij123456", "name":"0004.mov"}
         self.assertEqual(filename_for(video,"360p"), "0004-abcdefghij-360p.mp4")
