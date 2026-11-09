@@ -219,7 +219,8 @@ export class StudioPlayer {
         media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); } });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
-          const currentFileId = /^\\/api\\/drive-video\\/([A-Za-z0-9_-]+)$/.exec(media.getAttribute('src') || '')?.[1];
+          const sourceSegments = (media.getAttribute('src') || '').split('/');
+          const currentFileId = sourceSegments.length === 4 && sourceSegments[1] === 'api' && sourceSegments[2] === 'drive-video' ? sourceSegments[3] : null;
           if (video.provider === 'drive' && currentFileId && currentFileId !== video.providerId) {
             // This also covers errors after a manual quality change, not just
             // failures of the first optimized file selected on open().
