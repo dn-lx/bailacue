@@ -5,6 +5,12 @@ and iOS, built with React Native, TypeScript and Expo SDK 58.
 
 <img src="assets/brand/symbol-color-transparent.png" alt="BailaCue transparent blue b symbol with centered play button" width="160" />
 
+## iPad-native video optimization (develop prototype)
+
+[BailaCue Processor](ipad-processor/SETUP.md) is a separate Swift Playgrounds iPad project that imports an entire Google Drive folder (including nested Salsa/Bachata folders), generates up to 360p/720p/1080p copies locally, uploads to existing optimized Drive folders, and optionally publishes mappings through the existing BailaCue owner account. Originals remain untouched; the queue is saved between sessions.
+
+It is **source code under development**, not yet an installed/verified iPad app. One-time iOS OAuth configuration and an on-device test are still required. No paid video encoding provider is enabled.
+
 ## Install Android
 
 Download [BailaCue 0.3.0 for Android](https://github.com/dn-lx/BailaCue/releases/download/v0.3.0-preview.27/BailaCue-v0.3.0-build27-preview.apk)
