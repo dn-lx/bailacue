@@ -219,11 +219,20 @@ export class StudioPlayer {
         media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); } });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
-          if (optimizedCopy) {
-            // A missing/restricted optimized file never strands the viewer:
-            // retry the unchanged Google Drive original in the same player.
-            this.open(video, localUrl, autoPlay, true).then(() => {
-              if (this.video === video) this.status('Optimized copy is unavailable; loading the original video.');
+          const currentFileId = /^\\/api\\/drive-video\\/([A-Za-z0-9_-]+)$/.exec(media.getAttribute('src') || '')?.[1];
+          if (video.provider === 'drive' && currentFileId && currentFileId !== video.providerId) {
+            // This also covers errors after a manual quality change, not just
+            // failures of the first optimized file selected on open().
+            const previousPosition = Number.isFinite(media.currentTime) ? media.currentTime : 0;
+            const resumePlaying = !media.paused || this.autoStartPending;
+            this.open(video, localUrl, resumePlaying, true).then(() => {
+              const replacement = this.media;
+              if (!replacement || this.video !== video) return;
+              if (previousPosition > 0) replacement.addEventListener('loadedmetadata', () => {
+                try { replacement.currentTime = Math.min(previousPosition, Number.isFinite(replacement.duration) ? replacement.duration : previousPosition); }
+                catch { /* Keep the original playback available even if seek is unsupported. */ }
+              }, { once: true });
+              this.status('Optimized copy is unavailable; loading the original video.');
             }).catch(() => {});
             return;
           }
