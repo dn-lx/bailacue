@@ -51,6 +51,38 @@ final class BailaCuePublisher: ObservableObject {
         KeychainStore.delete("bailacue-admin-refresh")
     }
 
+    private var builtInCatalogueIDs: Set<String>? = nil
+
+    /// Skip untouched built-in originals and all previously published originals.
+    /// Only genuinely new files are registered with the public BailaCue catalogue.
+    func ensureOriginalRegistered(_ original: DriveVideo, dance: Dance) async throws {
+        guard authorized else { throw ProcessorError.setup("Connect the BailaCue owner account first.") }
+        guard original.parents.contains(dance.sourceFolder) else {
+            throw ProcessorError.invalid("The original is outside the trusted collection.")
+        }
+        let sourceKey = "drive:" + original.id
+        if builtInCatalogueIDs == nil {
+            let url = URL(string: "https://develop--bailacue.netlify.app/catalogue.json")!
+            let (data, response) = try await URLSession.shared.data(from: url)
+            guard (response as? HTTPURLResponse)?.statusCode == 200,
+                  let source = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  source["rootFolderId"] as? String == "1elTpDpgefwwlnrSEFc8vyREt3HUpDS8P",
+                  let records = source["videos"] as? [[String: Any]] else {
+                throw ProcessorError.request("Cannot verify the existing BailaCue catalogue. No originals published.")
+            }
+            builtInCatalogueIDs = Set(records.compactMap { $0["id"] as? String })
+        }
+        if builtInCatalogueIDs?.contains(sourceKey) == true { return }
+        let config = try await loadConfig()
+        var url = URLComponents(string: config.supabaseUrl + "/rest/v1/bailacue_web_content")!
+        url.queryItems = [.init(name: "key", value: "eq.drive:" + sourceKey),
+                          .init(name: "select", value: "key")]
+        let response = try await call(url.url!.absoluteString, method: "GET", body: nil, auth: true)
+        let existing = (try? JSONSerialization.jsonObject(with: response)) as? [[String: Any]] ?? []
+        if existing.contains(where: { $0["key"] as? String == "drive:" + sourceKey }) { return }
+        try await publishOriginal(original, dance: dance)
+    }
+
     func publishOriginal(_ original: DriveVideo, dance: Dance) async throws {
         guard original.parents.contains(dance.sourceFolder) else {
             throw ProcessorError.invalid("Cannot register an original outside the trusted dance collection.")
