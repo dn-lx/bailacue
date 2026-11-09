@@ -246,7 +246,7 @@ def process_existing(service, ffmpeg, ffprobe, manifest, max_videos=0,
     return copies
 
 
-def create_original(service, dance, name, input_path):
+def create_original(service, dance, name, input_path, digest=None):
     from googleapiclient.http import MediaFileUpload
 
     if dance not in ORIGINAL:
@@ -276,6 +276,10 @@ def create_original(service, dance, name, input_path):
         "name": numbered, "parents": [ORIGINAL[dance]],
         "description": "Original uploaded from BailaCue local browser; remains unmodified.",
     }
+    if digest is not None:
+        if not re.fullmatch(r"[0-9a-f]{64}", digest):
+            raise ValueError("Invalid video checksum.")
+        metadata["appProperties"] = {"bailacueUploadSha256": digest}
     request = service.files().create(
         body=metadata, media_body=media,
         fields="id,name,mimeType,size,parents,appProperties",
