@@ -4,9 +4,9 @@
 
 ## What this version implements
 
-- Paste one **Google Drive folder** URL, import all its video files into an on-device selection queue, or load the existing locked Salsa and Bachata Drive collections.
+- Paste one **Google Drive parent folder** URL (including nested Salsa/Bachata subfolders), import its video files into an on-device selection queue, or load the existing locked Salsa and Bachata Drive collections. The scanner avoids derived/optimized folders.
 - Authorize Drive with an iOS OAuth 2.0 + PKCE sign-in; use the phone/tablet Keychain for the refresh token.
-- Queue and process one video at a time. Download only the active source into iPad temporary storage, preserve the Drive original, and attempt 360p/720p/1080p MP4 exports where appropriate without upscaling.
+- Queue and process one video at a time. Download only the active source into iPad temporary storage, preserve the Drive original, and attempt 360p/720p/1080p MP4 exports where appropriate without upscaling. Files too small for all selected outputs are marked *Skipped*, not repeatedly retried.
 - Validate the resulting output video as H.264 and audio as AAC before accepting it for playback. Some source codecs or export presets may not produce compatible output and will be reported as errors; this version does **not** implement a separate AVAssetWriter fallback.
 - Upload each accepted rendition with an 8 MiB resumable Google Drive upload to the existing optimized Salsa/Bachata folder. Check for existing files by source/quality app properties and skip completed uploads on a later run.
 - Save queue + manifest after every successful quality, resume incomplete jobs, mark too-high resolutions unsupported, and reprocess a completed video when new qualities are selected.
@@ -41,7 +41,7 @@ The app currently requests the full Google Drive scope because it reads and copi
 ## First small-batch test
 
 1. Connect Drive and BailaCue owner.
-2. Paste a Google Drive folder link containing **two small videos**; select Salsa or Bachata for the destination.
+2. Paste a Google Drive folder link containing **two small videos**; select Salsa or Bachata for the destination. You can later paste the parent BailaCue folder once to discover both dance subfolders.
 3. Import videos. Start with **360p and 720p** checked. Leave the app visible and plugged in while it works.
 4. Check the queue, Drive destination folder, the generated manifest and playback quality selection on the **develop** website.
 5. Reopen the app, enable 1080p if a source supports it, and tap Start / Resume to test the saved queue.
