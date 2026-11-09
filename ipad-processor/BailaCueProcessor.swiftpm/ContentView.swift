@@ -146,7 +146,7 @@ struct ProcessorHome: View {
         panel {
             VStack(alignment: .leading, spacing: 14) {
                 Label("01  Import source videos", systemImage: "link").font(.headline)
-                Text("Paste a Google Drive folder link once. Select all or a subset. The app remembers completed work.")
+                Text("Paste one Google Drive folder link, including a parent folder containing Salsa/Bachata subfolders. Select all or a subset; the app remembers progress.")
                     .font(.subheadline).foregroundStyle(.secondary)
                 TextField("https://drive.google.com/drive/folders/...", text: $studio.folderLink)
                     .textInputAutocapitalization(.never)
@@ -225,6 +225,8 @@ struct ProcessorHome: View {
                                     Image(systemName: "checkmark.seal.fill").foregroundStyle(.green)
                                 } else if job.status == .processing || job.status == .downloading || job.status == .uploading {
                                     ProgressView().tint(.mint)
+                                } else if job.status == .skipped {
+                                    Image(systemName: "minus.circle.fill").foregroundStyle(.yellow)
                                 } else if job.status == .failed {
                                     Image(systemName: "exclamationmark.circle.fill").foregroundStyle(.orange)
                                 }
