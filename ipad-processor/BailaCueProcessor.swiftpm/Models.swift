@@ -23,7 +23,7 @@ enum VideoQuality: String, Codable, CaseIterable, Identifiable {
 }
 
 enum JobStatus: String, Codable {
-    case queued, downloading, processing, uploading, complete, failed
+    case queued, downloading, processing, uploading, complete, skipped, failed
 }
 
 struct DriveVideo: Codable, Identifiable {
