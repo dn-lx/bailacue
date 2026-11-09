@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import UIKit
 
 @MainActor
 final class ProcessingStore: ObservableObject {
@@ -138,11 +139,22 @@ final class ProcessingStore: ObservableObject {
     func start() {
         guard !running, !selectedQualities.isEmpty else { return }
         running = true
+        UIApplication.shared.isIdleTimerDisabled = true
         worker = Task {
+            defer {
+                UIApplication.shared.isIdleTimerDisabled = false
+                running = false
+                worker = nil
+            }
             await processQueue()
-            running = false
-            worker = nil
         }
+    }
+
+    private func needsProcessing(_ job: VideoJob) -> Bool {
+        if job.status == .failed { return true }
+        if job.status != .complete { return true }
+        let previouslyCovered = Set(job.finished).union(job.unsupported ?? [])
+        return selectedQualities.contains { !previouslyCovered.contains($0.rawValue) }
     }
 
     func stop() {
@@ -160,7 +172,7 @@ final class ProcessingStore: ObservableObject {
             lastError = "Could not verify existing quality versions: " + error.localizedDescription
             return
         }
-        let identifiers = jobs.filter { $0.isSelected && $0.status != .complete }.map(\.id)
+        let identifiers = jobs.filter { $0.isSelected && needsProcessing($0) }.map(\.id)
         var failed = 0, done = 0
         for id in identifiers {
             if Task.isCancelled { break }
@@ -207,12 +219,14 @@ final class ProcessingStore: ObservableObject {
         saveQueue()
         let cached = manifest.entries.first { $0.sourceId == "drive:" + original.id }?.renditions ?? []
         let required = VideoQuality.allCases.filter { selectedQualities.contains($0) }
+        let alreadyUnsupported = Set(jobs[index].unsupported ?? [])
         let missing = required.filter { quality in
-            !cached.contains { $0.quality == quality.rawValue }
+            !cached.contains(where: { $0.quality == quality.rawValue }) &&
+            !alreadyUnsupported.contains(quality.rawValue)
         }
         // Every quality is checked against the *actual* source dimensions below.
         if missing.isEmpty {
-            jobs[index].finished = required.map(\.rawValue)
+            jobs[index].finished = cached.map(\.quality)
             if ownerConnected && publishAutomatically {
                 try await publisher.publishManifest(manifest)
             }
@@ -229,6 +243,10 @@ final class ProcessingStore: ObservableObject {
         status = "Downloading \(item.name) to temporary iPad storage…"
         try await drive.download(original, into: local)
         let dimensions = try await VideoEncoder.sourceDimensions(local)
+        jobs[index].unsupported = required.filter {
+            !$0.supported(width: dimensions.width, height: dimensions.height)
+        }.map(\.rawValue)
+        saveQueue()
         for quality in required {
             try Task.checkCancellation()
             guard quality.supported(width: dimensions.width, height: dimensions.height) else { continue }
@@ -251,7 +269,9 @@ final class ProcessingStore: ObservableObject {
             )
             manifest.set(sourceId: original.id, dance: item.dance, rendition: rendition)
             saveManifest()
-            jobs[index].finished.append(quality.rawValue)
+            if !jobs[index].finished.contains(quality.rawValue) {
+                jobs[index].finished.append(quality.rawValue)
+            }
             saveQueue()
             try? FileManager.default.removeItem(at: output)
         }
@@ -259,6 +279,9 @@ final class ProcessingStore: ObservableObject {
             status = "Publishing available qualities to BailaCue…"
             try await publisher.publishManifest(manifest)
         }
+        jobs[index].finished = manifest.entries
+            .first(where: { $0.sourceId == "drive:" + original.id })?
+            .renditions.map(\.quality) ?? jobs[index].finished
         jobs[index].status = .complete
         saveQueue()
         status = "Saved optimized copies for \(item.name)."
