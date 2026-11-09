@@ -36,4 +36,16 @@ jobs:
           /tmp/bailacue-models-smoke
       - name: Verify iPad OAuth plist
         run: python3 -c "import plistlib; plistlib.load(open('../ipad-processor/BailaCueProcessor.swiftpm/AppInfo.plist','rb'))"
+      - name: Package iPad Swift Playgrounds source
+        run: |
+          cd ../ipad-processor
+          mkdir -p out
+          zip -q -r out/BailaCueProcessor.swiftpm.zip BailaCueProcessor.swiftpm
+      - name: Make iPad source package available
+        uses: actions/upload-artifact@v4
+        with:
+          name: BailaCueProcessor-SwiftPlaygrounds
+          path: ipad-processor/out/BailaCueProcessor.swiftpm.zip
+          retention-days: 7
+          if-no-files-found: error
 
