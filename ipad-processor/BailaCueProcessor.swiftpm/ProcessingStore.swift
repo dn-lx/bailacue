@@ -24,7 +24,7 @@ final class ProcessingStore: ObservableObject {
     var manifestURL: URL { location.appendingPathComponent("bailacue-optimized-manifest.json") }
     var selectedCount: Int { jobs.filter(\.isSelected).count }
     var finishedCount: Int { jobs.filter { $0.status == .complete }.count }
-    var queuedCount: Int { jobs.filter { $0.status != .complete && $0.isSelected }.count }
+    var queuedCount: Int { jobs.filter { $0.status != .complete && $0.status != .skipped && $0.isSelected }.count }
 
     init() {
         let account = GoogleAuth()
@@ -162,7 +162,7 @@ final class ProcessingStore: ObservableObject {
 
     private func needsProcessing(_ job: VideoJob) -> Bool {
         if job.status == .failed { return true }
-        if job.status != .complete { return true }
+        if job.status != .complete && job.status != .skipped { return true }
         let previouslyCovered = Set(job.finished).union(job.unsupported ?? [])
         return selectedQualities.contains { !previouslyCovered.contains($0.rawValue) }
     }
@@ -237,12 +237,17 @@ final class ProcessingStore: ObservableObject {
         // Every quality is checked against the *actual* source dimensions below.
         if missing.isEmpty {
             jobs[index].finished = cached.map(\.quality)
-            if ownerConnected && publishAutomatically {
+            if ownerConnected && publishAutomatically && !manifest.entries.isEmpty {
                 try await publisher.publishManifest(manifest)
             }
-            jobs[index].status = .complete
+            if jobs[index].finished.isEmpty {
+                jobs[index].status = .skipped
+                jobs[index].error = "No selected resolutions are available for this source."
+            } else {
+                jobs[index].status = .complete
+            }
             saveQueue()
-            status = "Already optimized: \(item.name)"
+            status = "Already checked: \(item.name)"
             return
         }
         let originalExt = URL(fileURLWithPath: original.name).pathExtension.lowercased()
@@ -263,6 +268,12 @@ final class ProcessingStore: ObservableObject {
             !$0.supported(width: dimensions.width, height: dimensions.height)
         }.map(\.rawValue)
         saveQueue()
+        if required.allSatisfy({ !($0.supported(width: dimensions.width, height: dimensions.height)) }) {
+            jobs[index].status = .skipped
+            jobs[index].error = "The source is too small for the selected quality levels."
+            saveQueue()
+            return
+        }
         for quality in required {
             try Task.checkCancellation()
             guard quality.supported(width: dimensions.width, height: dimensions.height) else { continue }
