@@ -2103,13 +2103,12 @@ details > summary:hover::after { color: var(--blue); }
   #player #video-only-shell:fullscreen .fs-settings select { min-height: 38px; }
 }
 
-/* Fullscreen lives in the control bar. Equal outside columns center speed;
-   phones put volume above a balanced mirror / speed / fullscreen row. */
+/* Keep speed beside the display buttons. Phones put volume on its own row. */
 #player #media-controls .player-utilities,
 #player.browser-wide #media-controls .player-utilities {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-  grid-template-areas: "volume speed display";
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+  grid-template-areas: "volume quality speed display";
   align-items: center;
   gap: 10px;
 }
@@ -2121,8 +2120,10 @@ details > summary:hover::after { color: var(--blue); }
 }
 #player #media-controls .speed-label,
 #player.browser-wide #media-controls .speed-label {
-  grid-area: speed; justify-self: center;
+  grid-area: speed; justify-self: end;
 }
+#player #media-controls .speed-label[for="media-quality"] { grid-area: quality; }
+#player #media-controls .speed-label[hidden] { display: none; }
 #player #media-controls .media-display-actions,
 #player.browser-wide #media-controls .media-display-actions {
   grid-area: display; justify-self: end; min-width: 0; gap: 6px;
@@ -2173,18 +2174,15 @@ details > summary:hover::after { color: var(--blue); }
 @media (max-width: 720px) {
   #player #media-controls .player-utilities,
   #player.browser-wide #media-controls .player-utilities {
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
-    grid-template-areas: "volume volume volume" "mirror speed expand";
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-areas: "volume volume volume" "quality speed display";
     gap: 5px 8px;
   }
   #player #media-controls .volume-control,
   #player.browser-wide #media-controls .volume-control {
     max-width: none; justify-content: center; justify-self: stretch;
   }
-  #player #media-controls .media-display-actions,
-  #player.browser-wide #media-controls .media-display-actions { display: contents; }
-  #player #media-controls #media-mirror { grid-area: mirror; justify-self: start; }
-  #player #media-controls #fullscreen-button { grid-area: expand; justify-self: end; }
+  #player #media-controls .speed-label[for="media-quality"] { justify-self: start; }
   #player #video-only-shell:fullscreen .fs-settings {
     grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
     grid-template-areas: "volume volume volume" "mirror speed expand";
@@ -2198,6 +2196,9 @@ details > summary:hover::after { color: var(--blue); }
   #player #video-only-shell:fullscreen .fs-mirror { grid-area: mirror; justify-self: start; }
   #player #video-only-shell:fullscreen .fs-exit { grid-area: expand; justify-self: end; }
   #player #video-details-editor .player-info { grid-template-columns: minmax(0, 1fr); gap: 18px; }
+}
+@media (max-width: 380px) {
+  #player #media-controls .speed-label .speed-caption { display: none; }
 }
 @media (max-height: 430px) and (orientation: landscape) {
   #player #video-only-shell:fullscreen .fullscreen-transport { grid-template-columns: 44px 52px 44px; }
