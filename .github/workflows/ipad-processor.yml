@@ -1,0 +1,43 @@
+name: BailaCue iPad processor checks
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - "ipad-processor/**"
+      - ".github/workflows/ipad-processor.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  swift-source:
+    name: Swift source and manifest checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Parse all iPad Swift sources
+        run: |
+          swift --version
+          swiftc -frontend -parse ipad-processor/BailaCueProcessor.swiftpm/*.swift
+      - name: Compile and run platform-independent model tests
+        run: |
+          swiftc -parse-as-library \
+            ipad-processor/BailaCueProcessor.swiftpm/Models.swift \
+            ipad-processor/tests/ModelsSmoke.swift \
+            -o /tmp/bailacue-ipad-models-smoke
+          /tmp/bailacue-ipad-models-smoke
+      - name: Validate iPad app metadata plist
+        run: |
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          path = Path("ipad-processor/BailaCueProcessor.swiftpm/AppInfo.plist")
+          with path.open("rb") as f:
+              metadata = plistlib.load(f)
+          schemes = metadata["CFBundleURLTypes"][0]["CFBundleURLSchemes"]
+          assert len(schemes) == 1 and schemes[0].startswith("com.googleusercontent.apps.")
+          print("iPad app plist parsed successfully")
+          PY

@@ -55,11 +55,32 @@ test('Google sign-in pages, ignored ranges and changed file sizes never reach th
     const handler = createMediaHandler(catalogue([file]), async () => upstream); const result = await handler(request()); assert.equal(result.status, 502); assert.ok(!(await result.text()).includes('<html>'));
   }
 });
-test('truncated and oversized upstream bodies are rejected even without a content-length header', async () => {
+test('truncated and oversized streaming bodies terminate the response instead of exposing invalid ranges', async () => {
   for (const length of [7, 9]) {
     const handler = createMediaHandler(catalogue([file]), async () => new Response(new Uint8Array(length), { status: 206, headers: { 'Content-Type': 'video/mp4', 'Content-Range': 'bytes 0-7/32' } }));
-    assert.equal((await handler(request())).status, 502);
+    const response = await handler(request());
+    assert.equal(response.status, 206, 'headers are validated before starting the stream');
+    await assert.rejects(response.arrayBuffer(), /Incomplete media range|Unexpected media length/);
   }
+});
+
+test('first validated media bytes reach the client before the full upstream chunk has arrived', async () => {
+  let release;
+  const upstream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(new Uint8Array([1, 2]));
+      release = () => { controller.enqueue(new Uint8Array([3, 4, 5, 6, 7, 8])); controller.close(); };
+    },
+  });
+  const handler = createMediaHandler(catalogue([file]), async () => new Response(upstream, { status: 206, headers: { 'Content-Type': 'video/mp4', 'Content-Range': 'bytes 0-7/32' } }));
+  const response = await handler(request());
+  const reader = response.body.getReader();
+  const first = await reader.read();
+  assert.deepEqual([...first.value], [1, 2]);
+  release();
+  const second = await reader.read();
+  assert.deepEqual([...second.value], [3, 4, 5, 6, 7, 8]);
+  assert.equal((await reader.read()).done, true);
 });
 test('permission, quota and timeout failures return actionable errors without raw provider diagnostics', async () => {
   for (const status of [403, 404, 429, 500]) {

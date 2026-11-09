@@ -1,4 +1,4 @@
-// Public reading and single-owner editing for the BailaCue web catalogue.
+// Public reading/metadata editing and owner-only source management.
 // Only a Supabase publishable key is used in the browser; Postgres RLS owns authorization.
 const SESSION_KEY = 'bailacue:web:admin-session:v1';
 
@@ -106,6 +106,19 @@ export class BailaCueAdmin {
     await this.call('/rest/v1/bailacue_web_content?on_conflict=key', {
       method: 'POST', auth: true, payload: [{ key, payload }],
       headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    });
+  }
+
+  /** Public, bounded metadata edits. No account or session is needed. */
+  async patchMetadata(videoId, patch) {
+    return this.call('/rest/v1/rpc/bailacue_patch_web_metadata', {
+      method: 'POST', payload: { p_video_id: videoId, p_patch: patch },
+    });
+  }
+
+  async addSharedLabel(name, type, dance) {
+    return this.call('/rest/v1/rpc/bailacue_add_web_label', {
+      method: 'POST', payload: { p_name: name, p_type: type, p_dance: dance },
     });
   }
 

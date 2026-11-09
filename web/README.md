@@ -6,13 +6,22 @@ mobile app is separate and has not been changed in this version.
 
 ## Experience
 - Public video library, search, artist/style labels and the fixed Salsa/Bachata collections.
-- Create a Salsa mix, Bachata mix or combined Salsa + Bachata mix of up to ten videos. Native HTML5 and individual YouTube videos advance automatically to the next mix item when a video ends, where autoplay is permitted; iframe fallback and adaptive Stream copies retain manual Next/Previous controls.
+- The video popup fills the browser viewport, prioritizes portrait and landscape playback, and supports touch/keyboard video-height dragging. The video-only fullscreen mode has its own permanently visible BailaCue controls at the bottom (seek, centered playback, volume, speed, mirror and exit). Frames remain uncropped. Chrome's native fullscreen control bar is not used.
+- Choose the number of videos (from 1 up to the available catalogue size), then create a Salsa mix, Bachata mix or combined Salsa + Bachata mix. Mix size is saved locally, and is limited to the number of videos available for the selected dance. Native HTML5 and individual YouTube videos advance automatically to the next mix item when a video ends, where autoplay is permitted; iframe fallback and adaptive Stream copies retain manual Next/Previous controls.
 - No favourites tab, learning status, BPM entry or saved A–B practice loops.
-- Footer: "Create your own BailaCue with your own videos", opening
-  `https://wa.me/491796932923`.
+- The footer has only BailaCue branding, without a promotional or external WhatsApp button.
 - Video uses the existing native HTML5 player (Drive originals), or YouTube's
   official iframe player. HTML5 video now requests early buffering
   (`preload="auto"`) and waits until it is playable to enable controls.
+
+## Video metadata and automatic dates
+Anyone can edit the title, rating (out of 10), labels, artists/teachers, recorded date, event, location and notes without signing in. These fields are always visible in **Video details**. New labels and artists can also be created there without an account. Changes save to the shared catalogue and are available to every viewer, including in a fresh browser. The status confirms publication or offers **Retry save** after a failure. There is no editing mode or Done button. Automatic upload dates and original file facts remain available under **Video information**.
+
+Public metadata saves atomically merge changed fields through `bailacue_patch_web_metadata`. `bailacue_add_web_label` adds or reuses a shared label. Both RPCs use invoker rights, scoped row-level security and the public publishable key. The database validates field names, sizes, types, recording dates, ratings and known video identities. Existing shared label definitions cannot be overwritten or removed by public editors; video label assignments remain editable.
+
+Fullscreen is in the playback control bar beside Mirror. Play stays centered between matching five-second skip buttons. Speed uses equal outside columns; on phones, volume has its own row above Mirror, centered Speed and Fullscreen. Fullscreen uses the same arrangement, with Exit in the final position, and keeps its bottom controls visible throughout playback.
+
+For uploaded Drive files, **Uploaded to Drive** uses Drive's `createdTime` value, captured automatically when the upload is confirmed. YouTube sources record the date they are added to BailaCue. The **Recorded on** date is separate and optional, not inferred from upload time. This prevents inaccurate recording dates.
 
 ## Public navigation and accessibility
 The header shows **Sign in** instead of administrator terminology, with password visibility and remembered owner access. Mobile viewers have a dedicated Settings shortcut, large touch targets, and accessible video result counts. See [UI-UX-AUDIT.md](UI-UX-AUDIT.md) for the latest refinements.
@@ -25,8 +34,10 @@ No signup flow is exposed.
 
 The isolated tables `public.bailacue_web_admins` (one seeded owner) and
 `public.bailacue_web_content` were created in the connected Me+ Supabase project.
-They have row-level security: guests and logged users may **read published
-content**, and only that listed admin may insert, update or delete content.
+They have row-level security: guests and logged users may read published content,
+edit annotations on known videos and add shared labels. The listed admin manages
+video sources and existing label definitions. Source records, automatic upload
+dates, content keys and shared-content deletion are outside public editing.
 Original Me+ domain and retired BailaCue tables remain untouched.
 
 Public content contains keys `labels`, `meta:<video-id>`,
@@ -66,8 +77,7 @@ serve those entries without viewer authentication. The media handler also checks
 the public Supabase content table for newly owner-published Drive files,
 validates their IDs, fixed-folder association and size, then serves them through
 the existing bounded range proxy without requiring a catalogue redeploy.
-Playback still depends on Drive's public sharing permissions, quotas and codecs;
-Drive preview and Open original remain fallbacks.
+Playback still depends on Drive's public sharing permissions, quotas and codecs. The public video popup no longer presents **Try Google Drive player** or **Open original** buttons. An automatic embedded preview may still appear when the direct video format cannot play, but that provider iframe cannot use BailaCue's custom fullscreen controls.
 
 ## Build and deployment
 ```sh

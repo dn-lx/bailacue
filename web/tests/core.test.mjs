@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, clampPlayerWidth, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -82,4 +82,59 @@ test('mix reorder never loses videos or moves items outside queue bounds', () =>
   assert.deepEqual(moveQueueItem(ids, ids[2], 1), ids);
   assert.deepEqual(moveQueueItem(ids, 'drive:unlisted12345', 1), ids);
   assert.deepEqual(ids, data.videos.slice(0, 3).map(video => video.id));
+});
+
+test('mix count is configurable, bounded and kept when recovering saved browser state', () => {
+  assert.equal(emptyState().mixSize, 10);
+  assert.equal(clampMixCount(3, 266), 3);
+  assert.equal(clampMixCount('20', 114), 20);
+  assert.equal(clampMixCount(999, 114), 114);
+  assert.equal(clampMixCount(-50, 266), 1);
+  assert.equal(clampMixCount('not a number', 266), 10);
+  assert.equal(clampMixCount(12.8, 266), 12);
+  assert.equal(clampMixCount(8, 0), 0);
+  const all = data.videos;
+  const salsa = all.filter(v => v.dance === 'Salsa');
+  const bachata = all.filter(v => v.dance === 'Bachata');
+  const amount = 25;
+  for (const pool of [all, salsa, bachata]) {
+    const mix = practiceQueue(pool, {}).slice(0, clampMixCount(amount, pool.length));
+    assert.equal(mix.length, amount);
+    assert.equal(new Set(mix).size, mix.length);
+  }
+  assert.equal(practiceQueue(salsa, {}).slice(0, clampMixCount(1000, salsa.length)).length, salsa.length);
+  assert.equal(cleanState({ ...emptyState(), mixSize: 24 }).mixSize, 24);
+  assert.equal(cleanState({ ...emptyState(), mixSize: 0 }).mixSize, 1);
+  assert.equal(cleanState({ ...emptyState(), mixSize: undefined }).mixSize, 10);
+});
+
+test('video resize heights stay bounded and the viewer preference survives backups', () => {
+  assert.equal(clampPlayerHeight(0), 0);
+  assert.equal(clampPlayerHeight(null), 0);
+  assert.equal(clampPlayerHeight(undefined), 0);
+  assert.equal(clampPlayerHeight(''), 0);
+  assert.equal(clampPlayerHeight('not-height'), 0);
+  assert.equal(clampPlayerHeight(540), 540);
+  assert.equal(clampPlayerHeight('620'), 620);
+  assert.equal(clampPlayerHeight(90), 220);
+  assert.equal(clampPlayerHeight(1600), 840);
+  assert.equal(clampPlayerHeight(740, 510), 510);
+  assert.equal(clampPlayerHeight(-100, 180), 220);
+  assert.equal(emptyState().playerHeight, 0);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: 580 }).playerHeight, 580);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: 99999 }).playerHeight, 840);
+  assert.equal(cleanState({ ...emptyState(), playerHeight: null }).playerHeight, 0);
+});
+
+test('custom player widths stay bounded and survive browser-state restoration', () => {
+  assert.equal(clampPlayerWidth(undefined), 960);
+  assert.equal(clampPlayerWidth(null), 960);
+  assert.equal(clampPlayerWidth(''), 960);
+  assert.equal(clampPlayerWidth('not-a-number'), 960);
+  assert.equal(clampPlayerWidth(325), 560);
+  assert.equal(clampPlayerWidth(750.6), 751);
+  assert.equal(clampPlayerWidth(1800), 1440);
+  assert.equal(cleanState({ ...emptyState(), playerSize: 1107 }).playerSize, 1107);
+  assert.equal(cleanState({ ...emptyState(), playerSize: 9000 }).playerSize, 1440);
+  assert.equal(cleanState({ ...emptyState(), playerSize: undefined }).playerSize, 960);
 });

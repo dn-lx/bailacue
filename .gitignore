@@ -33,3 +33,14 @@ __pycache__/
 /web/dist/
 /.openai/
 
+
+# Never commit desktop Google OAuth client secrets, refresh tokens or local conversion manifests
+**/client_secret*.json
+**/credentials*.json
+**/google_token*.json
+**/bailacue-optimized-manifest.json
+/web/tools/*.mp4
+/web/tools/*.mov
+/web/tools/*.mkv
+/web/tools/*.avi
+/web/tools/*.m4v

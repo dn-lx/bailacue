@@ -1,8 +1,9 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
-import { createLabel, cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
-import { renderStreamAdmin, cancelStreamUpload } from './stream-admin.mjs';
+import { cancelStreamUpload } from './stream-admin.mjs';
+import { parseOptimizedManifest } from './optimized-delivery.mjs';
 import { DriveConnection } from './drive.mjs';
 import { StudioPlayer } from './player.mjs';
 import { labelPicker, renderLabelManager, renderUpload, uploadRunning } from './studio-ui.mjs';
@@ -58,19 +59,22 @@ let selected = null;
 let playbackQueue = [];
 let playbackIndex = -1;
 let toastTimeout;
-let sessionSeconds = 0;
-let sessionStarted = null;
 let removing = null;
 let localPreviewUrl = '';
 const connection = new DriveConnection(state.googleClientId);
 const admin = new BailaCueAdmin();
 const streamMap = new Map();
+const optimizedMap = new Map();
 const publishTimers = new Map();
 const publishChains = new Map();
+const metadataVersions = new Map();
+const metadataStatus = new Map();
+const pendingMetadata = new Map();
 const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
   streamFor: video => streamMap.get(video.id),
+  optimizedFor: video => optimizedMap.get(video.id),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
     const following = playbackQueue[playbackIndex + 1];
@@ -98,35 +102,68 @@ function publishDrive() {
   for (const video of state.drive) publishKey('drive:' + video.id, video);
 }
 function queueMetaPublish(id) {
+  const version = (metadataVersions.get(id) || 0) + 1;
+  metadataVersions.set(id, version);
+  setMetadataStatus(id, 'saving');
   clearTimeout(publishTimers.get(id));
-  publishTimers.set(id, setTimeout(() => { publishTimers.delete(id); publishKey('meta:' + id, publicMetadata(state.meta[id] || {})); }, 450));
+  publishTimers.set(id, setTimeout(async () => {
+    publishTimers.delete(id);
+    const patch = { ...pendingMetadata.get(id) };
+    try {
+      const key = 'meta:' + id, prior = publishChains.get(key) || Promise.resolve();
+      const request = prior.catch(() => {}).then(() => admin.patchMetadata(id, patch));
+      publishChains.set(key, request);
+      const canonical = await request;
+      if (metadataVersions.get(id) === version) {
+        pendingMetadata.delete(id);
+        state.meta[id] = publicMetadata(canonical);
+        save();
+        setMetadataStatus(id, 'saved');
+      }
+    } catch {
+      if (metadataVersions.get(id) === version) setMetadataStatus(id, 'error');
+    }
+  }, 450));
+}
+function setMetadataStatus(id, status = metadataStatus.get(id) || 'saved') {
+  metadataStatus.set(id, status);
+  if (selected?.id !== id) return;
+  $('#note-status').textContent = status === 'saving' ? 'Saving changes…' : status === 'error' ? 'Changes could not be published. Try again.' : 'All changes saved';
+  $('#retry-video-save').hidden = status !== 'error';
 }
 function applyAccess() {
   document.body.classList.toggle('is-admin', admin.isAdmin);
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, preview: file => {
+function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
   if (!requireAdmin()) return;
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
 } }; }
-function addLabel(name, type, dance) { if (!requireAdmin()) return; try { const label = createLabel(state.labels, name, type, dance); save(); publishLabels(); return label; } catch (error) { toast(error.message); } }
+async function addLabel(name, type, dance) {
+  try {
+    const label = await admin.addSharedLabel(name, type, dance);
+    state.labels = cleanLabels([...state.labels, label]);
+    save();
+    return label;
+  } catch (error) { toast('Could not add the label: ' + error.message); }
+}
 function readableDate(value) { if (!value || Number.isNaN(Date.parse(value))) return 'Unknown'; return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
 function cardDetails(v) { const m = meta(v.id); const labels = state.labels.filter(l => m.labelIds?.includes(l.id)); const artists = state.labels.filter(l => m.artistIds?.includes(l.id));
   return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${labels.length ? labels.slice(0, 2).map(l => `<span class="tag">${esc(l.name)}</span>`).join('') : ''}${labels.length > 2 ? `<span class="empty-tag">+${labels.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
 }
 
-function mountVideoDetails() { if (!selected || !admin.isAdmin) return; const v = selected, m = meta(v.id);
+function mountVideoDetails() { if (!selected) return; const v = selected, m = meta(v.id);
+  $('#personal-title').value = m.title || '';
+  $('#notes').value = m.notes || '';
+  setMetadataStatus(v.id);
   for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).value = m[key] || '';
   labelPicker($('#detail-labels'), { title: 'Labels', labels: () => state.labels, selected: m.labelIds || [], dance: v.dance, allowCreate: true, onChange: ids => { patchMeta(v.id, { labelIds: ids }); }, onCreate: addLabel });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
   $('#file-facts').innerHTML = facts.map(([key,value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join('');
-  renderStreamAdmin($('#stream-admin'), {
-    video: v, admin, currentDelivery: streamMap.get(v.id), toast,
-    onPublished: delivery => { streamMap.set(v.id, delivery); studioPlayer.open(v); toast('Adaptive playback enabled for this video.'); },
-  }); 
+  $('#stream-admin').replaceChildren();
 }
 
 
@@ -139,7 +176,16 @@ function save() {
   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); storageAvailable = true; return true; }
   catch { storageAvailable = false; toast('Browser storage is unavailable. Export a backup to keep your changes.'); return false; }
 }
-function patchMeta(id, patch) { if (!requireAdmin()) return false; state.meta[id] = { ...meta(id), ...patch }; const saved = save(); queueMetaPublish(id); if (state.drive.some(v => v.id === id)) publishDrive(); return saved; }
+function patchMeta(id, patch) {
+  const change = publicMetadata(patch);
+  state.meta[id] = { ...meta(id), ...change };
+  const saved = save();
+  if (!id.startsWith('local:')) {
+    pendingMetadata.set(id, { ...pendingMetadata.get(id), ...change });
+    queueMetaPublish(id);
+  }
+  return saved;
+}
 function toast(message) { $('#toast').textContent = message; $('#toast').classList.add('show'); clearTimeout(toastTimeout); toastTimeout = setTimeout(() => $('#toast').classList.remove('show'), 4200); }
 function applyTheme() { document.documentElement.dataset.theme = state.theme; $('#theme-toggle').innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon'); $('#theme-toggle').setAttribute('aria-label', `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`); }
 function dateLabel() { return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()); }
@@ -177,7 +223,7 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by style or artist, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, styles or artists" aria-label="Search videos, styles or artists" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span><span class="filter-chevron" aria-hidden="true">⌄</span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Rating <select id="rating-filter"><option value="">Any rating</option><option value="unrated">Unrated</option>${Array.from({ length: 10 }, (_, i) => `<option value="${10 - i}">${10 - i} / 10</option>`).join('')}</select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="rating">Highest rated</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-labels"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by style or artist, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, styles or artists" aria-label="Search videos, styles or artists" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Rating <select id="rating-filter"><option value="">Any rating</option><option value="unrated">Unrated</option>${Array.from({ length: 10 }, (_, i) => `<option value="${10 - i}">${10 - i} / 10</option>`).join('')}</select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="rating">Highest rated</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-labels"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#rating-filter').value = filters.rating; $('#sort-filter').value = filters.sort;
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.rating || filters.sort !== 'title' || filters.labelIds?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
@@ -236,10 +282,18 @@ function renderResults() {
 }
 function renderPractice() {
   const queue = state.queue.map(videoById).filter(Boolean);
-  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Generate a Salsa-only mix, a Bachata-only mix or a mix of both.')}<div class="practice-layout"><div class="practice-start"><span class="eyebrow">MIX YOUR DANCE VIDEOS</span><h2>What are we dancing today?</h2><p>Select a mix. BailaCue chooses ten videos from the library and queues them for continuous exploration.</p><div class="mix-options"><button class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button class="button subtle" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</div><div class="timer-panel"><span class="eyebrow">OPTIONAL SESSION TIMER</span><div class="timer" id="timer">${timerText()}</div><div><button class="button subtle small" id="timer-toggle" data-action="timer">${icon(sessionStarted ? 'pause' : 'play')}${sessionStarted ? 'Pause' : 'Start timer'}</button> <button class="text-button" data-action="timer-reset">Reset</button></div><p>The timer is optional. Pause it whenever you like.</p></div></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
+  const available = videos().length;
+  const requested = clampMixCount(state.mixSize, available);
+  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Choose Salsa, Bachata or both, and decide how many videos to include.')}<div class="practice-layout"><section class="practice-start" aria-labelledby="mix-heading"><span class="eyebrow">CREATE YOUR VIDEO MIX</span><h2 id="mix-heading">What are we dancing today?</h2><p>Select the number of videos, then choose a mix. Videos play in the order shown below.</p><div class="mix-count-setting"><label for="mix-count">Number of videos</label><div class="mix-count-field"><input id="mix-count" type="number" min="1" max="${available}" step="1" inputmode="numeric" value="${requested}" aria-describedby="mix-count-help"><span>videos</span></div><p id="mix-count-help">Choose 1–${available}. The number is capped by available Salsa or Bachata videos.</p></div><div class="mix-options" role="group" aria-label="Create a video mix"><button type="button" class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button type="button" class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button type="button" class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button type="button" class="button subtle mix-play-button" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</section></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
+  $('#mix-count')?.addEventListener('change', event => {
+    const count = clampMixCount(event.target.value, videos().length);
+    state.mixSize = count;
+    event.target.value = String(count);
+    save();
+  });
 }
 function renderSettings() {
-  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Only the administrator manages labels and videos.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>Only you can add Google Drive videos, publish YouTube links or edit labels and video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
+  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
 function render() {
@@ -274,7 +328,7 @@ function updatePlayer() {
   const m = meta(selected.id);
   $('#player-title').textContent = displayTitle(selected, state.meta);
   $('#player-source').textContent = `${selected.dance} / ${selected.provider === 'drive' ? 'GOOGLE DRIVE' : selected.provider === 'local' ? 'ON THIS DEVICE' : 'YOUTUBE'}`;
-  $('#rating-buttons').innerHTML = admin.isAdmin ? `${Array.from({ length: 10 }, (_, i) => `<button data-action="rate" data-rating="${i + 1}" aria-label="Rate ${i + 1} out of 10" aria-pressed="${m.rating === i + 1}" class="${m.rating === i + 1 ? 'active' : ''}">${i + 1}</button>`).join('')}<button class="unrate ${!m.rating ? 'active' : ''}" data-action="rate" data-rating="0" aria-pressed="${!m.rating}">Unrated</button>` : `${m.rating ? `${m.rating} / 10` : 'Not rated'}`;
+  $('#rating-buttons').innerHTML = `${Array.from({ length: 10 }, (_, i) => `<button data-action="rate" data-rating="${i + 1}" aria-label="Rate ${i + 1} out of 10" aria-pressed="${m.rating === i + 1}" class="${m.rating === i + 1 ? 'active' : ''}">${i + 1}</button>`).join('')}<button class="unrate ${!m.rating ? 'active' : ''}" data-action="rate" data-rating="0" aria-pressed="${!m.rating}">Unrated</button>`;
   $('#player-queue').innerHTML = `${icon(state.queue.includes(selected.id) ? 'check' : 'plus')} ${state.queue.includes(selected.id) ? 'In mix' : 'Add to mix'}`;
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
@@ -285,22 +339,20 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   if (v.provider !== 'local') { state.history = recordRecent(state.history, v.id); save(); }
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
   studioPlayer.open(v, localUrl, autoPlay);
+  setPlayerViewport(true);
+  studioPlayer.updateFullscreen();
+  $('#player').scrollTop = 0;
   $('#player').classList.toggle('local-preview', v.provider === 'local');
-  $('#player').style.width = `${state.playerSize}px`; $('#player-size').value = String(state.playerSize);
-  $('#provider-link').hidden = v.provider === 'local';
-  if (v.provider !== 'local') $('#provider-link').href = v.provider === 'drive' ? `https://drive.google.com/file/d/${v.providerId}/view` : v.url; else $('#provider-link').removeAttribute('href');
-  $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; $('#note-status').textContent = 'Published for everyone';
-  const m = meta(id), labels = state.labels.filter(x => m.labelIds?.includes(x.id)), artists = state.labels.filter(x => m.artistIds?.includes(x.id));
-  $('#public-video-details').innerHTML = `<div class="public-detail-tags">${labels.map(x => `<span class="tag">${esc(x.name)}</span>`).join('')}</div>${artists.length ? `<p><b>Artists:</b> ${esc(artists.map(x => x.name).join(' · '))}</p>` : ''}${m.notes ? `<p>${esc(m.notes)}</p>` : ''}`;
+  $('#player').style.width = `${state.playerSize}px`;
+  $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
+
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
+  requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
 
 function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from mix' : 'Added to mix'); if (selected?.id === id) updatePlayer(); refreshView(); }
 function refreshView() { const position = window.scrollY; render(); window.scrollTo({ top: position }); }
 
-function elapsed() { return sessionSeconds + (sessionStarted ? Math.floor((Date.now() - sessionStarted) / 1000) : 0); }
-function timerText() { const sec = elapsed(); return `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`; }
-function pauseTimer() { if (sessionStarted) { sessionSeconds = elapsed(); sessionStarted = null; } }
 function downloadJson(value, name) { const blob = new Blob([typeof value === 'string' ? value : JSON.stringify(value, null, 2)], { type: 'application/json' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = name; link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }
 async function importBackup(event) {
   const file = event.target.files?.[0]; if (!file || !requireAdmin()) return;
@@ -337,7 +389,7 @@ function protectLegacyBrowserData() {
     if (Object.keys(old.meta).length || old.drive.length || old.youtube.length || old.labels.some(x => x.id.startsWith('custom-'))) localStorage.setItem(LEGACY_BACKUP_KEY, raw);
   } catch { /* Existing storage remains untouched when unreadable. */ }
 }
-function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; streamMap.clear(); }
+function resetPublicContent() { state.meta = {}; state.youtube = []; state.drive = []; state.labels = emptyState().labels; streamMap.clear(); optimizedMap.clear(); }
 async function loadSharedContent() {
   if (!admin.ready) return;
   const rows = await admin.readContent();
@@ -347,6 +399,7 @@ async function loadSharedContent() {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
+    if (key === 'optimized:manifest') { const manifest = parseOptimizedManifest(v); if (manifest) for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }
     if (key?.startsWith('stream:') && /^drive:[A-Za-z0-9_-]{10,100}$/.test(key.slice(7))) { const converted = parseStreamDelivery(v); if (converted) streamMap.set(key.slice(7), converted); }
     if (key?.startsWith('meta:') && /^(drive:|youtube:)/.test(key.slice(5))) state.meta[key.slice(5)] = publicMetadata(v);
     if (key?.startsWith('youtube:') && v.provider === 'youtube' && ['Salsa','Bachata'].includes(v.dance) && v.id === key.slice(8)) {
@@ -356,11 +409,12 @@ async function loadSharedContent() {
   }
   $('#nav-count').textContent = String(videos().length);
 }
-$('#admin-login').addEventListener('click', () => {
+function openAdminSignIn() {
   $('#admin-error').textContent = '';
   $('#admin-dialog').showModal();
   $('#admin-email').focus();
-});
+}
+$('#admin-login').addEventListener('click', openAdminSignIn);
 $('#admin-dialog').addEventListener('close', () => {
   $('#admin-password').value = '';
   $('#admin-password').type = 'password';
@@ -383,7 +437,12 @@ $('#admin-form').addEventListener('submit', async event => {
   try {
     await admin.signIn($('#admin-email').value.trim(), $('#admin-password').value);
     $('#admin-password').value = '';
-    $('#admin-dialog').close(); applyAccess(); route(); toast('Signed in. You can now manage the library.');
+    $('#admin-dialog').close(); applyAccess(); route();
+    if (selected && $('#player').open) {
+      updatePlayer(); mountVideoDetails();
+      $('#personal-title').focus();
+    }
+    toast('Signed in. You can now edit video metadata.');
   } catch (error) { $('#admin-error').textContent = error.message; }
   finally { button.disabled = false; }
 });
@@ -414,7 +473,16 @@ document.addEventListener('click', async event => {
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
   if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', rating: '', sort: 'title', query: '' }; currentPage = 1; renderLibrary(); $('#search')?.focus({ preventScroll: true }); }
    if (action === 'clear-filter') { const field = button.dataset.filter; if (!['dance', 'query', 'provider', 'rating', 'sort', 'labelIds', 'artistIds'].includes(field)) return; filters[field] = { dance: 'All', query: '', provider: 'all', rating: '', sort: 'title', labelIds: [], artistIds: [] }[field]; currentPage = 1; renderLibrary(); if (field === 'query') $('#search')?.focus({ preventScroll: true }); }
-  if (action === 'mix') { const dance = button.dataset.dance || 'Both'; const pool = videos().filter(v => dance === 'Both' || v.dance === dance); state.queue = practiceQueue(pool, state.meta).slice(0, 10); save(); render(); toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.`); }
+  if (action === 'mix') {
+    const dance = button.dataset.dance || 'Both';
+    const pool = videos().filter(v => dance === 'Both' || v.dance === dance);
+    const requested = clampMixCount($('#mix-count')?.value ?? state.mixSize, videos().length);
+    state.mixSize = requested;
+    const count = clampMixCount(requested, pool.length);
+    state.queue = practiceQueue(pool, state.meta).slice(0, count);
+    save(); render();
+    toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.${count < requested ? ' That is every available video for this dance.' : ''}`);
+  }
   if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids, null, '', true); }
   if (action === 'open-queue') openPlayer(id, state.queue, null, '', true);
   if (action === 'clear-queue') { state.queue = []; save(); render(); toast('Mix cleared.'); }
@@ -432,9 +500,8 @@ document.addEventListener('click', async event => {
       }
     }
   }
-  if (action === 'timer') { if (sessionStarted) pauseTimer(); else sessionStarted = Date.now(); render(); }
-  if (action === 'timer-reset') { sessionStarted = null; sessionSeconds = 0; render(); }
-  if (action === 'rate' && selected && admin.isAdmin) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
+  if (action === 'retry-video-save' && selected) queueMetaPublish(selected.id);
+  if (action === 'rate' && selected) { patchMeta(selected.id, { rating: Number(button.dataset.rating) || null }); updatePlayer(); refreshView(); }
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue, null, '', true); }
   if (action === 'add-youtube') openYoutube();
   if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
@@ -448,9 +515,9 @@ document.addEventListener('click', async event => {
   if (action === 'retry-load') start();
 });
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
-$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
-for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; const ok = patchMeta(selected.id, { [key]: event.target.value }); $('#note-status').textContent = ok ? 'Publishing to the shared catalogue…' : 'Administrator permission required'; if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
+for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta); });
 $('#personal-title').addEventListener('change', refreshView);
 $('#youtube-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!requireAdmin()) return;
@@ -471,13 +538,72 @@ for (const id of ['settings-nav', 'mobile-settings']) $(`#${id}`).addEventListen
 document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.addEventListener('click', () => { if (!(button instanceof HTMLElement)) return; filters = { dance: button.dataset.dance, provider: 'drive', rating: '', sort: 'title', query: '' }; currentPage = 1; navigate('library'); }));
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
-document.addEventListener('visibilitychange', () => { if (document.hidden && sessionStarted) { pauseTimer(); if (activeView === 'practice') renderPractice(); } });
-setInterval(() => { const timer = $('#timer'); if (timer && sessionStarted) timer.textContent = timerText(); }, 1000);
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }
-$('#player-size').addEventListener('change', event => { state.playerSize = Number(event.target.value); $('#player').classList.remove('theater'); $('#theater-button').textContent = 'Theater view'; $('#theater-button').setAttribute('aria-pressed', 'false'); $('#player').style.width = `${state.playerSize}px`; save(); });
-$('#player-height').addEventListener('input', event => $('#video-frame').style.setProperty('--video-height', `${event.target.value}px`));
-$('#theater-button').addEventListener('click', () => { const active = $('#player').classList.toggle('theater'); $('#theater-button').textContent = active ? 'Exit theater' : 'Theater view'; $('#theater-button').setAttribute('aria-pressed', String(active)); });
-for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected && admin.isAdmin) patchMeta(selected.id, { [key]: event.target.value }); });
+/* Video opens browser-wide, with the native media control to toggle compact view. */
+const playerDialog = $('#player');
+function setPlayerViewport(fill) {
+  playerDialog.classList.toggle('browser-wide', fill);
+  playerDialog.classList.remove('theater');
+  studioPlayer.updateFullscreen();
+  if (playerDialog.open) requestAnimationFrame(() => applyVideoHeight(state.playerHeight));
+}
+/* Resize the video without restarting playback. Pointer drag and keyboard sliders
+   write the same browser-local preference; neither touches video metadata. */
+const videoFrame = $('#video-frame');
+const videoResize = $('#video-resize');
+videoFrame.addEventListener('videoaspectchange', () => { if (playerDialog.open) applyVideoHeight(state.playerHeight); });
+const playerHeightMaximum = () => Math.max(220, Math.min(840, Math.floor(window.innerHeight * 0.82)));
+function applyVideoHeight(value, persist = false) {
+  const max = playerHeightMaximum();
+  const height = clampPlayerHeight(value, max);
+  if (height) videoFrame.style.setProperty('--video-height', `${height}px`);
+  else videoFrame.style.removeProperty('--video-height');
+  const displayed = height || Math.round(videoFrame.getBoundingClientRect().height) || Math.min(max, 540);
+  videoResize.setAttribute('aria-valuemax', String(max));
+  videoResize.setAttribute('aria-valuenow', String(Math.round(displayed)));
+  videoResize.setAttribute('aria-valuetext', `${Math.round(displayed)} pixels high`);
+  if (persist) { state.playerHeight = height; save(); }
+  return height;
+}
+let activeVideoResize = null;
+videoResize.addEventListener('pointerdown', event => {
+  if (!$('#player').open || $('#player').classList.contains('fullscreen-mode') || event.button !== 0) return;
+  event.preventDefault();
+  videoResize.focus({ preventScroll: true });
+  activeVideoResize = { id: event.pointerId, startY: event.clientY, startHeight: videoFrame.getBoundingClientRect().height, height: 0 };
+  activeVideoResize.height = activeVideoResize.startHeight;
+  videoResize.setPointerCapture(event.pointerId);
+  videoResize.classList.add('dragging');
+});
+videoResize.addEventListener('pointermove', event => {
+  if (!activeVideoResize || activeVideoResize.id !== event.pointerId) return;
+  activeVideoResize.height = applyVideoHeight(activeVideoResize.startHeight + event.clientY - activeVideoResize.startY);
+});
+function endVideoResize(event) {
+  if (!activeVideoResize || activeVideoResize.id !== event.pointerId) return;
+  const height = activeVideoResize.height;
+  const initialHeight = activeVideoResize.startHeight;
+  activeVideoResize = null;
+  videoResize.classList.remove('dragging');
+  if (videoResize.hasPointerCapture(event.pointerId)) videoResize.releasePointerCapture(event.pointerId);
+  applyVideoHeight(event.type === 'pointercancel' ? initialHeight : height, true);
+}
+videoResize.addEventListener('pointerup', endVideoResize);
+videoResize.addEventListener('pointercancel', endVideoResize);
+videoResize.addEventListener('keydown', event => {
+  const current = videoFrame.getBoundingClientRect().height;
+  const keyValues = { ArrowUp: current + 24, ArrowRight: current + 24, ArrowDown: current - 24, ArrowLeft: current - 24, Home: 220, End: playerHeightMaximum() };
+  if (!Object.hasOwn(keyValues, event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  applyVideoHeight(keyValues[event.key], true);
+});
+/* Keep drag sizing responsive; double-click/tap the grip to return to automatic height. */
+videoResize.addEventListener('dblclick', () => applyVideoHeight(0, true));
+window.addEventListener('resize', () => {
+  if (playerDialog.open) applyVideoHeight(state.playerHeight);
+});
+for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).addEventListener('change', event => { if (selected) patchMeta(selected.id, { [key]: event.target.value }); });
 async function loadConfiguration() { try { const config = await (await fetch('/public-config.json', { cache: 'no-store' })).json(); admin.configure(config); if (!connection.clientId && /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(config.googleClientId || '')) connection.clientId = config.googleClientId; } catch { /* The public catalogue is still accessible without admin configuration. */ } }
 $('.develop-badge').hidden = !location.hostname.startsWith('develop--') && location.hostname !== 'localhost';
 hydrateIcons(); applyTheme(); loadConfiguration().finally(start);
