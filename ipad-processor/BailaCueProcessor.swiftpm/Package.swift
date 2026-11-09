@@ -14,9 +14,9 @@ let package = Package(
             bundleVersion: "1",
             appIcon: .placeholder(icon: .camera),
             accentColor: .presetColor(.blue),
-            additionalInfoPlistContentFilePath: "AppInfo.plist",
             supportedDeviceFamilies: [.pad],
-            supportedInterfaceOrientations: [.landscapeRight, .landscapeLeft, .portrait, .portraitUpsideDown(.when(deviceFamilies: [.pad]))]
+            supportedInterfaceOrientations: [.landscapeRight, .landscapeLeft, .portrait, .portraitUpsideDown(.when(deviceFamilies: [.pad]))],
+            additionalInfoPlistContentFilePath: "AppInfo.plist"
         )
     ],
     targets: [
