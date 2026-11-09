@@ -183,13 +183,14 @@ final class ProcessingStore: ObservableObject {
             return
         }
         let identifiers = jobs.filter { $0.isSelected && needsProcessing($0) }.map(\.id)
-        var failed = 0, done = 0
+        var failed = 0, done = 0, skipped = 0
         for id in identifiers {
             if Task.isCancelled { break }
             guard let index = jobs.firstIndex(where: { $0.id == id }) else { continue }
             do {
                 try await process(index)
-                done += 1
+                if jobs[index].status == .skipped { skipped += 1 }
+                else { done += 1 }
             } catch is CancellationError {
                 jobs[index].status = .queued
                 saveQueue()
@@ -201,7 +202,7 @@ final class ProcessingStore: ObservableObject {
                 saveQueue()
             }
         }
-        status = "Finished this run: \(done) videos complete, \(failed) need retry. \(manifest.entries.count) originals have quality copies. Use Share manifest to publish in BailaCue."
+        status = "Finished this run: \(done) completed, \(skipped) too small, \(failed) need retry. \(manifest.entries.count) originals have quality copies."
     }
 
     private func process(_ index: Int) async throws {
