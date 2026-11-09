@@ -180,7 +180,9 @@ final class ProcessingStore: ObservableObject {
         saveQueue()
         let cached = manifest.entries.first { $0.sourceId == "drive:" + original.id }?.renditions ?? []
         let required = VideoQuality.allCases.filter { selectedQualities.contains($0) }
-        let missing = required.filter { !cached.contains(where: { $0.quality == $1.rawValue }) }
+        let missing = required.filter { quality in
+            !cached.contains { $0.quality == quality.rawValue }
+        }
         // Every quality is checked against the *actual* source dimensions below.
         if missing.isEmpty {
             jobs[index].finished = required.map(\.rawValue)
