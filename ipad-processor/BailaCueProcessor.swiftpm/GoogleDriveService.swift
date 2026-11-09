@@ -52,6 +52,53 @@ final class GoogleDriveService {
         return files.filter { $0.mimeType.hasPrefix("video/") && $0.size > 1024 }
     }
 
+    /// Walk a linked folder tree, including the two official BailaCue subfolders.
+    /// Never traverse optimized-output folders, preventing recursive re-encoding.
+    func scanVideos(folderID: String, defaultDance: Dance) async throws -> [(video: DriveVideo, dance: Dance)] {
+        guard Self.validID(folderID) else { throw ProcessorError.invalid("Invalid Google Drive folder ID.") }
+        let blocked: Set<String> = [
+            "1CErkH8BmExpKGZXHSl1hnDbs6fgr08PQ",
+            Dance.salsa.destinationFolder, Dance.bachata.destinationFolder
+        ]
+        guard !blocked.contains(folderID) else {
+            throw ProcessorError.invalid("Choose an original-video folder, not an optimized-output folder.")
+        }
+        var folders: [(id: String, dance: Dance, depth: Int)] = [(folderID, defaultDance, 0)]
+        var seenFolders = Set<String>()
+        var seenVideos = Set<String>()
+        var output: [(video: DriveVideo, dance: Dance)] = []
+        while !folders.isEmpty {
+            try Task.checkCancellation()
+            let folder = folders.removeFirst()
+            guard !seenFolders.contains(folder.id) else { continue }
+            seenFolders.insert(folder.id)
+            if seenFolders.count > 200 {
+                throw ProcessorError.invalid("Folder tree is too large; select a smaller Drive folder.")
+            }
+            let inferredDance: Dance
+            if folder.id == Dance.salsa.sourceFolder { inferredDance = .salsa }
+            else if folder.id == Dance.bachata.sourceFolder { inferredDance = .bachata }
+            else { inferredDance = folder.dance }
+            let children = try await listAll(folderID: folder.id)
+            for item in children {
+                if item.mimeType == "application/vnd.google-apps.folder" {
+                    guard folder.depth < 6 && !blocked.contains(item.id) else { continue }
+                    let lower = item.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                    let childDance: Dance = lower == "salsa" ? .salsa :
+                        (lower == "bachata" ? .bachata : inferredDance)
+                    folders.append((item.id, childDance, folder.depth + 1))
+                } else if item.mimeType.hasPrefix("video/"), item.size >= 1024,
+                          seenVideos.insert(item.id).inserted {
+                    guard output.count < 2000 else {
+                        throw ProcessorError.invalid("More than 2,000 videos were found; choose a smaller folder.")
+                    }
+                    output.append((item, inferredDance))
+                }
+            }
+        }
+        return output
+    }
+
     func listAll(folderID: String) async throws -> [DriveVideo] {
         guard Self.validID(folderID) else { throw ProcessorError.invalid("Invalid Google Drive folder ID.") }
         var page = ""
