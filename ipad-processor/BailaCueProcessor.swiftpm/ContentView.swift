@@ -14,6 +14,8 @@ struct BailaCueProcessorApp: App {
 
 struct ProcessorHome: View {
     @EnvironmentObject private var studio: ProcessingStore
+    @State private var ownerEmail = ""
+    @State private var ownerPassword = ""
     private let background = Color(red: 0.055, green: 0.080, blue: 0.11)
     private let surface = Color(red: 0.10, green: 0.15, blue: 0.19)
 
@@ -23,6 +25,7 @@ struct ProcessorHome: View {
                 VStack(alignment: .leading, spacing: 22) {
                     header
                     connectionPanel
+                    ownerPanel
                     importPanel
                     queuePanel
                     publishingPanel
@@ -35,6 +38,7 @@ struct ProcessorHome: View {
             .navigationTitle("BailaCue Processor")
             .toolbarBackground(background, for: .navigationBar)
             .preferredColorScheme(.dark)
+            .task { await studio.restoreOwner() }
             .alert("BailaCue Processor", isPresented: Binding(
                 get: { studio.lastError != nil },
                 set: { if !$0 { studio.lastError = nil } }
@@ -95,6 +99,45 @@ struct ProcessorHome: View {
             if GoogleSetup.clientID.isEmpty {
                 Label("Google OAuth configuration is required before Drive import or upload. See the project SETUP.md.", systemImage: "exclamationmark.triangle")
                     .font(.callout).foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var ownerPanel: some View {
+        panel {
+            VStack(alignment: .leading, spacing: 12) {
+                Label("BailaCue owner publishing", systemImage: "checkmark.shield.fill")
+                    .font(.headline)
+                Text("Sign in once with your existing BailaCue administrator account to publish optimized copies automatically. The password is not saved; only a refresh token is kept in the iPad Keychain.")
+                    .font(.subheadline).foregroundStyle(.secondary)
+                if studio.ownerConnected {
+                    Label("Authorized BailaCue owner", systemImage: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Button("Disconnect BailaCue owner") { studio.logoutOwner() }
+                        .buttonStyle(.bordered)
+                } else {
+                    TextField("BailaCue owner email", text: $ownerEmail)
+                        .textContentType(.emailAddress)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .keyboardType(.emailAddress)
+                        .textFieldStyle(.roundedBorder)
+                    SecureField("BailaCue owner password", text: $ownerPassword)
+                        .textContentType(.password)
+                        .textFieldStyle(.roundedBorder)
+                    Button {
+                        let email = ownerEmail
+                        let password = ownerPassword
+                        ownerPassword = ""
+                        Task { await studio.loginOwner(email: email, password: password) }
+                    } label: { Label("Authorize automatic publishing", systemImage: "person.crop.circle.badge.checkmark") }
+                        .buttonStyle(.bordered)
+                        .disabled(studio.running)
+                }
+                Toggle("Publish completed videos and quality choices automatically", isOn: $studio.publishAutomatically)
+                    .disabled(!studio.ownerConnected)
+                Text("Uploads and automatic publishing use existing BailaCue RLS authorization. New copies are stored in Drive, not on a paid video host.")
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -228,7 +271,9 @@ struct ProcessorHome: View {
                     Link("Open BailaCue Develop", destination: URL(string: "https://develop--bailacue.netlify.app/#upload")!)
                         .buttonStyle(.bordered)
                 }
-                Text("Publishing the manifest into BailaCue still requires the signed-in administrator. This version does not silently bypass the web app's access controls.")
+                Text(studio.ownerConnected && studio.publishAutomatically
+                     ? "BailaCue owner publishing is enabled. The manifest is updated automatically after each video."
+                     : "Without BailaCue owner authorization, share the manifest and import it manually as administrator.")
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
