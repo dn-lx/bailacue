@@ -6,6 +6,20 @@ import AudioToolbox
 /// Hardware-backed AVFoundation exports. Conversion happens on the iPad.
 /// Each rendition is checked before it is eligible for Drive publishing.
 enum VideoEncoder {
+    static func sourceDimensions(_ source: URL) async throws -> (width: Int, height: Int) {
+        let asset = AVURLAsset(url: source)
+        guard let track = try await asset.loadTracks(withMediaType: .video).first else {
+            throw ProcessorError.invalid("The source contains no video track.")
+        }
+        let natural = try await track.load(.naturalSize)
+        let preferred = try await track.load(.preferredTransform)
+        let box = CGRect(origin: .zero, size: natural).applying(preferred)
+        guard abs(box.width) >= 2, abs(box.height) >= 2 else {
+            throw ProcessorError.invalid("Video dimensions are invalid.")
+        }
+        return (Int(abs(box.width)), Int(abs(box.height)))
+    }
+
     static func export(source: URL, quality: VideoQuality, destination: URL) async throws {
         let asset = AVURLAsset(url: source)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
