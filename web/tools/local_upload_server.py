@@ -62,7 +62,7 @@ a {color:#8bdfcf} .warning {color:#e9c99b} .status {white-space:pre-wrap;word-br
 <h2>1 · Add raw video files</h2>
 <p>Download Google Photos or iCloud shared videos to this computer first. Or transfer from iPhone using AirDrop (Mac) or a USB cable. MP4, MOV, M4V, WebM, MKV, AVI and 3GP are accepted.</p>
 <label class="drop" id="drop">Drop videos here or choose files<input type="file" id="files" multiple accept="video/*,.mov,.mkv,.avi,.m4v,.3gp"></label>
-<div class="row"><label>Collection <select id="dance"><option>Salsa</option><option>Bachata</option></select></label><button id="start" class="primary">Upload & optimize selected videos</button><button id="clear">Clear list</button></div>
+<div class="row"><label>Collection <select id="dance"><option>Salsa</option><option>Bachata</option></select></label><span>Generate</span><label><input type="checkbox" class="quality-opt" value="360p" checked> 360p</label><label><input type="checkbox" class="quality-opt" value="720p" checked> 720p</label><label><input type="checkbox" class="quality-opt" value="1080p" checked> 1080p</label><button id="start" class="primary">Upload & optimize selected videos</button><button id="clear">Clear list</button></div>
 <ul id="queue"></ul><progress id="upload-progress" max="100" value="0" hidden></progress>
 <p class="state" id="upload-status" role="status">Choose one or more files. Videos are processed sequentially.</p>
 </section>
@@ -84,14 +84,17 @@ const $ = id => document.getElementById(id);
 let selected = [], busy = false;
 const MAX = 2*1024*1024*1024, VALID = /\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i;
 function safe(text) { const el = document.createElement('span'); el.textContent = text; return el.innerHTML; }
+function chosenQualities() { return [...document.querySelectorAll('.quality-opt:checked')].map(input => input.value); }
 function queueRender() {
   $('queue').innerHTML = selected.map((file,i) => '<li>'+safe(file.name)+' <small>· '+(file.size/1048576).toFixed(1)+' MiB · '+safe(file.state || 'waiting')+'</small></li>').join('');
-  $('start').disabled = busy || !selected.length;
+  $('start').disabled = busy || !selected.length || chosenQualities().length === 0;
   $('clear').disabled = busy;
   $('files').disabled = busy;
   $('dance').disabled = busy;
-  $('backfill').disabled = busy;
+  document.querySelectorAll('.quality-opt').forEach(el => {el.disabled=busy;});
+  $('backfill').disabled = busy || chosenQualities().length === 0;
 }
+document.querySelectorAll('.quality-opt').forEach(el => el.addEventListener('change',queueRender));
 function addFiles(files) {
   if (busy) return;
   const all = [...files].filter(file => VALID.test(file.name) && file.size >= 1024 && file.size <= MAX);
@@ -120,8 +123,8 @@ async function statePoll() {
     return info;
   } catch { $('worker-status').textContent='Local helper disconnected.'; }
 }
-async function submitOne(file,dance) {
-  const url = '/api/upload?dance='+encodeURIComponent(dance)+'&name='+encodeURIComponent(file.name);
+async function submitOne(file,dance,qualities) {
+  const url = '/api/upload?dance='+encodeURIComponent(dance)+'&name='+encodeURIComponent(file.name)+'&qualities='+encodeURIComponent(qualities.join(','));
   return new Promise((resolve,reject)=>{
     const xhr=new XMLHttpRequest();
     xhr.open('POST',url);
@@ -146,13 +149,14 @@ async function submitOne(file,dance) {
 $('start').onclick=async()=>{
   if(busy||!selected.length)return;
   busy=true;$('upload-progress').hidden=false;
-  const dance=$('dance').value;
+  const dance=$('dance').value, qualities=chosenQualities();
+  if(!qualities.length){busy=false;queueRender();return;}
   queueRender();
   for(const file of selected){
     if(file.state==='complete')continue;
     file.state='uploading';queueRender();
     try{
-      const done=await submitOne(file,dance);
+      const done=await submitOne(file,dance,qualities);
       file.state='complete';$('upload-status').textContent=file.name+' ready · '+(done.qualities||[]).join(', ');
     }catch(error){
       file.state='failed';$('upload-status').textContent=file.name+': '+error.message+' — review local console before retry.';
@@ -166,7 +170,7 @@ $('start').onclick=async()=>{
 $('backfill').onclick=async()=>{
   if(busy)return;
   if(!confirm('Convert all existing Salsa and Bachata originals into free H.264/AAC quality copies on this computer? Original files stay unchanged. Additional Drive storage is required.'))return;
-  const response=await fetch('/api/process-existing',{method:'POST',headers:{'X-BailaCue-Token':TOKEN}});
+  const response=await fetch('/api/process-existing?qualities='+encodeURIComponent(chosenQualities().join(',')),{method:'POST',headers:{'X-BailaCue-Token':TOKEN}});
   const data=await response.json().catch(()=>({}));
   $('worker-status').textContent=response.ok?'One-time backfill started. Keep this window open.':(data.error||'Could not start.');
   statePoll();
@@ -275,6 +279,11 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
             if not self.authorized():
                 self.send_json({"error": "Unauthorized local action."}, 403)
                 return
+            params = parse_qs(parsed.query)
+            requested = tuple(dict.fromkeys(params.get("qualities", [",".join(qualities)])[0].split(",")))
+            if not requested or any(q not in VALID_QUALITIES or q not in qualities for q in requested):
+                self.send_json({"error": "Select at least one supported video resolution."}, 400)
+                return
             if parsed.path == "/api/process-existing":
                 if not start_processing():
                     self.send_json({"error": "A video conversion is already running."}, 409)
@@ -283,7 +292,7 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
                     try:
                         process_existing(
                             service, ffmpeg, ffprobe, manifest, max_videos=0,
-                            dry_run=False, requested=qualities, progress=update,
+                            dry_run=False, requested=requested, progress=update,
                         )
                         # Reconcile in-memory copies: a subsequent new-file upload must
                         # never replace a full backfill manifest with stale mappings.
@@ -350,7 +359,7 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
                     update("Original saved to Google Drive. Preparing optimized quality copies.")
                     completed = convert_one(
                         service, original["id"], dance, original, copied,
-                        ffmpeg, ffprobe, manifest, qualities, update,
+                        ffmpeg, ffprobe, manifest, requested, update,
                         local_original=path,
                     )
                     with lock:
