@@ -11,7 +11,10 @@ final class ProcessingStore: ObservableObject {
     @Published var status = "Connect Google Drive, paste a folder link, and import the videos."
     @Published var lastError: String? = nil
     @Published var manifest = OptimizedManifest.empty
+    @Published var ownerConnected = false
+    @Published var publishAutomatically = true
 
+    let publisher: BailaCuePublisher
     let auth: GoogleAuth
     private let drive: GoogleDriveService
     private var worker: Task<Void, Never>?
@@ -26,6 +29,7 @@ final class ProcessingStore: ObservableObject {
         let account = GoogleAuth()
         auth = account
         drive = GoogleDriveService(auth: account)
+        publisher = BailaCuePublisher()
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         location = support.appendingPathComponent("BailaCueProcessor", isDirectory: true)
         try? FileManager.default.createDirectory(at: location, withIntermediateDirectories: true)
@@ -50,6 +54,24 @@ final class ProcessingStore: ObservableObject {
             try await auth.signIn()
             status = "Connected to Google Drive. Paste a folder link or resume."
         } catch { lastError = error.localizedDescription }
+    }
+
+    func loginOwner(email: String, password: String) async {
+        do {
+            try await publisher.login(email: email, password: password)
+            ownerConnected = publisher.authorized
+            status = "BailaCue owner connected. New quality versions will publish automatically."
+        } catch { lastError = error.localizedDescription }
+    }
+
+    func restoreOwner() async {
+        await publisher.restore()
+        ownerConnected = publisher.authorized
+    }
+
+    func logoutOwner() {
+        publisher.logout()
+        ownerConnected = false
     }
 
     func importFolder() async {
@@ -176,6 +198,11 @@ final class ProcessingStore: ObservableObject {
             throw ProcessorError.invalid("Selected Drive item is not a valid video.")
         }
         let original = try await drive.ensureOriginal(source, dance: item.dance)
+        // External folder videos become originals in the trusted fixed
+        // collection before they can be published as BailaCue catalogue items.
+        if source.id != original.id && ownerConnected && publishAutomatically {
+            try await publisher.publishOriginal(original, dance: item.dance)
+        }
         jobs[index].originalId = original.id
         saveQueue()
         let cached = manifest.entries.first { $0.sourceId == "drive:" + original.id }?.renditions ?? []
@@ -186,6 +213,9 @@ final class ProcessingStore: ObservableObject {
         // Every quality is checked against the *actual* source dimensions below.
         if missing.isEmpty {
             jobs[index].finished = required.map(\.rawValue)
+            if ownerConnected && publishAutomatically {
+                try await publisher.publishManifest(manifest)
+            }
             jobs[index].status = .complete
             saveQueue()
             status = "Already optimized: \(item.name)"
@@ -224,6 +254,10 @@ final class ProcessingStore: ObservableObject {
             jobs[index].finished.append(quality.rawValue)
             saveQueue()
             try? FileManager.default.removeItem(at: output)
+        }
+        if ownerConnected && publishAutomatically {
+            status = "Publishing available qualities to BailaCue…"
+            try await publisher.publishManifest(manifest)
         }
         jobs[index].status = .complete
         saveQueue()
