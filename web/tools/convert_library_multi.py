@@ -236,13 +236,29 @@ def process_existing(service, ffmpeg, ffprobe, manifest, max_videos=0,
         progress("Dry run: no originals altered and no new copies created.")
         return copies
     completed = 0
+    attempted = 0
+    failed = []
     for source_id, dance, original in pending:
-        if max_videos and completed >= max_videos:
+        if max_videos and attempted >= max_videos:
             break
-        convert_one(service, source_id, dance, original, copies,
-                    ffmpeg, ffprobe, manifest, requested, progress)
-        completed += 1
-    progress(f"Completed {completed} source videos; manifest written to {manifest}.")
+        attempted += 1
+        try:
+            convert_one(service, source_id, dance, original, copies,
+                        ffmpeg, ffprobe, manifest, requested, progress)
+            completed += 1
+        except Exception as error:
+            # One unreadable video must not block conversion of the other 265.
+            # Every completed rendition has already been saved to Drive and
+            # checkpointed. Rerunning retries only incomplete qualities.
+            detail = f"{dance}/{original.get('name', source_id)}: {error}"
+            failed.append(detail)
+            progress(f"Skipped video {attempted}/{len(pending)}: {detail}")
+    progress(f"Processed {attempted} sources: {completed} completed and {len(failed)} failed. Manifest: {manifest}")
+    if failed:
+        raise RuntimeError(
+            f"{len(failed)} source videos need retry. Originals were preserved. "
+            f"First failure: {failed[0]}"
+        )
     return copies
 
 
