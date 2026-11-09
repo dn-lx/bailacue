@@ -83,6 +83,8 @@ struct VideoJob: Codable, Identifiable {
     var status: JobStatus = .queued
     var originalId: String? = nil
     var finished: [String] = []
+    // Optional so queues saved by earlier builds can still be decoded.
+    var unsupported: [String]? = nil
     var error: String? = nil
     var localFileName: String? = nil
     var isSelected: Bool = true
