@@ -16,8 +16,9 @@ enum VideoQuality: String, Codable, CaseIterable, Identifiable {
     var landscapeWidth: Int { switch self { case .p360: return 640; case .p720: return 1280; case .p1080: return 1920 } }
     var landscapeHeight: Int { switch self { case .p360: return 360; case .p720: return 720; case .p1080: return 1080 } }
     func supported(width: Int, height: Int) -> Bool {
-        let short = min(width, height), long = max(width, height)
-        return (short >= landscapeHeight || long >= landscapeWidth)
+        // Resolution labels refer to the short axis (for landscape and portrait).
+        // Never label a 600px-tall ultrawide original as 720p, for example.
+        return min(width, height) >= landscapeHeight
     }
 }
 
@@ -63,13 +64,13 @@ struct OptimizedManifest: Codable {
         if let index = entries.firstIndex(where: { $0.sourceId == key }) {
             entries[index].renditions.removeAll { $0.quality == rendition.quality }
             entries[index].renditions.append(rendition)
-            entries[index].renditions.sort { qualityRank($0.quality) < qualityRank($1.quality) }
+            entries[index].renditions.sort { Self.qualityRank($0.quality) < Self.qualityRank($1.quality) }
         } else {
             entries.append(.init(sourceId: key, dance: dance.rawValue, renditions: [rendition]))
         }
         entries.sort { $0.sourceId < $1.sourceId }
     }
-    private func qualityRank(_ name: String) -> Int {
+    private static func qualityRank(_ name: String) -> Int {
         VideoQuality.allCases.firstIndex { $0.rawValue == name } ?? 999
     }
 }
