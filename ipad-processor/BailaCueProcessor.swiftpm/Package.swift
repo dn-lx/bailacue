@@ -20,6 +20,6 @@ let package = Package(
         )
     ],
     targets: [
-        .executableTarget(name: "AppModule", path: ".", exclude: ["Package.swift"])
+        .executableTarget(name: "AppModule", path: ".", exclude: ["Package.swift", "AppInfo.plist"])
     ]
 )
