@@ -2,9 +2,9 @@ name: BailaCue web
 on:
   push:
     branches: [develop]
-    paths: ['web/**', 'netlify.toml', '.github/workflows/web.yml']
+    paths: ['web/**', 'ipad-processor/**', 'netlify.toml', '.github/workflows/web.yml']
   pull_request:
-    paths: ['web/**', 'netlify.toml', '.github/workflows/web.yml']
+    paths: ['web/**', 'ipad-processor/**', 'netlify.toml', '.github/workflows/web.yml']
 permissions:
   contents: read
 jobs:
@@ -28,3 +28,12 @@ jobs:
       - run: python3 tools/convert_library_multi.py --help
       - run: python3 tools/local_upload_server.py --help
       - run: python3 tools/convert_drive_library.py --help
+      - name: Parse native iPad Swift files
+        run: swiftc -frontend -parse ../ipad-processor/BailaCueProcessor.swiftpm/*.swift
+      - name: Compile and run native iPad model smoke tests
+        run: |
+          swiftc -parse-as-library ../ipad-processor/BailaCueProcessor.swiftpm/Models.swift ../ipad-processor/tests/ModelsSmoke.swift -o /tmp/bailacue-models-smoke
+          /tmp/bailacue-models-smoke
+      - name: Verify iPad OAuth plist
+        run: python3 -c "import plistlib; plistlib.load(open('../ipad-processor/BailaCueProcessor.swiftpm/AppInfo.plist','rb'))"
+
