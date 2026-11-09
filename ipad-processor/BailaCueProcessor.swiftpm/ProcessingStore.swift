@@ -92,16 +92,17 @@ final class ProcessingStore: ObservableObject {
         }
         do {
             status = "Reading the Google Drive folder…"
-            let files = try await drive.listVideos(folderID: folderID)
+            let discovered = try await drive.scanVideos(folderID: folderID, defaultDance: selectedDance)
             var added = 0
-            for item in files {
-                let key = "drive:" + item.id
+            for item in discovered {
+                let key = "drive:" + item.video.id
                 guard !jobs.contains(where: { $0.id == key }) else { continue }
-                jobs.append(VideoJob(id: key, name: item.name, size: item.size, dance: selectedDance))
+                jobs.append(VideoJob(id: key, name: item.video.name, size: item.video.size,
+                                     dance: item.dance))
                 added += 1
             }
             saveQueue()
-            status = "Found \(files.count) videos; added \(added) new videos. Select Start to process."
+            status = "Found \(discovered.count) videos across the linked folder and its subfolders; added \(added) new videos."
         } catch { lastError = error.localizedDescription; status = "Could not read the folder." }
     }
 
