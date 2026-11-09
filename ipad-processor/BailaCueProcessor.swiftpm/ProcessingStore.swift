@@ -34,6 +34,15 @@ final class ProcessingStore: ObservableObject {
         let support = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         location = support.appendingPathComponent("BailaCueProcessor", isDirectory: true)
         try? FileManager.default.createDirectory(at: location, withIntermediateDirectories: true)
+        // Incomplete runs can leave downloaded source bytes in working-* folders.
+        // Clear them at startup; every completed rendition is already stored in Drive.
+        if let folders = try? FileManager.default.contentsOfDirectory(
+            at: location, includingPropertiesForKeys: [.isDirectoryKey]
+        ) {
+            for folder in folders where folder.lastPathComponent.hasPrefix("working-") {
+                try? FileManager.default.removeItem(at: folder)
+            }
+        }
         if let data = try? Data(contentsOf: location.appendingPathComponent("queue.json")),
            let previous = try? JSONDecoder().decode([VideoJob].self, from: data) {
             jobs = previous.map { job in
@@ -240,6 +249,13 @@ final class ProcessingStore: ObservableObject {
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }
         let local = scratch.appendingPathComponent("source." + originalExt)
+        let available = (try? FileManager.default.attributesOfFileSystem(
+            forPath: scratch.path
+        )[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+        let reserve: Int64 = 512 * 1024 * 1024
+        guard available == 0 || (available > reserve && original.size < available - reserve) else {
+            throw ProcessorError.request("Not enough available iPad storage for this video. Free space or process a smaller file.")
+        }
         status = "Downloading \(item.name) to temporary iPad storage…"
         try await drive.download(original, into: local)
         let dimensions = try await VideoEncoder.sourceDimensions(local)
