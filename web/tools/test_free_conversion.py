@@ -18,6 +18,8 @@ class FreeVideoTests(unittest.TestCase):
 
     def test_requested_subset_is_preserved(self):
         self.assertEqual(supported_qualities((1920,1080), ("720p",)), ["720p"])
+        self.assertEqual(supported_qualities((640,360), ("1080p",)), [])
+        self.assertEqual(supported_qualities((640,360), ("360p",)), ["360p"])
 
     def test_manifest_has_original_identity_and_multiple_drive_id_mappings(self):
         copied = {
