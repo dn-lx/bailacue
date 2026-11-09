@@ -48,17 +48,20 @@ It opens **http://127.0.0.1:38221/** on that computer only.
 1. Choose **Salsa** or **Bachata**.
 2. Select or drag in **multiple videos at once**. MP4, MOV, WebM, M4V,
    MKV, AVI and 3GP are accepted (maximum 2 GiB each).
-3. Click **Upload & optimize selected videos**. The local studio processes
+3. Select the desired output resolutions (**360p**, **720p**, and/or **1080p**) with the checkboxes. Smaller sources are never upscaled.
+4. Click **Upload & optimize selected videos**. The local studio processes
    each source sequentially, saves its untouched original in the fixed
    numbered Drive collection, and creates separate optimized copies.
-4. The browser displays the per-video queue and current processing status.
-5. Download `bailacue-optimized-manifest.json` from the studio.
+5. The browser displays the per-video queue and current processing status.
+6. Download `bailacue-optimized-manifest.json` from the studio.
 
 The local server listens only on `127.0.0.1`. No credentials or raw video
 bytes go through the public Netlify website; originals and processed files
 are uploaded to the Google Drive account you authorized locally.
 
-**Import Google Photos and iPhone videos:** Google Photos shared links,
+**Import Google Photos and iPhone videos:** You can paste a Google Photos or iCloud link into the local studio and select **Open shared link**. The link opens on your computer; download the actual video there, then select or drag its file into the conversion queue. No shared link is sent to the local server.
+
+Google Photos shared links,
 Google Photos albums and iCloud share pages are not raw download URLs.
 Open them in the browser and **download** the actual video files first.
 An iPhone can also send files to a Mac using AirDrop, or to Windows/Mac
@@ -137,7 +140,7 @@ manually selectable set of MP4 versions, **not HLS adaptive streaming**.
 - Temporary local video bytes are deleted after each completed conversion.
 - Downloaded size, output codec, dimensions and uploaded size are validated.
 - Existing conversions are discovered via Google Drive `appProperties`.
-- No paid streaming conversion endpoints remain active.
+- Legacy paid Stream integration code remains gated off; this free workflow never calls it and does not activate provider billing.
 - Google Drive still serves bytes through BailaCue's existing bounded media
   proxy. Quality and start time depend on public Drive access/quota/network;
   it is not a guaranteed CDN or instant playback.
@@ -146,3 +149,11 @@ The files in this repository do not convert anything on their own.
 They need a real computer running FFmpeg with Google Drive credentials
 and sufficient quota. The current code has been exercised in automated
 lint/type/build/syntax tests, not yet against all actual 266 sources.
+
+## Interrupted upload and batch recovery
+
+Every local-browser original is indexed with a SHA-256 checksum in its Google Drive application metadata. If encoding fails after the original has uploaded, selecting the same raw file again safely resumes its missing quality copies instead of publishing a duplicate original. The checksum does not replace the original.
+
+During a large backfill, a broken/unavailable source is reported and skipped so the remaining videos can still finish. The generated manifest is checkpointed after each completed resolution, and rerunning retries only missing versions.
+
+A local browser HTTP connection may drop during a long conversion. Inspect the Drive folder and rerun; the local helper searches completed copies before scheduling work. The computer must remain awake and online.
