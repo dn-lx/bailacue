@@ -9,7 +9,7 @@ import Combine
 /// Its reversed client ID must also be present in the signed app's URL schemes.
 /// This is intentionally never a web-app client secret or a Supabase service key.
 enum GoogleSetup {
-    static let clientID = "" // Replace with the Google Cloud OAuth iOS client ID.
+    static let clientID = "561540535573-g5oebqho7c14lec0iotvn5frsud0j8v6.apps.googleusercontent.com"
     static let scopes = "https://www.googleapis.com/auth/drive"
     static var callbackScheme: String {
         guard let prefix = clientID.components(separatedBy: ".apps.googleusercontent.com").first, !prefix.isEmpty
