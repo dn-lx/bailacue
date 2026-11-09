@@ -8,6 +8,7 @@ into the public website. Video bytes stay local until uploaded to Google Drive.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -222,15 +223,23 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
             self.end_headers()
             self.wfile.write(raw)
 
+        def allowed_host(self):
+            # Reject DNS rebinding: never serve the token-bearing HTML to a
+            # foreign hostname resolving to 127.0.0.1.
+            return self.headers.get("Host") == f"{HOST}:{port}"
+
         def authorized(self):
             # No CORS or remote network listener. Only same-origin local page
             # knows the random token; no arbitrary website can trigger encoding.
             origin = self.headers.get("Origin")
             expected = f"http://{HOST}:{port}"
-            return (origin in (None, expected) and
+            return (self.allowed_host() and origin in (None, expected) and
                     self.headers.get("X-BailaCue-Token") == access_key)
 
         def do_GET(self):
+            if not self.allowed_host():
+                self.send_json({"error": "Local requests must use the 127.0.0.1 address."}, 403)
+                return
             pathname = urlparse(self.path).path
             if pathname == "/":
                 html = PAGE.replace("__TOKEN__", json.dumps(access_key)).encode("utf-8")
@@ -313,18 +322,31 @@ def run_server(oauth_client, token, manifest, ffmpeg, ffprobe, qualities, port, 
                 with tempfile.TemporaryDirectory(prefix="bailacue-local-upload-") as temp:
                     path = Path(temp) / ("source" + Path(filename).suffix.lower())
                     remaining = length
+                    digest = hashlib.sha256()
                     with path.open("wb") as sink:
                         while remaining > 0:
                             data = self.rfile.read(min(BYTE_CHUNK, remaining))
                             if not data:
                                 raise RuntimeError("Browser upload was interrupted.")
                             sink.write(data)
+                            digest.update(data)
                             remaining -= len(data)
                     if path.stat().st_size != length:
                         raise RuntimeError("Uploaded file byte count is incomplete.")
-                    update(f"Uploading untouched original {filename} into {dance} Drive folder…")
-                    original = create_original(service, dance, filename, path)
-                    source_map[original["id"]] = (dance, original)
+                    checksum = digest.hexdigest()
+                    existing = next((
+                        item for source_dance, item in source_map.values()
+                        if source_dance == dance and
+                           item.get("appProperties", {}).get("bailacueUploadSha256") == checksum and
+                           int(item.get("size") or -1) == length
+                    ), None)
+                    if existing:
+                        original = existing
+                        update(f"Resuming previously uploaded original {original['name']} without a duplicate.")
+                    else:
+                        update(f"Uploading untouched original {filename} into {dance} Drive folder…")
+                        original = create_original(service, dance, filename, path, checksum)
+                        source_map[original["id"]] = (dance, original)
                     update("Original saved to Google Drive. Preparing optimized quality copies.")
                     completed = convert_one(
                         service, original["id"], dance, original, copied,
