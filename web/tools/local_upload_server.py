@@ -61,6 +61,7 @@ a {color:#8bdfcf} .warning {color:#e9c99b} .status {white-space:pre-wrap;word-br
 <section class="panel">
 <h2>1 · Add raw video files</h2>
 <p>Download Google Photos or iCloud shared videos to this computer first. Or transfer from iPhone using AirDrop (Mac) or a USB cable. MP4, MOV, M4V, WebM, MKV, AVI and 3GP are accepted.</p>
+<div class="row"><input id="share-link" type="url" size="40" placeholder="Google Photos / iCloud shared link" aria-label="Google Photos or iCloud share link"><button id="open-share" type="button">Open shared link</button></div><p class="muted">Shared links open in a new browser tab. Download the raw file there, then return to select it below. Sharing links alone are not direct video uploads.</p>
 <label class="drop" id="drop">Drop videos here or choose files<input type="file" id="files" multiple accept="video/*,.mov,.mkv,.avi,.m4v,.3gp"></label>
 <div class="row"><label>Collection <select id="dance"><option>Salsa</option><option>Bachata</option></select></label><span>Generate</span><label><input type="checkbox" class="quality-opt" value="360p" checked> 360p</label><label><input type="checkbox" class="quality-opt" value="720p" checked> 720p</label><label><input type="checkbox" class="quality-opt" value="1080p" checked> 1080p</label><button id="start" class="primary">Upload & optimize selected videos</button><button id="clear">Clear list</button></div>
 <ul id="queue"></ul><progress id="upload-progress" max="100" value="0" hidden></progress>
@@ -95,6 +96,19 @@ function queueRender() {
   $('backfill').disabled = busy || chosenQualities().length === 0;
 }
 document.querySelectorAll('.quality-opt').forEach(el => el.addEventListener('change',queueRender));
+$('open-share').onclick = () => {
+  const input = $('share-link').value.trim();
+  try {
+    const url = new URL(input);
+    const allowed = ['photos.app.goo.gl','photos.google.com','share.icloud.com','www.icloud.com','icloud.com'];
+    if (url.protocol !== 'https:' || !allowed.includes(url.hostname) || url.username || url.password)
+      throw new Error('not a supported share link');
+    window.open(url.href, '_blank', 'noopener,noreferrer');
+    $('upload-status').textContent = 'Download the video from the shared page, then add its raw file here.';
+  } catch {
+    $('upload-status').textContent = 'Enter a valid Google Photos or iCloud HTTPS share link.';
+  }
+};
 function addFiles(files) {
   if (busy) return;
   const all = [...files].filter(file => VALID.test(file.name) && file.size >= 1024 && file.size <= MAX);
