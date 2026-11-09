@@ -210,10 +210,10 @@ final class ProcessingStore: ObservableObject {
             throw ProcessorError.invalid("Selected Drive item is not a valid video.")
         }
         let original = try await drive.ensureOriginal(source, dance: item.dance)
-        // External folder videos become originals in the trusted fixed
-        // collection before they can be published as BailaCue catalogue items.
-        if source.id != original.id && ownerConnected && publishAutomatically {
-            try await publisher.publishOriginal(original, dance: item.dance)
+        // The owner publisher checks both bundled and previously published
+        // IDs before registering anything. Existing video metadata is preserved.
+        if ownerConnected && publishAutomatically {
+            try await publisher.ensureOriginalRegistered(original, dance: item.dance)
         }
         jobs[index].originalId = original.id
         saveQueue()
