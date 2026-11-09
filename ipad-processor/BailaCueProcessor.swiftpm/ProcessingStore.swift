@@ -249,9 +249,8 @@ final class ProcessingStore: ObservableObject {
         try FileManager.default.createDirectory(at: scratch, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: scratch) }
         let local = scratch.appendingPathComponent("source." + originalExt)
-        let available = (try? FileManager.default.attributesOfFileSystem(
-            forPath: scratch.path
-        )[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
+        let filesystem = try? FileManager.default.attributesOfFileSystem(forPath: scratch.path)
+        let available = (filesystem?[.systemFreeSize] as? NSNumber)?.int64Value ?? 0
         let reserve: Int64 = 512 * 1024 * 1024
         guard available == 0 || (available > reserve && original.size < available - reserve) else {
             throw ProcessorError.request("Not enough available iPad storage for this video. Free space or process a smaller file.")
