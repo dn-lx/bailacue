@@ -258,9 +258,9 @@ final class ProcessingStore: ObservableObject {
     private func outputName(_ original: DriveVideo, _ quality: VideoQuality) -> String {
         let stem = URL(fileURLWithPath: original.name).deletingPathExtension().lastPathComponent
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.()-")
-        let normalized = String(stem.unicodeScalars.prefix(48).map {
-            allowed.contains($0) ? Character($0) : "_"
-        }).trimmingCharacters(in: CharacterSet(charactersIn: "._-"))
+        let normalized = stem.unicodeScalars.prefix(48).map {
+            allowed.contains($0) ? String($0) : "_"
+        }.joined().trimmingCharacters(in: CharacterSet(charactersIn: "._-"))
         let safe = normalized.isEmpty ? "video" : normalized
         return safe + "-" + String(original.id.prefix(10)) + "-" + quality.rawValue + ".mp4"
     }
