@@ -109,6 +109,16 @@ final class GoogleDriveService {
         return copied
     }
 
+    func metadata(fileID: String) async throws -> DriveVideo {
+        guard Self.validID(fileID) else { throw ProcessorError.invalid("Invalid Drive file ID.") }
+        var parts = URLComponents(string: api + "/files/" + fileID)!
+        parts.queryItems = [
+            .init(name: "supportsAllDrives", value: "true"),
+            .init(name: "fields", value: "id,name,mimeType,size,parents,appProperties")
+        ]
+        return try file(json((try await request(parts.url!)).0))
+    }
+
     func download(_ video: DriveVideo, into destination: URL) async throws {
         guard Self.validID(video.id), video.size >= 1024 else {
             throw ProcessorError.invalid("Invalid video for download.")
