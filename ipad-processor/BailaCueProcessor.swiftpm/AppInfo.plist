@@ -9,7 +9,7 @@
             <string>Google Drive OAuth Callback</string>
             <key>CFBundleURLSchemes</key>
             <array>
-                <string>com.googleusercontent.apps.REPLACE_WITH_IOS_CLIENT_ID_PREFIX</string>
+                <string>com.googleusercontent.apps.561540535573-g5oebqho7c14lec0iotvn5frsud0j8v6</string>
             </array>
         </dict>
     </array>
