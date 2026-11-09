@@ -12,8 +12,8 @@ let package = Package(
             bundleIdentifier: "app.bailacue.processor",
             displayVersion: "0.1.0",
             bundleVersion: "1",
-            appIcon: .placeholder(icon: .play.rectangle),
-            accentColor: .presetColor(.teal),
+            appIcon: .placeholder(icon: .play),
+            accentColor: .presetColor(.blue),
             supportedDeviceFamilies: [.pad],
             supportedInterfaceOrientations: [.landscapeRight, .landscapeLeft, .portrait, .portraitUpsideDown(.when(deviceFamilies: [.pad]))]
         )
