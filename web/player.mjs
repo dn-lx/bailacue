@@ -1,6 +1,10 @@
 import { embedUrl } from './core.mjs';
 import { formatTime } from './studio-model.mjs';
 import { chooseRendition, renditions } from './optimized-delivery.mjs';
+export function preferredPlaybackRendition(entry, excluded = []) {
+  const copies = renditions(entry);
+  return ['720p', '1080p', '360p'].map(quality => copies.find(copy => copy.quality === quality && !excluded.includes(copy.driveId))).find(Boolean) || null;
+}
 const paths = {
   play: '<path d="m9 5 12 9-12 9Z" fill="currentColor" stroke="none"/>',
   pause: '<path d="M9 5v18M19 5v18" stroke-width="4"/>',
@@ -144,7 +148,7 @@ export class StudioPlayer {
   }
   async open(video, localUrl = '', autoPlay = false, forceOriginal = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
-    this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay;
+    this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay; this.failedOptimizedIds = [];
     const poster = this.posterFor(video);
     this.frame.style.backgroundImage = poster ? `url(${JSON.stringify(poster)})` : '';
     this.frame.dataset.starting = 'true';
@@ -153,7 +157,7 @@ export class StudioPlayer {
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
     const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive'
-      ? chooseRendition(this.optimizedFor(video)) : null;
+      ? preferredPlaybackRendition(this.optimizedFor(video)) : null;
     this.playbackQuality = optimizedCopy?.quality || 'original';
     this.updateQualityControls(video);
     this.hideFullscreenControls();
@@ -209,6 +213,20 @@ export class StudioPlayer {
             // failures of the first optimized file selected on open().
             const previousPosition = Number.isFinite(media.currentTime) ? media.currentTime : 0;
             const resumePlaying = !media.paused || this.autoStartPending;
+            const alternative = preferredPlaybackRendition(this.optimizedFor(video), [currentFileId, ...(this.failedOptimizedIds || [])]);
+            this.failedOptimizedIds = [...(this.failedOptimizedIds || []), currentFileId];
+            if (alternative) {
+              this.playbackQuality = alternative.quality;
+              this.updateQualityControls(video);
+              this.status('Trying another available playback quality…');
+              media.src = '/api/drive-video/' + alternative.driveId;
+              media.load();
+              if (previousPosition > 0) media.addEventListener('loadedmetadata', () => {
+                try { media.currentTime = Math.min(previousPosition, Number.isFinite(media.duration) ? media.duration : previousPosition); } catch {}
+              }, { once: true });
+              if (resumePlaying) media.play().catch(() => {});
+              return;
+            }
             this.open(video, localUrl, resumePlaying, true).then(() => {
               const replacement = this.media;
               if (!replacement || this.video !== video) return;
