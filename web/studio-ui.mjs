@@ -108,6 +108,9 @@ export function renderUpload(page, ctx) {
   const photosStart = page.querySelector('#google-photos-start');
   const photosStatus = page.querySelector('#google-photos-status');
   let photosPending = false;
+  let photosPickerTab = null;
+  let photosPollTimer = null;
+  function stopPhotosPolling() { if (photosPollTimer) clearInterval(photosPollTimer); photosPollTimer = null; }
   async function importPhotosOnReturn() {
     if (!page.isConnected || !photosPending || !photosSession || photosImporting || uploadSession.running) return;
     photosImporting = true;
@@ -123,13 +126,16 @@ export function renderUpload(page, ctx) {
       });
       photosPending = false;
       photosSession = null;
+      stopPhotosPolling();
+      if (photosPickerTab && !photosPickerTab.closed) photosPickerTab.close();
+      photosPickerTab = null;
       photosStatus.textContent = count ? `${count} video${count === 1 ? '' : 's'} ready to upload.` : 'No videos selected.';
       void endPhotosSession(session);
     } catch (error) {
       photosStatus.textContent = /Finish selecting your videos/.test(error.message)
         ? 'Select videos and tap Done in Google Photos, then return here.'
         : error.message;
-      if (!/Finish selecting your videos/.test(error.message)) photosPending = false;
+      if (!/Finish selecting your videos/.test(error.message)) { photosPending = false; stopPhotosPolling(); }
     } finally {
       photosImporting = false;
       renderFiles();
@@ -139,12 +145,14 @@ export function renderUpload(page, ctx) {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && page.isConnected) void importPhotosOnReturn(); });
   photosStart.onclick = async () => {
     if (photosPending && photosSession) {
-      window.open(photosSession.url, '_blank');
+      if (!photosPickerTab || photosPickerTab.closed) photosPickerTab = window.open(photosSession.url, '_blank');
+      else photosPickerTab.focus();
       return;
     }
     // Open a blank tab synchronously so iOS Safari/Chrome does not block
     // the Photos picker after the asynchronous Google authorization request.
     const pickerTab = window.open('about:blank', '_blank');
+    photosPickerTab = pickerTab;
     photosStart.disabled = true;
     photosStatus.textContent = 'Connecting to Google Photos…';
     try {
@@ -153,10 +161,15 @@ export function renderUpload(page, ctx) {
       photosSession = session;
       photosPending = true;
       photosStatus.textContent = 'Select videos, tap Done, then return here. They will be added automatically.';
-      if (pickerTab && !pickerTab.closed) pickerTab.location.replace(session.url);
-      else photosStatus.textContent = 'Your browser blocked the picker tab. Allow pop-ups, then tap Choose from Google Photos again.';
+      if (pickerTab && !pickerTab.closed) {
+        pickerTab.location.replace(session.url);
+        stopPhotosPolling();
+        photosPollTimer = setInterval(() => { if (page.isConnected && photosPending && !photosImporting) void importPhotosOnReturn(); }, 2500);
+      } else photosStatus.textContent = 'Your browser blocked the picker tab. Allow pop-ups, then tap Choose from Google Photos again.';
     } catch (error) {
       pickerTab?.close();
+      photosPickerTab = null;
+      stopPhotosPolling();
       photosStatus.textContent = error.message;
     } finally {
       photosStart.disabled = uploadSession.running;
