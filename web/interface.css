@@ -2427,3 +2427,29 @@ details > summary:hover::after { color: var(--blue); }
   #player #media-controls #media-quality,
   #player #media-controls #media-speed { font-size: 12px; padding-inline: 5px 16px; }
 }
+
+/* Add videos: consistent full-width sections, responsive spacing and alignment. */
+.upload-connect-section { margin: 0 0 24px; }
+.upload-connect-section .connection-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: clamp(18px, 3vw, 28px); }
+.upload-connect-section .connection-card .eyebrow { flex-basis: 100%; }
+.upload-connect-section .connection-card h2 { margin: 0; flex: 1 1 160px; }
+.upload-connect-section .connection-card .helper-text { flex-basis: 100%; margin: 0; }
+.upload-section-heading { margin: 0 0 16px; font-size: clamp(20px, 3vw, 26px); }
+.upload-layout { display: block; width: 100%; margin-bottom: 28px; }
+.upload-layout .upload-main { min-width: 0; width: 100%; max-width: 100%; }
+.upload-layout .upload-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.upload-layout .upload-actions .button { min-height: 44px; }
+.upload-layout .upload-details { margin-top: 22px; }
+.upload-layout .drop-zone { width: 100%; box-sizing: border-box; }
+.upload-layout progress { display: block; width: 100%; margin-top: 18px; }
+#browser-compression { margin-top: 24px; margin-bottom: 24px; }
+@media(max-width: 720px) {
+ .upload-connect-section { margin-bottom: 22px; }
+ .upload-connect-section .connection-card { align-items: stretch; }
+ .upload-connect-section .connection-card h2 { flex-basis: 100%; }
+ .upload-connect-section .connection-card button { width: 100%; }
+ .upload-layout .upload-actions { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+ .upload-layout .upload-actions #google-photos-start { grid-column: 1/-1; width: 100%; }
+ .upload-layout .upload-actions .button { min-width: 0; padding-inline: 10px; }
+ .upload-layout .form-columns { grid-template-columns: minmax(0,1fr); }
+}
