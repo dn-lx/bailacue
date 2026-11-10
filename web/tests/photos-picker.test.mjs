@@ -11,7 +11,7 @@ test('Photos picker imports only selected videos, pages results and skips alread
     if (url.pathname.endsWith('/sessions')) return Response.json({ id: 'session-one', pickerUri: 'https://photos.google.com/picker/example' });
     if (options.method === 'DELETE') return new Response(null, { status: 204 });
     if (url.pathname.endsWith('/session-one')) return Response.json({ mediaItemsSet: true });
-    if (url.hostname === 'lh3.googleusercontent.com') return new Response('video bytes');
+    if (url.pathname === '/api/photos-picker/download') return new Response('video bytes');
     if (url.searchParams.get('pageToken')) return Response.json({ mediaItems: [{ id: 'video-one', type: 'VIDEO', mediaFile: { baseUrl: 'https://lh3.googleusercontent.com/example', filename: 'dance.mov', mimeType: 'video/quicktime' } }] });
     return Response.json({ nextPageToken: 'next', mediaItems: [{ id: 'photo-one', type: 'PHOTO' }] });
   });
@@ -24,7 +24,7 @@ test('Photos picker imports only selected videos, pages results and skips alread
   assert.equal(await selectedPhotosVideos(session, file => picked.push(file)), 0);
   assert.equal(picked[0].name, 'dance.mov');
   assert.equal(picked[0].type, 'video/quicktime');
-  assert.equal(fetched.filter(([url]) => url.pathname.endsWith('=dv')).length, 1);
+  assert.equal(fetched.filter(([url]) => url.pathname === '/api/photos-picker/download').length, 1);
   await endPhotosSession(session);
   assert.equal(fetched.at(-1)[1].method, 'DELETE');
 });
