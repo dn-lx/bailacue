@@ -106,3 +106,11 @@ test('browser copies can coexist with legacy-folder renditions and play only for
   low.folderId = COMPRESSED_FOLDERS.Bachata;
   assert.equal(parseOptimizedManifest(updated), null);
 });
+
+test('missing 720p defaults to the original and an available lower resolution remains selectable', () => {
+  const entry = { ...modern.entries[0], renditions: [modern.entries[0].renditions[0]] };
+  assert.equal(chooseRendition(entry), null);
+  assert.equal(chooseRendition(entry, '1080p'), null);
+  assert.equal(chooseRendition(entry, 'original'), null);
+  assert.equal(chooseRendition(entry, '360p').driveId, 'derivedDriveLow123');
+});

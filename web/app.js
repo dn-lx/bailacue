@@ -73,7 +73,6 @@ const pendingMetadata = new Map();
 const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
-  streamFor: video => streamMap.get(video.id),
   optimizedFor: video => optimizedMap.get(video.id),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;

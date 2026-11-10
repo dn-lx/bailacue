@@ -2141,6 +2141,10 @@ details > summary:hover::after { color: var(--blue); }
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 #player #video-only-shell:fullscreen .fs-settings label { justify-self: center; }
+#player #video-only-shell:fullscreen .fs-settings label[hidden] { display: none; }
+#player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
 #player #video-only-shell:fullscreen .fs-display-actions {
   display: flex; justify-self: end; align-items: center; gap: 6px;
 }
@@ -2195,6 +2199,17 @@ details > summary:hover::after { color: var(--blue); }
   #player #video-only-shell:fullscreen .fs-display-actions { display: contents; }
   #player #video-only-shell:fullscreen .fs-mirror { grid-area: mirror; justify-self: start; }
   #player #video-only-shell:fullscreen .fs-exit { grid-area: expand; justify-self: end; }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) {
+    grid-template-columns: auto auto minmax(44px, 1fr) 44px;
+    grid-template-areas: "volume volume volume volume" "quality speed mirror expand";
+  }
+  #player #video-only-shell:fullscreen .fs-settings label[for="fs-quality"] { grid-area: quality; }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) label > span {
+    display: none;
+  }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) .fs-mirror {
+    justify-self: end;
+  }
   #player #video-details-editor .player-info { grid-template-columns: minmax(0, 1fr); gap: 18px; }
 }
 @media (max-width: 380px) {

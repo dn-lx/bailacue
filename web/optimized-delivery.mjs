@@ -69,18 +69,11 @@ export function renditions(entry) {
   return Array.isArray(entry.renditions) ? entry.renditions :
     (FILE_ID.test(entry.driveId || '') ? [{ quality: '720p', driveId: entry.driveId, folderId: entry.folderId, filename: entry.filename, size: entry.size }] : []);
 }
-export function chooseRendition(entry, quality = 'auto') {
-  const options = renditions(entry);
-  if (!options.length) return null;
-  if (quality !== 'auto') {
-    const exact = options.find(v => v.quality === quality);
-    if (exact) return exact;
-  }
-  return options.find(v => v.quality === '720p') ||
-    options.find(v => v.quality === '360p') || options[0];
+export function chooseRendition(entry, quality = '720p') {
+  return renditions(entry).find(item => item.quality === quality) || null;
 }
 
-export function asOptimizedFile(entry, selected = chooseRendition(entry)) {
+export function asOptimizedFile(entry, selected = chooseRendition(entry) || renditions(entry)[0]) {
   if (!entry || !selected || !SOURCE_ID.test(entry.sourceId || '')) return null;
   return {
     id: 'drive:' + selected.driveId,
