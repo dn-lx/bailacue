@@ -25,10 +25,21 @@ export class DriveConnection {
     return new Promise((resolve, reject) => {
       this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope: SCOPE, include_granted_scopes: false,
         callback: response => {
-          if (!response.access_token || response.error) { reject(new Error('Google access was not granted. Your library is unchanged.')); return; }
+          if (!response.access_token || response.error) {
+            const guidance = {
+              invalid_client: 'Google rejected the client ID. Save an OAuth client of type Web application.',
+              unauthorized_client: 'Google rejected this OAuth client for the browser. Check its application type and authorized JavaScript origins.',
+              origin_mismatch: 'This site is missing from the OAuth client’s authorized JavaScript origins.',
+              access_denied: 'Google access was denied. If your OAuth app is in Testing, add this Google account as a test user.',
+            };
+            reject(new Error(guidance[response.error] || 'Google did not grant Drive access. Check the Google authorization window.'));
+            return;
+          }
           if (!google.accounts.oauth2.hasGrantedAllScopes(response, SCOPE)) { reject(new Error('Drive permission is needed to upload into the fixed dance folders.')); return; }
           this.accessToken = response.access_token; this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000; resolve(undefined);
-        }, error_callback: () => reject(new Error('Google connection was closed. You can try again when ready.')) });
+        }, error_callback: error => reject(new Error(error.type === 'popup_failed_to_open'
+          ? 'The Google sign-in popup could not open. Allow popups for BailaCue, then tap Connect again.'
+          : 'The Google sign-in window closed before authorization completed. Tap Connect to try again.')) });
       this.client.requestAccessToken({ prompt: 'select_account' });
     });
   }

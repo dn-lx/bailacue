@@ -92,7 +92,7 @@ function addRendition(manifest, video, copy, quality) {
 }
 
 let controller;
-export function renderBrowserCompressor(panel, ctx) {
+export function renderBrowserCompressor(panel, ctx, connectGoogle) {
   if (!ctx.admin.isAdmin) return;
   panel.hidden = false;
   panel.innerHTML = `
@@ -128,6 +128,7 @@ export function renderBrowserCompressor(panel, ctx) {
     </div>
     <footer class="compress-status">
       <p role="status"></p>
+      <button class="text-button" type="button" id="browser-compress-setup" hidden>Open Google connection setup</button>
       <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
       <p class="compress-note">Pilot limits: 100 MB and 5 minutes per video. Keep this tab open and your device awake during a batch.</p>
     </footer>`;
@@ -137,6 +138,14 @@ export function renderBrowserCompressor(panel, ctx) {
   const limit = panel.querySelector('select#browser-compress-limit');
   const status = panel.querySelector('[role="status"]');
   const progress = panel.querySelector('progress');
+  const setup = panel.querySelector('button#browser-compress-setup');
+  setup.hidden = Boolean(ctx.connection.clientId);
+  setup.onclick = () => {
+    const details = panel.parentElement.querySelector('details.connection-setup');
+    if (!details) return;
+    details.open = true;
+    details.querySelector('input#google-client-id')?.focus();
+  };
   const destinationLink = panel.querySelector('a#browser-compress-folder');
   function showDestination() {
     destinationLink.href = `https://drive.google.com/drive/folders/${COMPRESSED_FOLDERS[dance.value]}`;
@@ -162,9 +171,13 @@ export function renderBrowserCompressor(panel, ctx) {
       return;
     }
     if (!ctx.connection.connected) {
-      const button = panel.parentElement.querySelector('button#connect-google');
-      button?.scrollIntoView({ block: 'center' });
-      button?.click();
+      start.disabled = true;
+      status.textContent = 'Waiting for Google authorization…';
+      try {
+        await connectGoogle();
+      } catch (error) {
+        status.textContent = error.message;
+      } finally { start.disabled = false; }
       return;
     }
     const selectedDance = dance.value;
