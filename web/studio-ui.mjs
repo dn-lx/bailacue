@@ -91,11 +91,23 @@ export function renderUpload(page, ctx) {
   const makeLabel = (name, type, dance) => { try { const label = createLabel(ctx.state().labels, name, type, dance); ctx.save(); return label; } catch (error) { ctx.toast(error.message); } };
   labelPicker(page.querySelector('#upload-labels'), { title: 'Labels', labels: () => ctx.state().labels, selected: uploadSession.labelIds, allowCreate: true, onChange: ids => uploadSession.labelIds = ids, onCreate: makeLabel });
   labelPicker(page.querySelector('#upload-artists'), { title: 'Artists & teachers', labels: () => ctx.state().labels, selected: uploadSession.artistIds, artists: true, allowCreate: true, onChange: ids => uploadSession.artistIds = ids, onCreate: makeLabel });
+  let liveNumberDance = null, liveNextNumber = null;
+  async function verifyDriveNumber() {
+    if (!connection.connected) { liveNumberDance = null; liveNextNumber = null; renderFiles(); return; }
+    const dance = danceInput.value;
+    const listing = await connection.list(dance);
+    if (!page.isConnected || dance !== danceInput.value) return;
+    liveNumberDance = dance;
+    liveNextNumber = nextNumber(listing.files.map(file => file.name));
+    ctx.state().drive = [...ctx.state().drive.filter(v => v.dance !== dance), ...listing.videos];
+    renderFiles();
+    status.textContent = `Next ${dance} number verified from Google Drive: ${String(liveNextNumber).padStart(4, '0')}.`;
+  }
   function renderFiles() {
-    let next = nextNumber(ctx.videos().filter(v => v.dance === danceInput.value).map(v => v.filename || v.title));
-    const example = page.querySelector('.number-example'); if (example) example.innerHTML = `${String(next).padStart(4, '0')}<span>.mp4</span>`;
+    let next = liveNumberDance === danceInput.value ? liveNextNumber : null;
+    const example = page.querySelector('.number-example'); if (example) example.textContent = next == null ? 'Check Drive' : `${String(next).padStart(4, '0')}`;
     page.querySelector('#upload-list').innerHTML = uploadSession.files.map((file, index) => {
-      const job = uploadSession.jobs.get(file), proposed = job?.name || numberedName(next++, file.name);
+      const job = uploadSession.jobs.get(file), proposed = job?.name || (next == null ? 'Number assigned on upload' : numberedName(next++, file.name));
       return `<article class="upload-file"><span class="file-number">${esc(proposed)}</span><div><strong>${esc(file.name)}</strong><small>${(file.size / 1048576).toFixed(1)} MB${job?.completed ? ' · Uploaded' : ''}</small></div><button class="text-button" data-preview="${index}">Preview</button></article>`;
     }).join('');
     page.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => ctx.preview(uploadSession.files[Number(button.dataset.preview)])));
@@ -104,6 +116,7 @@ export function renderUpload(page, ctx) {
     for (const selector of ['#connect-google', '#google-photos-start', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
     danceInput.disabled = uploadSession.running || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
   }
+  if (connection.connected) void verifyDriveNumber().catch(error => { status.textContent = `Could not check Drive numbering: ${error.message}`; });
   fileInput.addEventListener('change', () => { if (uploadSession.running) return; try { const files = [...fileInput.files]; for (const file of files) numberedName(1, file.name); uploadSession.files = files; uploadSession.jobs.clear(); page.querySelector('#upload-error').textContent = ''; status.textContent = `${files.length} video${files.length === 1 ? '' : 's'} selected. Review the destination and details.`; renderFiles(); } catch (error) { page.querySelector('#upload-error').textContent = error.message; } });
   const photosStart = page.querySelector('#google-photos-start');
   const photosStatus = page.querySelector('#google-photos-status');
@@ -175,7 +188,7 @@ export function renderUpload(page, ctx) {
       photosStart.disabled = uploadSession.running;
     }
   };
-  danceInput.onchange = () => { uploadSession.dance = danceInput.value; renderFiles(); };
+  danceInput.onchange = () => { uploadSession.dance = danceInput.value; liveNumberDance = null; liveNextNumber = null; renderFiles(); void verifyDriveNumber().catch(error => { status.textContent = `Could not check Drive numbering: ${error.message}`; }); };
   page.querySelector('#connect-google').onclick = async () => {
     if (connection.connected) {
       connection.disconnect();
@@ -186,7 +199,7 @@ export function renderUpload(page, ctx) {
     try { await connectGoogle(); } catch { /* Connection status already shows the reason. */ }
   };
   page.querySelector('#refresh-drive').onclick = async () => { try { if (!connection.connected) throw new Error('Connect Google to refresh the live folders.'); status.textContent = 'Reading the two fixed folders…'; const all = []; for (const dance of ['Salsa', 'Bachata']) all.push(...(await connection.list(dance)).videos); ctx.state().drive = all; ctx.save(); status.textContent = `${all.length} videos refreshed from Drive. Personal labels and ratings are kept.`; } catch (error) { page.querySelector('#upload-error').textContent = error.message; } };
-  page.querySelector('#upload-replan').onclick = async () => { try { if (!connection.connected) throw new Error('Connect Google Drive to check the next number.'); const listing = await connection.list(danceInput.value); ctx.state().drive = [...ctx.state().drive.filter(v => v.dance !== danceInput.value), ...listing.videos]; for (const [file, job] of uploadSession.jobs) if (!job.session && !job.completed) uploadSession.jobs.delete(file); renderFiles(); const number = nextNumber(listing.files.map(file => file.name)); page.querySelector('.number-example').innerHTML = `${String(number).padStart(4, '0')}<span>.mp4</span>`; status.textContent = `Next number checked against Google Drive: ${String(number).padStart(4, '0')}.`; } catch (error) { page.querySelector('#upload-error').textContent = error.message; } };
+  page.querySelector('#upload-replan').onclick = async () => { try { await verifyDriveNumber(); } catch (error) { liveNumberDance = null; liveNextNumber = null; renderFiles(); page.querySelector('#upload-error').textContent = `Could not verify the number: ${error.message}`; } };
   page.querySelector('#upload-pause').onclick = () => uploadSession.controller?.abort();
   page.querySelector('#upload-start').onclick = async () => {
     if (!connection.connected) { page.querySelector('#upload-error').textContent = 'Connect Google before uploading. You can preview selected videos now.'; return; }
