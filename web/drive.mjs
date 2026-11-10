@@ -1,4 +1,4 @@
-import { OPTIMIZED_FOLDERS, OPTIMIZED_PRESET } from './optimized-delivery.mjs';
+import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET } from './optimized-delivery.mjs';
 import { SOURCES } from './core.mjs';
 import { mapDriveFile, nextNumber, numberedName } from './studio-model.mjs';
 
@@ -72,7 +72,7 @@ export class DriveConnection {
     return { id: generated.ids[0], name: numberedName(number, file.name), number, dance, folderId: listing.source.folderId, file, offset: 0, session: '', completed: false };
   }
   async browserCopy(video, signal) {
-    const folderId = OPTIMIZED_FOLDERS[video.dance];
+    const folderId = COMPRESSED_FOLDERS[video.dance];
     if (!SOURCES.some(source => source.dance === video.dance && source.folderId === video.folderId) ||
         !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId) || video.id !== 'drive:' + video.providerId) {
       throw new Error('Choose a video from the fixed Drive collections.');
@@ -105,7 +105,7 @@ export class DriveConnection {
   }
 
   async upload(job, onProgress, signal) {
-    const optimized = job.folderId === OPTIMIZED_FOLDERS[job.dance] &&
+    const optimized = job.folderId === COMPRESSED_FOLDERS[job.dance] &&
       job.appProperties?.bailacuePreset === OPTIMIZED_PRESET && job.appProperties?.bailacueQuality === '360p';
     if (!optimized && !SOURCES.some(s => s.folderId === job.folderId && s.dance === job.dance)) throw new Error('The upload destination must be a fixed dance folder.');
     if (job.completed) return job.completed;

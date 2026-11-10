@@ -4,6 +4,14 @@ export const OPTIMIZED_FOLDERS = Object.freeze({
   Salsa: '1Z8yfu20bLFKChQGXYQQ8uZZoEDMTSx1f',
   Bachata: '1rOwr5utjZ-gfCj5Zj6KlOjmqdFRu8ncq',
 });
+export const COMPRESSED_FOLDERS = Object.freeze({
+  Salsa: '17Ndihr1QjepwPzVsBBWoA-2MowfPPAWa',
+  Bachata: '12juoU5Gg7qLnkYJrTLVfeljqEEH4u8QX',
+});
+export function isOptimizedFolder(dance, folderId) {
+  return Object.hasOwn(OPTIMIZED_FOLDERS, dance) &&
+    (folderId === OPTIMIZED_FOLDERS[dance] || folderId === COMPRESSED_FOLDERS[dance]);
+}
 export const OPTIMIZED_PRESET = 'h264-aac-ladder-v2';
 export const LEGACY_PRESET = 'h264-aac-faststart-720p-v1';
 export const QUALITIES = Object.freeze(['360p','720p','1080p']);
@@ -31,7 +39,7 @@ export function parseOptimizedManifest(input) {
       if (!variant || typeof variant !== 'object' || Array.isArray(variant) ||
           !QUALITIES.includes(variant.quality) ||
           !FILE_ID.test(variant.driveId || '') ||
-          variant.folderId !== OPTIMIZED_FOLDERS[raw.dance] ||
+          !isOptimizedFolder(raw.dance, variant.folderId) ||
           !Number.isSafeInteger(variant.size) || variant.size < 1024 ||
           variant.size > 2 * 1024 * 1024 * 1024 ||
           typeof variant.filename !== 'string' || !NAME.test(variant.filename) ||

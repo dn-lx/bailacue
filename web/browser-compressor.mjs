@@ -1,4 +1,4 @@
-import { OPTIMIZED_PRESET, OPTIMIZED_ROOT, parseOptimizedManifest, renditions } from './optimized-delivery.mjs';
+import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET, OPTIMIZED_ROOT, parseOptimizedManifest, renditions } from './optimized-delivery.mjs';
 
 const MAX_BYTES = 100 * 1024 ** 2;
 const MAX_SECONDS = 300;
@@ -63,9 +63,9 @@ async function encode(video, connection, report, signal) {
 function addRendition(manifest, video, copy) {
   const entries = (manifest?.entries || []).map(entry => ({ sourceId: entry.sourceId, dance: entry.dance, renditions: renditions(entry) }));
   const existing = entries.find(entry => entry.sourceId === video.id);
-  if (existing?.renditions.some(item => item.quality === '360p')) return null;
+  if (existing?.renditions.some(item => item.quality === '360p' && item.folderId === copy.folderId)) return null;
   const rendition = { quality: '360p', driveId: copy.providerId, folderId: copy.folderId, filename: copy.filename, size: copy.size };
-  if (existing) existing.renditions = [...existing.renditions, rendition];
+  if (existing) existing.renditions = [...existing.renditions.filter(item => item.quality !== '360p'), rendition];
   else entries.push({ sourceId: video.id, dance: video.dance, renditions: [rendition] });
   const next = parseOptimizedManifest({ version: 2, rootFolderId: OPTIMIZED_ROOT, preset: OPTIMIZED_PRESET, entries });
   if (!next) throw new Error('The combined playback manifest failed validation.');
@@ -79,9 +79,9 @@ export function renderBrowserCompressor(panel, ctx) {
   panel.innerHTML = `
     <span class="eyebrow">BROWSER COMPRESSION PILOT</span>
     <h2>Compress Drive videos on this device</h2>
-    <p>Make smaller 360p MP4 copies in Drive. Start with one short clip. Keep this page open and your device awake. Pilot limit: 100 MB and five minutes per video.</p>
+    <p>Save smaller 360p MP4 copies to Salsa-compressed or Bachata-compressed inside Dancing. Start with one short clip. Keep this page open and your device awake. Pilot limit: 100 MB and five minutes per video.</p>
     <label class="field">Collection <select id="browser-compress-dance"><option>Salsa</option><option>Bachata</option></select></label>
-    <label class="field">Batch size <select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option></select></label>
+    <label class="field">Batch size <select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All eligible videos</option></select></label>
     <button class="button primary" type="button" id="browser-compress-start">Start 360p compression</button>
     <button class="button subtle" type="button" id="browser-compress-stop">Stop</button>
     <progress max="100" value="0" aria-label="Current compression step progress"></progress>
@@ -103,7 +103,7 @@ export function renderBrowserCompressor(panel, ctx) {
       return;
     }
     const selectedDance = dance.value;
-    const count = Number(limit.value);
+    const count = limit.value === 'all' ? Infinity : Number(limit.value);
     const run = async () => {
       const { signal } = controller;
       const report = (message, value) => {
@@ -119,7 +119,7 @@ export function renderBrowserCompressor(panel, ctx) {
       report('Checking Drive and existing copies…', 0);
       const [listing, manifest] = await Promise.all([ctx.connection.list(selectedDance), readManifest()]);
       const known = new Set(ctx.videos().map(video => video.id));
-      const published = new Set((manifest?.entries || []).filter(entry => renditions(entry).some(item => item.quality === '360p')).map(entry => entry.sourceId));
+      const published = new Set((manifest?.entries || []).filter(entry => renditions(entry).some(item => item.quality === '360p' && item.folderId === COMPRESSED_FOLDERS[selectedDance])).map(entry => entry.sourceId));
       const candidates = listing.videos.filter(video => known.has(video.id) && !published.has(video.id) &&
         video.size > 0 && video.size <= MAX_BYTES && (!video.duration || video.duration <= MAX_SECONDS)).slice(0, count);
       if (!candidates.length) { report('No eligible videos need a 360p copy in this collection.', 0); return; }
