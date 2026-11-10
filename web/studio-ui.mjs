@@ -216,14 +216,17 @@ export function renderUpload(page, ctx) {
         ctx.state().drive = [...ctx.state().drive.filter(v => v.id !== result.id), result]; ctx.patchMeta(result.id, details); ctx.save(); renderFiles();
         uploaded.push(result);
       }
-      status.textContent = 'Upload confirmed by Google Drive. Your videos are in the library.'; ctx.toast('Numbered videos uploaded to Drive');
+      status.textContent = 'Original uploaded to Google Drive. Playback-copy compression is a separate step below.'; ctx.toast('Original videos uploaded to Drive');
     };
     try { if (navigator.locks) await navigator.locks.request(`bailacue-upload-${dance}`, run); else await run(); }
     catch (error) { if (error.name === 'AbortError') status.textContent = 'Paused. Press Upload to resume the same files in this tab.'; else { page.querySelector('#upload-error').textContent = error.message; status.textContent = 'Not completed. Retry resumes an existing session instead of creating a duplicate.'; } }
     finally {
       uploadSession.running = false; uploadSession.controller = null; fileInput.disabled = false; renderFiles();
       if (uploaded.length && ctx.admin.isAdmin) {
+        status.textContent = 'Original uploaded. Starting playback-copy compression below; keep this tab open.';
         page.querySelector('#browser-compression').dispatchEvent(new CustomEvent('bailacue-uploaded', { detail: uploaded }));
+      } else if (uploaded.length) {
+        status.textContent = 'Original uploaded. Sign in as owner to create playback copies in the compressor below.';
       }
     }
   };
