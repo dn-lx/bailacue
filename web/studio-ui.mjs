@@ -67,7 +67,7 @@ const uploadSession = { files: [], jobs: new Map(), running: false, controller: 
 export function uploadRunning() { return uploadSession.running; }
 export function renderUpload(page, ctx) {
   const connection = ctx.connection;
-  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button><a id="google-photos-open" target="_blank" rel="noopener noreferrer" hidden>Open Google Photos picker ↗</a><button class="button subtle" type="button" id="google-photos-import" hidden>Add selected videos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload.' : (connection.clientId ? 'Connect to upload or compress.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section><section class="numbering-card"><span class="eyebrow">NEXT VIDEO</span><div class="number-example">0115<span>.mp4</span></div></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><details class="connection-card" id="optimized-card"><summary title="Advanced playback-copy tools">Advanced tools</summary><p class="helper-text">Use these only when importing playback copies created outside BailaCue.</p><a href="http://127.0.0.1:38221/" target="_blank" rel="noopener noreferrer" title="Open the local FFmpeg converter if it is running">Local converter</a> · <a href="https://github.com/dn-lx/bailacue/tree/develop/ipad-processor" target="_blank" rel="noopener noreferrer" title="Experimental iPad converter source">iPad prototype</a> · <a href="https://drive.google.com/drive/folders/${OPTIMIZED_ROOT}" target="_blank" rel="noopener noreferrer">Playback folders</a><label class="field"><span class="field-label">Playback manifest <span title="Import mappings for externally compressed video copies">ⓘ</span></span><input id="optimized-manifest-file" type="file" accept=".json,application/json"></label><button class="button subtle small" type="button" id="optimized-manifest-import" title="Publish the imported playback-copy mappings">Publish copies</button><p id="optimized-import-status" role="status" class="helper-text"></p></details></aside></div>`;
+  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload.' : (connection.clientId ? 'Connect to upload or compress.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section><section class="numbering-card"><span class="eyebrow">NEXT VIDEO</span><div class="number-example">0115<span>.mp4</span></div></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><details class="connection-card" id="optimized-card"><summary title="Advanced playback-copy tools">Advanced tools</summary><p class="helper-text">Use these only when importing playback copies created outside BailaCue.</p><a href="http://127.0.0.1:38221/" target="_blank" rel="noopener noreferrer" title="Open the local FFmpeg converter if it is running">Local converter</a> · <a href="https://github.com/dn-lx/bailacue/tree/develop/ipad-processor" target="_blank" rel="noopener noreferrer" title="Experimental iPad converter source">iPad prototype</a> · <a href="https://drive.google.com/drive/folders/${OPTIMIZED_ROOT}" target="_blank" rel="noopener noreferrer">Playback folders</a><label class="field"><span class="field-label">Playback manifest <span title="Import mappings for externally compressed video copies">ⓘ</span></span><input id="optimized-manifest-file" type="file" accept=".json,application/json"></label><button class="button subtle small" type="button" id="optimized-manifest-import" title="Publish the imported playback-copy mappings">Publish copies</button><p id="optimized-import-status" role="status" class="helper-text"></p></details></aside></div>`;
   async function connectGoogle() {
     if (connection.connected) return;
     try {
@@ -101,52 +101,66 @@ export function renderUpload(page, ctx) {
     page.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => ctx.preview(uploadSession.files[Number(button.dataset.preview)])));
     page.querySelector('#upload-start').disabled = uploadSession.running || photosImporting || !uploadSession.files.length;
     page.querySelector('#upload-pause').disabled = !uploadSession.running;
-    for (const selector of ['#connect-google', '#google-photos-start', '#google-photos-import', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
+    for (const selector of ['#connect-google', '#google-photos-start', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
     danceInput.disabled = uploadSession.running || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
   }
   fileInput.addEventListener('change', () => { if (uploadSession.running) return; try { const files = [...fileInput.files]; for (const file of files) numberedName(1, file.name); uploadSession.files = files; uploadSession.jobs.clear(); page.querySelector('#upload-error').textContent = ''; status.textContent = `${files.length} video${files.length === 1 ? '' : 's'} selected. Review the destination and details.`; renderFiles(); } catch (error) { page.querySelector('#upload-error').textContent = error.message; } });
-  const photosStart = page.querySelector('button#google-photos-start');
-  const photosOpen = page.querySelector('a#google-photos-open');
-  const photosImport = page.querySelector('button#google-photos-import');
+  const photosStart = page.querySelector('#google-photos-start');
   const photosStatus = page.querySelector('#google-photos-status');
-  function showPhotosSession() {
-    photosOpen.hidden = !photosSession;
-    photosImport.hidden = !photosSession;
-    photosImport.disabled = !photosSession || photosImporting || uploadSession.running;
-    if (photosSession) photosOpen.href = photosSession.url;
-  }
-  showPhotosSession();
-  photosStart.onclick = async () => {
-    photosStart.disabled = true;
-    try {
-      const session = await createPhotosSession(connection);
-      if (photosSession) void endPhotosSession(photosSession);
-      photosSession = session;
-      showPhotosSession();
-      photosStatus.textContent = 'Open the picker, choose your videos, tap Done, then return here.';
-    } catch (error) { photosStatus.textContent = error.message; }
-    finally { photosStart.disabled = uploadSession.running; }
-  };
-  photosImport.onclick = async () => {
-    if (!photosSession || uploadSession.running || photosImporting) return;
+  let photosPending = false;
+  async function importPhotosOnReturn() {
+    if (!page.isConnected || !photosPending || !photosSession || photosImporting || uploadSession.running) return;
     photosImporting = true;
-    photosImport.disabled = true;
-    photosStatus.textContent = 'Importing selected videos from Google Photos…';
-    fileInput.disabled = true;
+    photosStatus.textContent = 'Checking selected videos…';
     renderFiles();
     const session = photosSession;
     try {
       const count = await selectedPhotosVideos(session, file => {
         numberedName(1, file.name);
         uploadSession.files.push(file);
+        photosStatus.textContent = 'Adding selected videos…';
         renderFiles();
       });
+      photosPending = false;
       photosSession = null;
-      showPhotosSession();
-      photosStatus.textContent = count ? `${count} Google Photos videos added to the upload queue.` : 'No videos were selected.';
+      photosStatus.textContent = count ? `${count} video${count === 1 ? '' : 's'} ready to upload.` : 'No videos selected.';
       void endPhotosSession(session);
-    } catch (error) { photosStatus.textContent = error.message; }
-    finally { photosImporting = false; fileInput.disabled = uploadSession.running; showPhotosSession(); renderFiles(); }
+    } catch (error) {
+      photosStatus.textContent = /Finish selecting your videos/.test(error.message)
+        ? 'Select videos and tap Done in Google Photos, then return here.'
+        : error.message;
+      if (!/Finish selecting your videos/.test(error.message)) photosPending = false;
+    } finally {
+      photosImporting = false;
+      renderFiles();
+    }
+  }
+  window.addEventListener('focus', () => { if (page.isConnected) void importPhotosOnReturn(); });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && page.isConnected) void importPhotosOnReturn(); });
+  photosStart.onclick = async () => {
+    if (photosPending && photosSession) {
+      window.open(photosSession.url, '_blank');
+      return;
+    }
+    // Open a blank tab synchronously so iOS Safari/Chrome does not block
+    // the Photos picker after the asynchronous Google authorization request.
+    const pickerTab = window.open('about:blank', '_blank');
+    photosStart.disabled = true;
+    photosStatus.textContent = 'Connecting to Google Photos…';
+    try {
+      const session = await createPhotosSession(connection);
+      if (photosSession) void endPhotosSession(photosSession);
+      photosSession = session;
+      photosPending = true;
+      photosStatus.textContent = 'Select videos, tap Done, then return here. They will be added automatically.';
+      if (pickerTab && !pickerTab.closed) pickerTab.location.replace(session.url);
+      else photosStatus.textContent = 'Your browser blocked the picker tab. Allow pop-ups, then tap Choose from Google Photos again.';
+    } catch (error) {
+      pickerTab?.close();
+      photosStatus.textContent = error.message;
+    } finally {
+      photosStart.disabled = uploadSession.running;
+    }
   };
   danceInput.onchange = () => { uploadSession.dance = danceInput.value; renderFiles(); };
   page.querySelector('#connect-google').onclick = async () => {
