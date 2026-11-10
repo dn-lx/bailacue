@@ -5,11 +5,12 @@ const SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly'
 async function request(url, token, options = {}) {
   let response;
   try { response = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } }); }
-  catch { throw new Error('Could not reach Google Photos. Check the connection and try again.'); }
+  catch (error) { throw new Error(`Google Photos connection failed (${url.startsWith('/api/') ? 'BailaCue proxy' : 'media download'}): ${error?.message || 'network error'}.`); }
   if (response.ok) return response;
   if (response.status === 401) throw new Error('Google Photos authorization expired. Choose from Google Photos again.');
   if (response.status === 403) throw new Error('Google Photos access was denied. Check that the Google Photos Picker API is enabled for BailaCue in Google Cloud.');
-  throw new Error(`Google Photos returned HTTP ${response.status}. Try opening a new picker.`);
+  const details = (await response.text().catch(() => '')).slice(0, 160).replace(/<[^>]*>/g, '').trim();
+  throw new Error(`Google Photos request failed (${response.status})${details ? ': ' + details : ''}.`);
 }
 
 export async function createPhotosSession(connection) {
