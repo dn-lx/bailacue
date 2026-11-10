@@ -133,7 +133,7 @@ export class DriveConnection {
       // Refresh names immediately before creating a new file; never overwrite an existing one.
       if (!optimized) {
         const listing = await this.list(job.dance);
-        if (listing.files.some(f => f.name === job.name)) throw new Error('That number was just used by another upload. Choose Recheck number before retrying.');
+        if (listing.files.some(f => f.name.replace(/\\.[^.]+$/, '') === job.name.replace(/\\.[^.]+$/, ''))) throw new Error('That video number is already used in Drive. Choose Recheck number before retrying.');
       }
       const response = await this.request(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=${encodeURIComponent(FIELDS)}`, { method: 'POST', signal,
         headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': job.file.type || 'video/mp4', 'X-Upload-Content-Length': String(job.file.size) },
