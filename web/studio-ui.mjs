@@ -112,6 +112,7 @@ export function renderUpload(page, ctx) {
   function showPhotosSession() {
     photosOpen.hidden = !photosSession;
     photosImport.hidden = !photosSession;
+    photosImport.disabled = !photosSession || photosImporting || uploadSession.running;
     if (photosSession) photosOpen.href = photosSession.url;
   }
   showPhotosSession();
@@ -129,6 +130,8 @@ export function renderUpload(page, ctx) {
   photosImport.onclick = async () => {
     if (!photosSession || uploadSession.running || photosImporting) return;
     photosImporting = true;
+    photosImport.disabled = true;
+    photosStatus.textContent = 'Importing selected videos from Google Photos…';
     fileInput.disabled = true;
     renderFiles();
     const session = photosSession;
@@ -137,14 +140,13 @@ export function renderUpload(page, ctx) {
         numberedName(1, file.name);
         uploadSession.files.push(file);
         renderFiles();
-        photosImport.disabled = true;
       });
       photosSession = null;
       showPhotosSession();
       photosStatus.textContent = count ? `${count} Google Photos videos added to the upload queue.` : 'No videos were selected.';
       void endPhotosSession(session);
     } catch (error) { photosStatus.textContent = error.message; }
-    finally { photosImporting = false; fileInput.disabled = uploadSession.running; renderFiles(); }
+    finally { photosImporting = false; fileInput.disabled = uploadSession.running; showPhotosSession(); renderFiles(); }
   };
   danceInput.onchange = () => { uploadSession.dance = danceInput.value; renderFiles(); };
   page.querySelector('#connect-google').onclick = async () => {
