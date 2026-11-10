@@ -92,7 +92,7 @@ function addRendition(manifest, video, copy, quality) {
 }
 
 let controller;
-export function renderBrowserCompressor(panel, ctx, connectGoogle) {
+export function renderBrowserCompressor(panel, ctx) {
   if (!ctx.admin.isAdmin) return;
   panel.hidden = false;
   panel.innerHTML = `
@@ -102,9 +102,6 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
         <h2 id="browser-compress-title">Video compression</h2>
         <p>Make smaller playback copies from your Google Drive library.</p>
       </div>
-      <span class="compress-connection" data-connected="${ctx.connection.connected}">
-        ${ctx.connection.connected ? 'Drive connected' : 'Drive disconnected'}
-      </span>
     </header>
     <div class="compress-grid">
       <div class="compress-settings">
@@ -113,7 +110,7 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
           <label class="field"><span class="field-label">Batch size</span><select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All eligible videos</option></select></label>
         </div>
         <div class="compress-actions">
-          <button class="button primary" type="button" id="browser-compress-start">${ctx.connection.connected ? 'Start compression' : 'Connect Google Drive'}</button>
+          <button class="button primary" type="button" id="browser-compress-start">Start compression</button>
           <button class="button subtle" type="button" id="browser-compress-stop" hidden>Stop batch</button>
         </div>
       </div>
@@ -128,7 +125,6 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
     </div>
     <footer class="compress-status">
       <p role="status"></p>
-      <button class="text-button" type="button" id="browser-compress-setup" hidden>Open Google connection setup</button>
       <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
       <p class="compress-note">Pilot limits: 100 MB and 5 minutes per video. Keep this tab open and your device awake during a batch.</p>
     </footer>`;
@@ -138,14 +134,6 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
   const limit = panel.querySelector('select#browser-compress-limit');
   const status = panel.querySelector('[role="status"]');
   const progress = panel.querySelector('progress');
-  const setup = panel.querySelector('button#browser-compress-setup');
-  setup.hidden = Boolean(ctx.connection.clientId);
-  setup.onclick = () => {
-    const details = panel.parentElement.querySelector('details.connection-setup');
-    if (!details) return;
-    details.open = true;
-    details.querySelector('input#google-client-id')?.focus();
-  };
   const destinationLink = panel.querySelector('a#browser-compress-folder');
   function showDestination() {
     destinationLink.href = `https://drive.google.com/drive/folders/${COMPRESSED_FOLDERS[dance.value]}`;
@@ -154,7 +142,7 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
   dance.onchange = showDestination;
   showDestination();
   function setRunning(running) {
-    start.disabled = running;
+    start.disabled = running || !ctx.connection.connected;
     dance.disabled = running;
     limit.disabled = running;
     stop.hidden = !running;
@@ -162,7 +150,7 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
   }
   setRunning(Boolean(controller));
   status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
-    ? 'Ready. Try one video first.' : 'Connect the Google account that can read and write the Drive folders.';
+    ? 'Ready. Try one video first.' : '';
   stop.onclick = () => controller?.abort();
   start.onclick = async () => {
     if (controller) return;
@@ -170,16 +158,7 @@ export function renderBrowserCompressor(panel, ctx, connectGoogle) {
       status.textContent = 'Sign in as the BailaCue owner first.';
       return;
     }
-    if (!ctx.connection.connected) {
-      start.disabled = true;
-      status.textContent = 'Waiting for Google authorization…';
-      try {
-        await connectGoogle();
-      } catch (error) {
-        status.textContent = error.message;
-      } finally { start.disabled = false; }
-      return;
-    }
+    if (!ctx.connection.connected) return;
     const selectedDance = dance.value;
     const count = limit.value === 'all' ? Infinity : Number(limit.value);
     const run = async () => {

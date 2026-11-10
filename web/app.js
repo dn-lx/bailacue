@@ -61,7 +61,7 @@ let playbackIndex = -1;
 let toastTimeout;
 let removing = null;
 let localPreviewUrl = '';
-const connection = new DriveConnection(state.googleClientId);
+const connection = new DriveConnection();
 const admin = new BailaCueAdmin();
 const streamMap = new Map();
 const optimizedMap = new Map();
@@ -398,6 +398,11 @@ async function loadSharedContent() {
   for (const item of rows) {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    if (key === 'config:google-drive' && typeof v.clientId === 'string' &&
+        /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(v.clientId)) {
+      if (connection.clientId !== v.clientId) connection.disconnect();
+      connection.clientId = v.clientId;
+    }
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
     if (key === 'optimized:manifest') { const manifest = parseOptimizedManifest(v); if (manifest) for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }
     if (key?.startsWith('stream:') && /^drive:[A-Za-z0-9_-]{10,100}$/.test(key.slice(7))) { const converted = parseStreamDelivery(v); if (converted) streamMap.set(key.slice(7), converted); }

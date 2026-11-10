@@ -19,7 +19,7 @@ export class DriveConnection {
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
   async prepare() { if (this.clientId) await googleSdk(); }
   connect() {
-    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google uploads need a web OAuth client ID. Open Connection setup below. Browsing and local previews already work.'));
+    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google Drive configuration is unavailable. Reload this page to retry.'));
     const google = (/** @type {any} */ (window)).google;
     if (!google?.accounts?.oauth2) return Promise.reject(new Error('Google is still loading. Tap Connect Google again in a moment.'));
     return new Promise((resolve, reject) => {
@@ -27,7 +27,7 @@ export class DriveConnection {
         callback: response => {
           if (!response.access_token || response.error) {
             const guidance = {
-              invalid_client: 'Google rejected the client ID. Save an OAuth client of type Web application.',
+              invalid_client: 'Google rejected BailaCue’s web client ID. Check its configuration in Google Cloud.',
               unauthorized_client: 'Google rejected this OAuth client for the browser. Check its application type and authorized JavaScript origins.',
               origin_mismatch: 'This site is missing from the OAuth client’s authorized JavaScript origins.',
               access_denied: 'Google access was denied. If your OAuth app is in Testing, add this Google account as a test user.',
