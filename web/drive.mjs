@@ -1,4 +1,4 @@
-import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET } from './optimized-delivery.mjs';
+import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET, QUALITIES } from './optimized-delivery.mjs';
 import { SOURCES } from './core.mjs';
 import { mapDriveFile, nextNumber, numberedName } from './studio-model.mjs';
 
@@ -71,13 +71,14 @@ export class DriveConnection {
     if (!generated.ids?.[0]) throw new Error('Drive could not reserve a file identity.');
     return { id: generated.ids[0], name: numberedName(number, file.name), number, dance, folderId: listing.source.folderId, file, offset: 0, session: '', completed: false };
   }
-  async browserCopy(video, signal) {
+  async browserCopy(video, quality, signal) {
     const folderId = COMPRESSED_FOLDERS[video.dance];
+    if (!QUALITIES.includes(quality)) throw new Error('Choose a supported playback resolution.');
     if (!SOURCES.some(source => source.dance === video.dance && source.folderId === video.folderId) ||
         !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId) || video.id !== 'drive:' + video.providerId) {
       throw new Error('Choose a video from the fixed Drive collections.');
     }
-    const name = `bailacue-browser-${video.providerId}-360p.mp4`;
+    const name = `bailacue-browser-${video.providerId}-${quality}.mp4`;
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and name = '${name}' and trashed = false`,
       fields: `files(${FIELDS},appProperties)`,
@@ -85,7 +86,7 @@ export class DriveConnection {
       includeItemsFromAllDrives: 'true',
     });
     const { files } = await (await this.request(`${API}/files?${params}`, { signal })).json();
-    const appProperties = { bailacueSourceId: video.providerId, bailacueQuality: '360p', bailacuePreset: OPTIMIZED_PRESET };
+    const appProperties = { bailacueSourceId: video.providerId, bailacueQuality: quality, bailacuePreset: OPTIMIZED_PRESET };
     const existing = files?.find(file => file.name === name && file.mimeType === 'video/mp4' &&
       Number(file.size) >= 1024 && Number(file.size) <= 100 * 1024 ** 2 &&
       Object.entries(appProperties).every(([key, value]) => file.appProperties?.[key] === value));
@@ -106,7 +107,7 @@ export class DriveConnection {
 
   async upload(job, onProgress, signal) {
     const optimized = job.folderId === COMPRESSED_FOLDERS[job.dance] &&
-      job.appProperties?.bailacuePreset === OPTIMIZED_PRESET && job.appProperties?.bailacueQuality === '360p';
+      job.appProperties?.bailacuePreset === OPTIMIZED_PRESET && QUALITIES.includes(job.appProperties?.bailacueQuality);
     if (!optimized && !SOURCES.some(s => s.folderId === job.folderId && s.dance === job.dance)) throw new Error('The upload destination must be a fixed dance folder.');
     if (job.completed) return job.completed;
     if (!job.session) {
