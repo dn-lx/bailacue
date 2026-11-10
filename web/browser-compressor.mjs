@@ -1,7 +1,5 @@
 import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET, OPTIMIZED_ROOT, QUALITIES, parseOptimizedManifest, renditions } from './optimized-delivery.mjs';
 
-const MAX_BYTES = 100 * 1024 ** 2;
-const MAX_SECONDS = 300;
 const PROFILES = {
   '360p': { width: 640, height: 360, bitrate: 600_000 },
   '720p': { width: 1280, height: 720, bitrate: 2_000_000 },
@@ -15,9 +13,18 @@ let library;
 export function compressionSize(width, height, quality = '360p') {
   const profile = PROFILES[quality];
   if (!Object.hasOwn(PROFILES, quality) || !Number.isFinite(width) || !Number.isFinite(height) ||
-      Math.min(width, height) < profile.height) return null;
-  const scale = Math.min(profile.width / Math.max(width, height), profile.height / Math.min(width, height));
+      Math.min(width, height) < (quality === '360p' ? 2 : profile.height)) return null;
+  const scale = Math.min(1, profile.width / Math.max(width, height), profile.height / Math.min(width, height));
   return { width: Math.floor(width * scale / 2) * 2, height: Math.floor(height * scale / 2) * 2 };
+}
+
+async function temporaryFile() {
+  if (!navigator.storage?.getDirectory || typeof FileSystemFileHandle === 'undefined' ||
+      !FileSystemFileHandle.prototype.createWritable) return null;
+  const root = await navigator.storage.getDirectory();
+  const name = `bailacue-${crypto.randomUUID()}`;
+  const handle = await root.getFileHandle(name, { create: true });
+  return { handle, remove: () => root.removeEntry(name).catch(() => {}) };
 }
 
 async function openSource(video, connection, report, signal) {
@@ -25,58 +32,81 @@ async function openSource(video, connection, report, signal) {
     throw new Error('This browser does not provide video encoding. Try current Safari on your iPad.');
   }
   const media = await (library ??= import(browserLibrary).catch(error => { library = undefined; throw error; }));
-  if (!video.size || video.size > MAX_BYTES) throw new Error('The source must be at most 100 MB for this pilot.');
   report('Downloading from Drive…', 0);
   const response = await connection.request(`https://www.googleapis.com/drive/v3/files/${video.providerId}?alt=media&supportsAllDrives=true`, { signal });
-  const blob = await response.blob();
-  if (!blob.size || blob.size > MAX_BYTES) throw new Error('The downloaded source exceeds the pilot size limit or is empty.');
-  signal.throwIfAborted();
+  const scratch = await temporaryFile();
+  let blob;
+  try {
+    if (scratch && response.body) {
+      const writable = await scratch.handle.createWritable();
+      await response.body.pipeTo(writable, { signal });
+      blob = await scratch.handle.getFile();
+    } else {
+      blob = await response.blob();
+    }
+    signal.throwIfAborted();
+    if (!blob.size) throw new Error('The downloaded source is empty.');
+  } catch (error) {
+    await scratch?.remove();
+    throw error;
+  }
   const input = new media.Input({ source: new media.BlobSource(blob), formats: media.ALL_FORMATS });
   try {
     const track = await input.getPrimaryVideoTrack();
     if (!track) throw new Error('No supported video track was found.');
     const width = await track.getDisplayWidth(), height = await track.getDisplayHeight();
     const duration = await input.computeDuration();
-    if (!Number.isFinite(duration) || duration <= 0 || duration > MAX_SECONDS) throw new Error('Choose a video that is five minutes or shorter.');
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('The source has no usable duration.');
     const audio = await input.getPrimaryAudioTrack();
-    return { media, input, track, audio, width, height, duration, bytes: blob.size };
+    return { media, input, track, audio, width, height, duration, bytes: blob.size, close: async () => { input.dispose(); await scratch?.remove(); } };
   } catch (error) {
     input.dispose();
+    await scratch?.remove();
     throw error;
   }
 }
 
 async function encode(source, quality, filename, report, signal) {
   const { media, input, track, audio, width, height, duration, bytes } = source;
-  const { Output, Mp4OutputFormat, BufferTarget, Conversion } = media;
+  const { Output, Mp4OutputFormat, BufferTarget, StreamTarget, Conversion } = media;
   const size = compressionSize(width, height, quality);
   const audioBitrate = 96_000;
-  const bitrate = Math.min(PROFILES[quality].bitrate, Math.floor(bytes * 8 / duration * 0.8) - (audio ? audioBitrate : 0));
-  if (bitrate < 40_000) throw new Error('The original bitrate is already too low to make a useful smaller copy.');
-  const target = new BufferTarget();
-  const conversion = await Conversion.init({
-    input, output: new Output({ format: new Mp4OutputFormat({ fastStart: 'in-memory' }), target }),
-    tracks: 'primary',
-    video: { ...size, fit: 'contain', codec: 'avc', bitrate, forceTranscode: true, allowRotationMetadata: false },
-    audio: { codec: 'aac', bitrate: audioBitrate, numberOfChannels: 2, sampleRate: 48_000 },
-    showWarnings: false,
-  });
-  if (!conversion.isValid || !conversion.utilizedTracks.includes(track) ||
-      (audio && !conversion.utilizedTracks.includes(audio))) {
-    throw new Error('This browser could not encode the source as H.264/AAC MP4.');
-  }
-  signal.throwIfAborted();
-  const cancel = () => { conversion.cancel().catch(() => {}); };
-  signal.addEventListener('abort', cancel, { once: true });
+  const bitrate = Math.max(40_000, Math.min(PROFILES[quality].bitrate, Math.floor(bytes * 8 / duration * 0.8) - (audio ? audioBitrate : 0)));
+  const scratch = await temporaryFile();
   try {
-    report(`Compressing ${quality} on this device…`, 0);
-    conversion.onProgress = value => report(`Compressing ${quality} on this device…`, value);
-    await conversion.execute();
-  } finally { signal.removeEventListener('abort', cancel); }
-  signal.throwIfAborted();
-  if (!target.buffer || target.buffer.byteLength < 1024) throw new Error('The encoder returned an empty file.');
-  if (target.buffer.byteLength >= bytes) throw new Error('The compressed copy would be larger than the original.');
-  return new File([target.buffer], filename, { type: 'video/mp4' });
+    const buffer = scratch ? null : new BufferTarget();
+    const target = scratch
+      ? new StreamTarget(await scratch.handle.createWritable(), { chunked: true })
+      : buffer;
+    const conversion = await Conversion.init({
+      input, output: new Output({ format: new Mp4OutputFormat({ fastStart: scratch ? false : 'in-memory' }), target }),
+      tracks: 'primary',
+      video: { ...size, fit: 'contain', codec: 'avc', bitrate, forceTranscode: true, allowRotationMetadata: false },
+      audio: { codec: 'aac', bitrate: audioBitrate, numberOfChannels: 2, sampleRate: 48_000 },
+      showWarnings: false,
+    });
+    if (!conversion.isValid || !conversion.utilizedTracks.includes(track) ||
+        (audio && !conversion.utilizedTracks.includes(audio))) {
+      throw new Error('This browser could not encode the source as H.264/AAC MP4.');
+    }
+    signal.throwIfAborted();
+    const cancel = () => { conversion.cancel().catch(() => {}); };
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      report(`Compressing ${quality} on this device…`, 0);
+      conversion.onProgress = value => report(`Compressing ${quality} on this device…`, value);
+      await conversion.execute();
+    } finally { signal.removeEventListener('abort', cancel); }
+    signal.throwIfAborted();
+    const data = scratch ? await scratch.handle.getFile() : buffer?.buffer;
+    if (!data) throw new Error('The encoder returned an empty file.');
+    const file = new File([data], filename, { type: 'video/mp4' });
+    if (file.size < 1024) throw new Error('The encoder returned an empty file.');
+    return { file, remove: scratch?.remove };
+  } catch (error) {
+    await scratch?.remove();
+    throw error;
+  }
 }
 
 function addRendition(manifest, video, copy, quality) {
@@ -92,6 +122,14 @@ function addRendition(manifest, video, copy, quality) {
 }
 
 let controller;
+const automatic = new Map();
+
+export function pendingCopies(video, entry) {
+  const dimensions = probedDimensions.get(video.id + ':' + video.updatedAt) || video;
+  const published = new Set(renditions(entry).map(item => item.quality));
+  return QUALITIES.filter(quality => !published.has(quality) &&
+    (!dimensions.width || !dimensions.height || compressionSize(dimensions.width, dimensions.height, quality)));
+}
 export function renderBrowserCompressor(panel, ctx) {
   if (!ctx.admin.isAdmin) return;
   panel.hidden = false;
@@ -117,16 +155,16 @@ export function renderBrowserCompressor(panel, ctx) {
       <div class="compress-output">
         <span class="field-label">Playback copies · MP4</span>
         <ul class="compress-resolutions" aria-label="Output resolutions">
-          <li>360p</li><li>720p</li><li>1080p</li>
+          <li title="Up to 360p for lower-resolution originals">360p</li><li>720p</li><li>1080p</li>
         </ul>
         <p>Uses the resolutions each original supports.</p>
         <a id="browser-compress-folder" target="_blank" rel="noopener noreferrer"></a>
       </div>
     </div>
     <footer class="compress-status">
-      <p role="status"></p>
+      <p id="browser-compress-pending" class="compress-note"></p><p role="status"></p>
       <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
-      <p class="compress-note">Pilot limits: 100 MB and 5 minutes per video. Keep this tab open and your device awake during a batch.</p>
+      <p class="compress-note">Keep this tab open and your device awake during compression. Completed copies are saved as each resolution finishes.</p>
     </footer>`;
   const start = panel.querySelector('button#browser-compress-start');
   const stop = panel.querySelector('button#browser-compress-stop');
@@ -139,8 +177,26 @@ export function renderBrowserCompressor(panel, ctx) {
     destinationLink.href = `https://drive.google.com/drive/folders/${COMPRESSED_FOLDERS[dance.value]}`;
     destinationLink.textContent = `Open ${dance.value}-compressed ↗`;
   }
-  dance.onchange = showDestination;
+  const pending = panel.querySelector('#browser-compress-pending');
+  let scanVersion = 0;
+  async function scan() {
+    const version = ++scanVersion;
+    const collection = dance.value;
+    const cached = ctx.videos().filter(video => video.provider === 'drive' && video.dance === collection);
+    pending.textContent = ctx.connection.connected ? 'Checking Drive for videos that need playback copies…' : '';
+    try {
+      const videos = ctx.connection.connected ? (await ctx.connection.list(collection)).videos : cached;
+      if (version !== scanVersion) return;
+      const count = videos.filter(video => pendingCopies(video, ctx.optimizedFor(video)).length).length;
+      pending.textContent = count ? `${count} ${count === 1 ? 'video needs' : 'videos need'} playback copies in ${collection}.`
+        : `No missing playback copies found in ${collection}.`;
+    } catch (error) {
+      if (version === scanVersion) pending.textContent = 'Could not check Drive: ' + error.message;
+    }
+  }
+  dance.onchange = () => { showDestination(); void scan(); };
   showDestination();
+  void scan();
   function setRunning(running) {
     start.disabled = running || !ctx.connection.connected;
     dance.disabled = running;
@@ -152,15 +208,29 @@ export function renderBrowserCompressor(panel, ctx) {
   status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
     ? 'Ready. Try one video first.' : '';
   stop.onclick = () => controller?.abort();
-  start.onclick = async () => {
+  start.onclick = () => startBatch(dance.value);
+  panel.addEventListener('bailacue-uploaded', event => {
+    const originals = (/** @type {CustomEvent} */ (event)).detail;
+    for (const video of originals) automatic.set(video.id, video);
+    void drainAutomatic();
+  });
+  async function drainAutomatic() {
+    if (controller || !ctx.connection.connected || !automatic.size) return;
+    const collection = automatic.values().next().value.dance;
+    const originals = [...automatic.values()].filter(video => video.dance === collection);
+    for (const video of originals) automatic.delete(video.id);
+    dance.value = collection;
+    showDestination();
+    await startBatch(collection, originals);
+  }
+  async function startBatch(selectedDance, only = null) {
     if (controller) return;
     if (!ctx.admin.isAdmin) {
       status.textContent = 'Sign in as the BailaCue owner first.';
       return;
     }
     if (!ctx.connection.connected) return;
-    const selectedDance = dance.value;
-    const count = limit.value === 'all' ? Infinity : Number(limit.value);
+    const count = only || limit.value === 'all' ? Infinity : Number(limit.value);
     const run = async () => {
       const { signal } = controller;
       const report = (message, value) => {
@@ -168,26 +238,17 @@ export function renderBrowserCompressor(panel, ctx) {
         status.textContent = message;
       };
       const readManifest = async () => {
-        const raw = (await ctx.admin.readContent()).find(row => row.key === 'optimized:manifest')?.payload;
+        const raw = (await ctx.admin.readContent('optimized:manifest')).find(row => row.key === 'optimized:manifest')?.payload;
         const parsed = raw == null ? null : parseOptimizedManifest(raw);
         if (raw != null && !parsed) throw new Error('The existing playback manifest could not be read safely.');
         return parsed;
       };
       report('Checking Drive and existing copies…', 0);
-      const [listing, manifest] = await Promise.all([ctx.connection.list(selectedDance), readManifest()]);
-      const known = new Set(ctx.videos().map(video => video.id));
-      const destination = COMPRESSED_FOLDERS[selectedDance];
-      const published = new Map((manifest?.entries || []).map(entry => [
-        entry.sourceId, new Set(renditions(entry).filter(item => item.folderId === destination).map(item => item.quality)),
-      ]));
-      const missingFor = video => {
-        const dimensions = probedDimensions.get(video.id + ':' + video.updatedAt) || video;
-        return QUALITIES.filter(quality => !published.get(video.id)?.has(quality) &&
-          (!dimensions.width || !dimensions.height || compressionSize(dimensions.width, dimensions.height, quality)));
-      };
-      const candidates = listing.videos.filter(video => known.has(video.id) &&
-        video.size > 0 && video.size <= MAX_BYTES && (!video.duration || video.duration <= MAX_SECONDS))
-        .map(video => ({ video, missing: missingFor(video) }))
+      const [originals, manifest] = await Promise.all([
+        only || ctx.connection.list(selectedDance).then(listing => listing.videos), readManifest(),
+      ]);
+      const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
+      const candidates = originals.map(video => ({ video, missing: pendingCopies(video, published.get(video.id)) }))
         .filter(item => item.missing.length).slice(0, count);
       if (!candidates.length) { report('No eligible videos need more playback copies in this collection.', 0); return; }
       let saved = 0, skipped = 0, failureCount = 0;
@@ -202,19 +263,23 @@ export function renderBrowserCompressor(panel, ctx) {
         if (!ctx.admin.isAdmin) throw new Error('Sign in again before continuing.');
         const step = (message, value) => report(`${index + 1}/${candidates.length} · ${video.filename} · ${message}`, value);
         let source;
+        let loadingSource;
         try {
+          await ctx.ensureDriveOriginal(video);
           for (const quality of missing) {
             signal.throwIfAborted();
             try {
               const copy = await ctx.connection.browserCopy(video, quality, signal);
               let result = copy.existing;
               if (!result) {
-                source ??= await openSource(video, ctx.connection, step, signal);
+                source ??= await (loadingSource ??= openSource(video, ctx.connection, step, signal));
                 probedDimensions.set(video.id + ':' + video.updatedAt, { width: source.width, height: source.height });
                 if (!compressionSize(source.width, source.height, quality)) { skipped++; continue; }
-                const file = await encode(source, quality, copy.name, step, signal);
-                result = await ctx.connection.uploadBrowserCopy(video, copy, file,
-                  (bytes, total) => step(`Uploading ${quality} to Drive…`, bytes / total), signal);
+                const encoded = await encode(source, quality, copy.name, step, signal);
+                try {
+                  result = await ctx.connection.uploadBrowserCopy(video, copy, encoded.file,
+                    (bytes, total) => step(`Uploading ${quality} to Drive…`, bytes / total), signal);
+                } finally { await encoded.remove?.(); }
               }
               signal.throwIfAborted();
               const next = addRendition(await readManifest(), video, result, quality);
@@ -222,7 +287,8 @@ export function renderBrowserCompressor(panel, ctx) {
               saved++;
             } catch (error) { recordFailure(`${video.filename} (${quality})`, error); }
           }
-        } finally { source?.input.dispose(); }
+        } catch (error) { recordFailure(video.filename, error); }
+        finally { await source?.close(); }
       }
       report(`Published ${saved} copies across ${candidates.length} videos. ${skipped} above source resolution. ${failureCount} failed.${failures.length ? ' ' + failures.join(' | ') : ''}`, 1);
     };
@@ -239,6 +305,8 @@ export function renderBrowserCompressor(panel, ctx) {
     } finally {
       controller = null;
       setRunning(false);
+      void scan();
+      void drainAutomatic();
     }
-  };
+  }
 }

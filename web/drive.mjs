@@ -19,11 +19,17 @@ export class DriveConnection {
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
   async prepare() { if (this.clientId) await googleSdk(); }
   connect() {
+    return this.authorize(SCOPE).then(response => {
+      this.accessToken = response.access_token;
+      this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000;
+    });
+  }
+  authorize(scope) {
     if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google Drive configuration is unavailable. Reload this page to retry.'));
     const google = (/** @type {any} */ (window)).google;
     if (!google?.accounts?.oauth2) return Promise.reject(new Error('Google is still loading. Tap Connect Google again in a moment.'));
     return new Promise((resolve, reject) => {
-      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope: SCOPE, include_granted_scopes: false,
+      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope, include_granted_scopes: false,
         callback: response => {
           if (!response.access_token || response.error) {
             const guidance = {
@@ -35,8 +41,8 @@ export class DriveConnection {
             reject(new Error(guidance[response.error] || 'Google did not grant Drive access. Check the Google authorization window.'));
             return;
           }
-          if (!google.accounts.oauth2.hasGrantedAllScopes(response, SCOPE)) { reject(new Error('Drive permission is needed to upload into the fixed dance folders.')); return; }
-          this.accessToken = response.access_token; this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000; resolve(undefined);
+          if (!google.accounts.oauth2.hasGrantedAllScopes(response, scope)) { reject(new Error('Google did not grant the requested permission.')); return; }
+          resolve(response);
         }, error_callback: error => reject(new Error(error.type === 'popup_failed_to_open'
           ? 'The Google sign-in popup could not open. Allow popups for BailaCue, then tap Connect again.'
           : 'The Google sign-in window closed before authorization completed. Tap Connect to try again.')) });
@@ -89,19 +95,21 @@ export class DriveConnection {
         !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId) || video.id !== 'drive:' + video.providerId) {
       throw new Error('Choose a video from the fixed Drive collections.');
     }
-    const name = `bailacue-browser-${video.providerId}-${quality}.mp4`;
+    const base = (video.filename || 'video').replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_.()-]+/g, '-').slice(0, 75) || 'video';
+    const simpleName = `${base}-${quality}.mp4`;
     const params = new URLSearchParams({
-      q: `'${folderId}' in parents and name = '${name}' and trashed = false`,
+      q: `'${folderId}' in parents and trashed = false and (name = '${simpleName}' or (appProperties has { key='bailacueSourceId' and value='${video.providerId}' } and appProperties has { key='bailacueQuality' and value='${quality}' }))`,
       fields: `files(${FIELDS},appProperties)`,
       supportsAllDrives: 'true',
       includeItemsFromAllDrives: 'true',
     });
     const { files } = await (await this.request(`${API}/files?${params}`, { signal })).json();
     const appProperties = { bailacueSourceId: video.providerId, bailacueQuality: quality, bailacuePreset: OPTIMIZED_PRESET };
-    const existing = files?.find(file => file.name === name && file.mimeType === 'video/mp4' &&
-      Number(file.size) >= 1024 && Number(file.size) <= 100 * 1024 ** 2 &&
+    const existing = files?.find(file => file.mimeType === 'video/mp4' &&
+      Number.isSafeInteger(Number(file.size)) && Number(file.size) >= 1024 &&
       Object.entries(appProperties).every(([key, value]) => file.appProperties?.[key] === value));
-    if (files?.length && !existing) throw new Error('An unrecognized file already has the browser copy name in Drive.');
+    const name = files?.some(file => file.name === simpleName) && !existing
+      ? `${base}-${video.providerId}-${quality}.mp4` : simpleName;
     return { folderId, name, appProperties, existing: existing ? mapDriveFile(existing, video.dance, folderId) : null };
   }
 

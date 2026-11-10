@@ -1,3 +1,4 @@
+import { createPhotosSession, selectedPhotosVideos, endPhotosSession } from './photos-picker.mjs';
 import { renderBrowserCompressor } from './browser-compressor.mjs';
 import { LABEL_TYPES, createLabel, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
 import { SOURCES } from './core.mjs';
@@ -60,11 +61,13 @@ export function renderLabelManager(page, ctx) {
   page.querySelector('#manage-label-search').oninput = render; page.querySelector('#manage-label-type').onchange = render; render();
 }
 
+let photosSession;
+let photosImporting = false;
 const uploadSession = { files: [], jobs: new Map(), running: false, controller: null, labelIds: [], artistIds: [], dance: 'Salsa', recordedAt: '', notes: '' };
 export function uploadRunning() { return uploadSession.running; }
 export function renderUpload(page, ctx) {
   const connection = ctx.connection;
-  page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">FROM YOUR CAMERA TO YOUR COLLECTION</span><h1>Add your next good move.</h1><p>Preview it, label it, and upload a numbered video to Salsa or Bachata.</p></div></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos to add</strong><span>MP4, MOV, WebM and more · select several at once</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected for this session.' : 'Your folders. Your permission.'}</h2><p>Shared Drive originals play in BailaCue without signing in. Connect Google to add videos to Drive or refresh the original folders.</p><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Authorization stays in memory and expires with Google.' : (connection.clientId ? 'Ready to connect.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section><section class="numbering-card"><span class="eyebrow">NUMBERED, AUTOMATICALLY</span><div class="number-example">0115<span>.mp4</span></div><p>Each dance has its own sequence. BailaCue checks Drive before assigning the next free number and keeps the original file untouched.</p><small>The final number is checked in Drive before upload. Use Recheck number if another device has just uploaded.</small></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><section class="connection-card" id="optimized-card"><span class="eyebrow">FREE VIDEO OPTIMIZATION</span><h2>360p · 720p · 1080p</h2><p>On a computer, run the local FFmpeg helper and select multiple videos at once. It queues each video, saves the untouched original in Salsa or Bachata, creates all suitable playback resolutions without upscaling, and uploads separate optimized copies to Drive. It can also process the existing library once.</p><p class="helper-text"><a href="http://127.0.0.1:38221/" target="_blank" rel="noopener noreferrer">Open local conversion studio (when running on this computer)</a></p><p class="helper-text"><strong>iPad processing (prototype):</strong> <a href="https://github.com/dn-lx/bailacue/tree/develop/ipad-processor" target="_blank" rel="noopener noreferrer">Open BailaCue Processor for iPad</a>. The Swift Playgrounds source imports a whole Google Drive folder (including Salsa and Bachata subfolders), makes compatible local MP4 copies and uploads them to Drive. A one-time iOS Google OAuth client setup and an actual iPad build/test are still required.</p><p><a href="https://drive.google.com/drive/folders/${OPTIMIZED_ROOT}" target="_blank" rel="noopener noreferrer">View optimized playback folders</a></p><p class="helper-text">Google Photos and iCloud sharing links must first be opened and their video files downloaded to the computer. iPhone files can also be transferred by AirDrop to a Mac or by USB.</p><p class="helper-text">After processing, download <strong>bailacue-optimized-manifest.json</strong> from the local studio, then import it below. Your existing video IDs, labels and ratings are preserved.</p><label class="field"><span class="field-label">Optimized video manifest</span><input id="optimized-manifest-file" type="file" accept=".json,application/json"></label><button class="button subtle small" type="button" id="optimized-manifest-import">Publish optimized copies</button><p id="optimized-import-status" role="status" class="helper-text">Only the signed-in BailaCue administrator can publish mappings. No paid encoding service is used.</p></section></aside></div>`;
+  page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">FROM YOUR CAMERA TO YOUR COLLECTION</span><h1>Add your next good move.</h1><p>Preview it, label it, and upload a numbered video to Salsa or Bachata.</p></div></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos from Photos or Files</strong><span>MP4, MOV, WebM and more · select several at once</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button><a id="google-photos-open" target="_blank" rel="noopener noreferrer" hidden>Open Google Photos picker ↗</a><button class="button subtle" type="button" id="google-photos-import" hidden>Add selected videos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected for this session.' : 'Your folders. Your permission.'}</h2><p>Shared Drive originals play in BailaCue without signing in. Connect Google to add videos to Drive or refresh the original folders.</p><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Authorization stays in memory and expires with Google.' : (connection.clientId ? 'Ready to connect.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section><section class="numbering-card"><span class="eyebrow">NUMBERED, AUTOMATICALLY</span><div class="number-example">0115<span>.mp4</span></div><p>Each dance has its own sequence. BailaCue checks Drive before assigning the next free number and keeps the original file untouched.</p><small>The final number is checked in Drive before upload. Use Recheck number if another device has just uploaded.</small></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><section class="connection-card" id="optimized-card"><span class="eyebrow">FREE VIDEO OPTIMIZATION</span><h2>360p · 720p · 1080p</h2><p>On a computer, run the local FFmpeg helper and select multiple videos at once. It queues each video, saves the untouched original in Salsa or Bachata, creates all suitable playback resolutions without upscaling, and uploads separate optimized copies to Drive. It can also process the existing library once.</p><p class="helper-text"><a href="http://127.0.0.1:38221/" target="_blank" rel="noopener noreferrer">Open local conversion studio (when running on this computer)</a></p><p class="helper-text"><strong>iPad processing (prototype):</strong> <a href="https://github.com/dn-lx/bailacue/tree/develop/ipad-processor" target="_blank" rel="noopener noreferrer">Open BailaCue Processor for iPad</a>. The Swift Playgrounds source imports a whole Google Drive folder (including Salsa and Bachata subfolders), makes compatible local MP4 copies and uploads them to Drive. A one-time iOS Google OAuth client setup and an actual iPad build/test are still required.</p><p><a href="https://drive.google.com/drive/folders/${OPTIMIZED_ROOT}" target="_blank" rel="noopener noreferrer">View optimized playback folders</a></p><p class="helper-text">Google Photos and iCloud sharing links must first be opened and their video files downloaded to the computer. iPhone files can also be transferred by AirDrop to a Mac or by USB.</p><p class="helper-text">After processing, download <strong>bailacue-optimized-manifest.json</strong> from the local studio, then import it below. Your existing video IDs, labels and ratings are preserved.</p><label class="field"><span class="field-label">Optimized video manifest</span><input id="optimized-manifest-file" type="file" accept=".json,application/json"></label><button class="button subtle small" type="button" id="optimized-manifest-import">Publish optimized copies</button><p id="optimized-import-status" role="status" class="helper-text">Only the signed-in BailaCue administrator can publish mappings. No paid encoding service is used.</p></section></aside></div>`;
   async function connectGoogle() {
     if (connection.connected) return;
     try {
@@ -96,12 +99,53 @@ export function renderUpload(page, ctx) {
       return `<article class="upload-file"><span class="file-number">${esc(proposed)}</span><div><strong>${esc(file.name)}</strong><small>${(file.size / 1048576).toFixed(1)} MB${job?.completed ? ' · Uploaded' : ''}</small></div><button class="text-button" data-preview="${index}">Preview</button></article>`;
     }).join('');
     page.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => ctx.preview(uploadSession.files[Number(button.dataset.preview)])));
-    page.querySelector('#upload-start').disabled = uploadSession.running || !uploadSession.files.length;
+    page.querySelector('#upload-start').disabled = uploadSession.running || photosImporting || !uploadSession.files.length;
     page.querySelector('#upload-pause').disabled = !uploadSession.running;
-    for (const selector of ['#connect-google', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running);
+    for (const selector of ['#connect-google', '#google-photos-start', '#google-photos-import', '#refresh-drive', '#upload-replan', '[data-preview]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
     danceInput.disabled = uploadSession.running || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
   }
   fileInput.addEventListener('change', () => { if (uploadSession.running) return; try { const files = [...fileInput.files]; for (const file of files) numberedName(1, file.name); uploadSession.files = files; uploadSession.jobs.clear(); page.querySelector('#upload-error').textContent = ''; status.textContent = `${files.length} video${files.length === 1 ? '' : 's'} selected. Review the destination and details.`; renderFiles(); } catch (error) { page.querySelector('#upload-error').textContent = error.message; } });
+  const photosStart = page.querySelector('button#google-photos-start');
+  const photosOpen = page.querySelector('a#google-photos-open');
+  const photosImport = page.querySelector('button#google-photos-import');
+  const photosStatus = page.querySelector('#google-photos-status');
+  function showPhotosSession() {
+    photosOpen.hidden = !photosSession;
+    photosImport.hidden = !photosSession;
+    if (photosSession) photosOpen.href = photosSession.url;
+  }
+  showPhotosSession();
+  photosStart.onclick = async () => {
+    photosStart.disabled = true;
+    try {
+      const session = await createPhotosSession(connection);
+      if (photosSession) void endPhotosSession(photosSession);
+      photosSession = session;
+      showPhotosSession();
+      photosStatus.textContent = 'Open the picker, choose your videos, tap Done, then return here.';
+    } catch (error) { photosStatus.textContent = error.message; }
+    finally { photosStart.disabled = uploadSession.running; }
+  };
+  photosImport.onclick = async () => {
+    if (!photosSession || uploadSession.running || photosImporting) return;
+    photosImporting = true;
+    fileInput.disabled = true;
+    renderFiles();
+    const session = photosSession;
+    try {
+      const count = await selectedPhotosVideos(session, file => {
+        numberedName(1, file.name);
+        uploadSession.files.push(file);
+        renderFiles();
+        photosImport.disabled = true;
+      });
+      photosSession = null;
+      showPhotosSession();
+      photosStatus.textContent = count ? `${count} Google Photos videos added to the upload queue.` : 'No videos were selected.';
+      void endPhotosSession(session);
+    } catch (error) { photosStatus.textContent = error.message; }
+    finally { photosImporting = false; fileInput.disabled = uploadSession.running; renderFiles(); }
+  };
   danceInput.onchange = () => { uploadSession.dance = danceInput.value; renderFiles(); };
   page.querySelector('#connect-google').onclick = async () => {
     if (connection.connected) {
@@ -117,9 +161,10 @@ export function renderUpload(page, ctx) {
   page.querySelector('#upload-pause').onclick = () => uploadSession.controller?.abort();
   page.querySelector('#upload-start').onclick = async () => {
     if (!connection.connected) { page.querySelector('#upload-error').textContent = 'Connect Google before uploading. You can preview selected videos now.'; return; }
-    if (!uploadSession.files.length || uploadSession.running) return;
+    if (!uploadSession.files.length || uploadSession.running || photosImporting) return;
     const dance = danceInput.value, details = { labelIds: [...uploadSession.labelIds], artistIds: [...uploadSession.artistIds], recordedAt: page.querySelector('#upload-recorded').value, notes: page.querySelector('#upload-notes').value };
     uploadSession.running = true; uploadSession.controller = new AbortController(); fileInput.disabled = true; page.querySelector('#upload-error').textContent = ''; renderFiles();
+    const uploaded = [];
     const run = async () => {
       for (const file of uploadSession.files) {
         let job = uploadSession.jobs.get(file); if (job?.completed) continue;
@@ -127,14 +172,18 @@ export function renderUpload(page, ctx) {
         status.textContent = `Uploading ${job.name}… keep this tab open.`;
         const result = await connection.upload(job, (bytes, total) => { const percent = Math.floor(bytes / total * 100); page.querySelector('#upload-progress').value = percent; status.textContent = `${job.name} · ${percent}% uploaded`; }, uploadSession.controller.signal);
         ctx.state().drive = [...ctx.state().drive.filter(v => v.id !== result.id), result]; ctx.patchMeta(result.id, details); ctx.save(); renderFiles();
-        // Free offline processor picks this original up from the fixed Drive folder.
-        // Do not trigger the obsolete paid Cloudflare conversion from uploads.
+        uploaded.push(result);
       }
       status.textContent = 'Upload confirmed by Google Drive. Your videos are in the library.'; ctx.toast('Numbered videos uploaded to Drive');
     };
     try { if (navigator.locks) await navigator.locks.request(`bailacue-upload-${dance}`, run); else await run(); }
     catch (error) { if (error.name === 'AbortError') status.textContent = 'Paused. Press Upload to resume the same files in this tab.'; else { page.querySelector('#upload-error').textContent = error.message; status.textContent = 'Not completed. Retry resumes an existing session instead of creating a duplicate.'; } }
-    finally { uploadSession.running = false; uploadSession.controller = null; fileInput.disabled = false; renderFiles(); }
+    finally {
+      uploadSession.running = false; uploadSession.controller = null; fileInput.disabled = false; renderFiles();
+      if (uploaded.length && ctx.admin.isAdmin) {
+        page.querySelector('#browser-compression').dispatchEvent(new CustomEvent('bailacue-uploaded', { detail: uploaded }));
+      }
+    }
   };
 
   page.querySelector('#optimized-manifest-import').onclick = async () => {

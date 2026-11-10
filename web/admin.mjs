@@ -95,9 +95,11 @@ export class BailaCueAdmin {
     this.clear();
   }
 
-  async readContent() {
+  async readContent(key = '') {
     if (!this.ready) return [];
-    const rows = await this.call('/rest/v1/bailacue_web_content?select=key,payload&order=key.asc');
+    const query = new URLSearchParams({ select: 'key,payload', order: 'key.asc' });
+    if (key) query.set('key', 'eq.' + key);
+    const rows = await this.call('/rest/v1/bailacue_web_content?' + query);
     return Array.isArray(rows) ? rows : [];
   }
 

@@ -22,7 +22,6 @@ const NAME = /^[A-Za-z0-9_.()-]{1,190}\.mp4$/i;
 export function parseOptimizedManifest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
       input.rootFolderId !== OPTIMIZED_ROOT || !Array.isArray(input.entries) ||
-      input.entries.length > 1000 ||
       !((input.version === 1 && input.preset === LEGACY_PRESET) ||
         (input.version === 2 && input.preset === OPTIMIZED_PRESET))) return null;
   const entries = [], seenSources = new Set(), seenIds = new Set();
@@ -41,7 +40,6 @@ export function parseOptimizedManifest(input) {
           !FILE_ID.test(variant.driveId || '') ||
           !isOptimizedFolder(raw.dance, variant.folderId) ||
           !Number.isSafeInteger(variant.size) || variant.size < 1024 ||
-          variant.size > 2 * 1024 * 1024 * 1024 ||
           typeof variant.filename !== 'string' || !NAME.test(variant.filename) ||
           seenQualities.has(variant.quality) || seenIds.has(variant.driveId)) return null;
       seenQualities.add(variant.quality); seenIds.add(variant.driveId);

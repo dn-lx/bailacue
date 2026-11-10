@@ -135,7 +135,12 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
+function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
+  if (catalogue.some(item => item.id === video.id)) return;
+  await admin.put('drive:' + video.id, video);
+  state.drive = [...state.drive.filter(item => item.id !== video.id), video];
+  save();
+}, publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
   if (!requireAdmin()) return;
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
