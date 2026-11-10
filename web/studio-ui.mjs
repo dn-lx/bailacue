@@ -1,8 +1,6 @@
 import { createPhotosSession, selectedPhotosVideos, endPhotosSession } from './photos-picker.mjs';
 import { renderBrowserCompressor } from './browser-compressor.mjs';
 import { LABEL_TYPES, createLabel, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
-import { SOURCES } from './core.mjs';
-import { parseOptimizedManifest, OPTIMIZED_ROOT } from './optimized-delivery.mjs';
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 const esc = escapeHtml;
 let pickerSequence = 0;
@@ -67,7 +65,7 @@ const uploadSession = { files: [], jobs: new Map(), running: false, controller: 
 export function uploadRunning() { return uploadSession.running; }
 export function renderUpload(page, ctx) {
   const connection = ctx.connection;
-  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section class="upload-connect-section" aria-label="Google Drive connection"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload.' : (connection.clientId ? 'Connect to upload or compress.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section></section><h2 class="upload-section-heading">Upload videos</h2><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Organise before you upload</h2><p class="helper-text">Applies to all selected videos. The upload date is saved automatically from Google Drive; “Recorded on” is optional and can be edited later.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button><button class="text-button" id="upload-replan">Recheck number</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section><aside class="upload-aside"><section class="numbering-card"><span class="eyebrow">NEXT VIDEO</span><div class="number-example">0115<span>.mp4</span></div></section><section class="source-links">${SOURCES.map(s => `<a href="https://drive.google.com/drive/folders/${s.folderId}" target="_blank" rel="noopener noreferrer">Open ${s.dance} folder <span aria-hidden="true">↗</span></a>`).join('')}<button class="text-button" id="refresh-drive">Refresh both collections</button></section><details class="connection-card" id="optimized-card"><summary title="Advanced playback-copy tools">Advanced tools</summary><p class="helper-text">Use these only when importing playback copies created outside BailaCue.</p><a href="http://127.0.0.1:38221/" target="_blank" rel="noopener noreferrer" title="Open the local FFmpeg converter if it is running">Local converter</a> · <a href="https://github.com/dn-lx/bailacue/tree/develop/ipad-processor" target="_blank" rel="noopener noreferrer" title="Experimental iPad converter source">iPad prototype</a> · <a href="https://drive.google.com/drive/folders/${OPTIMIZED_ROOT}" target="_blank" rel="noopener noreferrer">Playback folders</a><label class="field"><span class="field-label">Playback manifest <span title="Import mappings for externally compressed video copies">ⓘ</span></span><input id="optimized-manifest-file" type="file" accept=".json,application/json"></label><button class="button subtle small" type="button" id="optimized-manifest-import" title="Publish the imported playback-copy mappings">Publish copies</button><p id="optimized-import-status" role="status" class="helper-text"></p></details></aside></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section>`;
+  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section class="upload-connect-section" aria-label="Google Drive connection"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Disconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload.' : (connection.clientId ? 'Connect to upload or compress.' : 'Google Drive configuration is unavailable. Reload this page to retry.')}</p></section></section><h2 class="upload-section-heading">Upload videos</h2><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Video details</h2><p class="helper-text">Applies to selected videos.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section>`;
   async function connectGoogle() {
     if (connection.connected) return;
     try {
@@ -198,8 +196,6 @@ export function renderUpload(page, ctx) {
     }
     try { await connectGoogle(); } catch { /* Connection status already shows the reason. */ }
   };
-  page.querySelector('#refresh-drive').onclick = async () => { try { if (!connection.connected) throw new Error('Connect Google to refresh the live folders.'); status.textContent = 'Reading the two fixed folders…'; const all = []; for (const dance of ['Salsa', 'Bachata']) all.push(...(await connection.list(dance)).videos); ctx.state().drive = all; ctx.save(); status.textContent = `${all.length} videos refreshed from Drive. Personal labels and ratings are kept.`; } catch (error) { page.querySelector('#upload-error').textContent = error.message; } };
-  page.querySelector('#upload-replan').onclick = async () => { try { await verifyDriveNumber(); } catch (error) { liveNumberDance = null; liveNextNumber = null; renderFiles(); page.querySelector('#upload-error').textContent = `Could not verify the number: ${error.message}`; } };
   page.querySelector('#upload-pause').onclick = () => uploadSession.controller?.abort();
   page.querySelector('#upload-start').onclick = async () => {
     if (!connection.connected) { page.querySelector('#upload-error').textContent = 'Connect Google before uploading. You can preview selected videos now.'; return; }
@@ -231,30 +227,6 @@ export function renderUpload(page, ctx) {
     }
   };
 
-  page.querySelector('#optimized-manifest-import').onclick = async () => {
-    const output = page.querySelector('#optimized-import-status');
-    const file = page.querySelector('#optimized-manifest-file').files?.[0];
-    if (!ctx.admin?.isAdmin) { output.textContent = 'Sign in as the administrator before publishing.'; return; }
-    if (!file) { output.textContent = 'Choose the manifest generated by the free local converter.'; return; }
-    if (file.size > 512 * 1024) { output.textContent = 'Manifest is too large. Check the generated JSON.'; return; }
-    let manifest;
-    try { manifest = parseOptimizedManifest(JSON.parse(await file.text())); }
-    catch { manifest = null; }
-    if (!manifest) { output.textContent = 'Invalid BailaCue optimized manifest. No changes were published.'; return; }
-    const originals = new Map(ctx.videos().filter(video => video.provider === 'drive').map(video => [video.id, video]));
-    const invalid = manifest.entries.find(entry => {
-      const original = originals.get(entry.sourceId);
-      return !original || original.dance !== entry.dance;
-    });
-    if (invalid) { output.textContent = 'Manifest includes an unknown source or incorrect dance folder. No changes published.'; return; }
-    const button = page.querySelector('#optimized-manifest-import'); button.disabled = true;
-    try {
-      await ctx.publishOptimizedManifest(manifest);
-      output.textContent = `${manifest.entries.length} verified optimized-copy mappings published. BailaCue now prefers these MP4 versions and keeps original videos as fallback.`;
-    } catch (error) {
-      output.textContent = 'Could not publish optimized copies: ' + error.message;
-    } finally { button.disabled = false; }
-  };
   connection.prepare().catch(error => { const el = page.querySelector('#connection-status'); if (el) el.textContent = error.message; });
   renderFiles();
 }
