@@ -136,16 +136,16 @@ export function renderBrowserCompressor(panel, ctx) {
   panel.innerHTML = `
     <header class="compress-header">
       <div>
-        <span class="eyebrow">BAILACUE STUDIO · ON-DEVICE</span>
+        
         <h2 id="browser-compress-title">Video compression</h2>
-        <p>Make smaller playback copies from your Google Drive library.</p>
+        
       </div>
     </header>
     <div class="compress-grid">
       <div class="compress-settings">
         <div class="compress-fields">
           <label class="field"><span class="field-label">Collection</span><select id="browser-compress-dance"><option>Salsa</option><option>Bachata</option></select></label>
-          <label class="field"><span class="field-label">Batch size</span><select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All eligible videos</option></select></label>
+          <label class="field"><span class="field-label">Batch size</span><select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All videos</option></select></label>
         </div>
         <div class="compress-actions">
           <button class="button primary" type="button" id="browser-compress-start">Start compression</button>
@@ -154,18 +154,18 @@ export function renderBrowserCompressor(panel, ctx) {
         </div>
       </div>
       <div class="compress-output">
-        <span class="field-label">Playback copies · MP4</span>
+        <span class="field-label" title="Available output qualities depend on each original video">Playback quality ⓘ</span>
         <ul class="compress-resolutions" aria-label="Output resolutions">
           <li title="Up to 360p for lower-resolution originals">360p</li><li>720p</li><li>1080p</li>
         </ul>
-        <p>Uses the resolutions each original supports.</p>
+        
         <a id="browser-compress-folder" target="_blank" rel="noopener noreferrer"></a>
       </div>
     </div>
     <footer class="compress-status">
       <p id="browser-compress-pending" class="compress-note"></p><p role="status"></p>
       <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
-      <p class="compress-note">Keep this tab open and your device awake during compression. Completed copies are saved as each resolution finishes.</p>
+      <p class="compress-note" title="On-device compression stops when the browser is suspended">Keep this tab open while compressing.</p>
     </footer>`;
   const start = panel.querySelector('button#browser-compress-start');
   const stop = panel.querySelector('button#browser-compress-stop');
