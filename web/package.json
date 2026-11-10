@@ -15,5 +15,8 @@
   "devDependencies": {
     "jsdom": "26.1.0",
     "typescript": "6.0.3"
+  },
+  "dependencies": {
+    "mediabunny": "1.65.2"
   }
 }
