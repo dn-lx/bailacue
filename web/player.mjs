@@ -348,7 +348,7 @@ export class StudioPlayer {
     if (this.controls.classList.contains('controls-unavailable')) return false;
     if (this.kind === 'native') return !!this.media;
     if (this.kind === 'youtube') return !!this.youtube;
-    // Cross-origin Google Drive and Cloudflare player iframes cannot be controlled by BailaCue.
+    // Cross-origin Google Drive preview iframes cannot be controlled by BailaCue.
     return false;
   }
   updateFullscreenControls() {
