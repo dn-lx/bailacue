@@ -149,6 +149,7 @@ export function renderBrowserCompressor(panel, ctx) {
         </div>
         <div class="compress-actions">
           <button class="button primary" type="button" id="browser-compress-start">Start compression</button>
+          <button class="button subtle" type="button" id="browser-compress-connect" hidden>Connect Google Drive</button>
           <button class="button subtle" type="button" id="browser-compress-stop" hidden>Stop batch</button>
         </div>
       </div>
@@ -168,6 +169,7 @@ export function renderBrowserCompressor(panel, ctx) {
     </footer>`;
   const start = panel.querySelector('button#browser-compress-start');
   const stop = panel.querySelector('button#browser-compress-stop');
+  const connect = panel.querySelector('button#browser-compress-connect');
   const dance = panel.querySelector('select#browser-compress-dance');
   const limit = panel.querySelector('select#browser-compress-limit');
   const status = panel.querySelector('[role="status"]');
@@ -199,14 +201,16 @@ export function renderBrowserCompressor(panel, ctx) {
   void scan();
   function setRunning(running) {
     start.disabled = running || !ctx.connection.connected;
+    connect.hidden = running || ctx.connection.connected;
     dance.disabled = running;
     limit.disabled = running;
     stop.hidden = !running;
     progress.hidden = !running;
   }
+  connect.onclick = () => panel.closest('#browser-compression')?.parentElement?.querySelector('#connect-google')?.click();
   setRunning(Boolean(controller));
   status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
-    ? 'Ready. Try one video first.' : '';
+    ? 'Ready. Try one video first.' : 'Google Drive is disconnected. Connect Google Drive to start compression.';
   stop.onclick = () => controller?.abort();
   start.onclick = () => startBatch(dance.value);
   panel.addEventListener('bailacue-uploaded', event => {
