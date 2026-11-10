@@ -92,7 +92,7 @@ export function renderUpload(page, ctx) {
   labelPicker(page.querySelector('#upload-labels'), { title: 'Labels', labels: () => ctx.state().labels, selected: uploadSession.labelIds, allowCreate: true, onChange: ids => uploadSession.labelIds = ids, onCreate: makeLabel });
   labelPicker(page.querySelector('#upload-artists'), { title: 'Artists & teachers', labels: () => ctx.state().labels, selected: uploadSession.artistIds, artists: true, allowCreate: true, onChange: ids => uploadSession.artistIds = ids, onCreate: makeLabel });
   function renderFiles() {
-    let next = nextNumber(ctx.videos().filter(v => v.dance === danceInput.value).map(v => v.filename || v.title), ctx.state().numbering[danceInput.value]);
+    let next = nextNumber(ctx.videos().filter(v => v.dance === danceInput.value).map(v => v.filename || v.title));
     const example = page.querySelector('.number-example'); if (example) example.innerHTML = `${String(next).padStart(4, '0')}<span>.mp4</span>`;
     page.querySelector('#upload-list').innerHTML = uploadSession.files.map((file, index) => {
       const job = uploadSession.jobs.get(file), proposed = job?.name || numberedName(next++, file.name);
@@ -197,7 +197,7 @@ export function renderUpload(page, ctx) {
     const run = async () => {
       for (const file of uploadSession.files) {
         let job = uploadSession.jobs.get(file); if (job?.completed) continue;
-        if (!job) { status.textContent = `Checking ${dance} and reserving a filename…`; job = await connection.plan(file, dance, ctx.state().numbering[dance]); ctx.state().numbering[dance] = job.number; if (!ctx.save()) throw new Error('Browser storage must work before reserving a numbered upload. Export a backup and free some space.'); uploadSession.jobs.set(file, job); renderFiles(); }
+        if (!job) { status.textContent = `Checking ${dance} and choosing a filename…`; job = await connection.plan(file, dance); uploadSession.jobs.set(file, job); renderFiles(); }
         status.textContent = `Uploading ${job.name}… keep this tab open.`;
         const result = await connection.upload(job, (bytes, total) => { const percent = Math.floor(bytes / total * 100); page.querySelector('#upload-progress').value = percent; status.textContent = `${job.name} · ${percent}% uploaded`; }, uploadSession.controller.signal);
         ctx.state().drive = [...ctx.state().drive.filter(v => v.id !== result.id), result]; ctx.patchMeta(result.id, details); ctx.save(); renderFiles();
