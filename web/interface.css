@@ -2352,3 +2352,44 @@ details > summary:hover::after { color: var(--blue); }
   .compress-grid { grid-template-columns: minmax(0, 1fr); }
   .compress-actions > .button { flex: 1 1 auto; }
 }
+
+
+/* Mobile player: predictable, centered controls with no clipped selectors. */
+@media (max-width: 720px) {
+  #player #media-controls .transport {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: clamp(8px, 3vw, 18px);
+    flex-wrap: nowrap;
+  }
+  #player #media-controls .player-utilities {
+    display: grid;
+    grid-template-columns: minmax(44px, 1fr) auto auto minmax(44px, 1fr);
+    gap: 8px;
+    align-items: center;
+    min-width: 0;
+  }
+  #player #media-controls .volume-control { grid-column: 1; justify-self: start; }
+  #player #media-controls .speed-label:has(#media-quality) { grid-column: 2; }
+  #player #media-controls .speed-label:has(#media-speed) { grid-column: 3; }
+  #player #media-controls .media-display-actions { grid-column: 4; justify-self: end; }
+  #player #media-controls .speed-label { min-width: 0; }
+  #player #media-controls .speed-caption { display: none; }
+  #player #media-controls #media-quality,
+  #player #media-controls #media-speed {
+    width: auto;
+    min-width: 74px;
+    max-width: 92px;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 7px 21px 7px 7px;
+  }
+  #player #media-controls .media-display-actions .media-icon { width: 44px; min-width: 44px; }
+}
+@media (max-width: 380px) {
+  #player #media-controls .player-utilities { gap: 4px; }
+  #player #media-controls #media-quality,
+  #player #media-controls #media-speed { min-width: 66px; max-width: 76px; font-size: 12px; }
+  #player #media-controls .transport { gap: 6px; }
+}
