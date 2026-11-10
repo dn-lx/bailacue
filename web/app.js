@@ -135,7 +135,7 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
+function studioContext() { return { state: () => state, save: () => { const saved = save(); if (saved && admin.isAdmin) { publishLabels(); publishDrive(); } return saved; }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
   if (catalogue.some(item => item.id === video.id)) return;
   await admin.put('drive:' + video.id, video);
   state.drive = [...state.drive.filter(item => item.id !== video.id), video];
