@@ -5,7 +5,7 @@ import { createPhotosSession, selectedPhotosVideos, endPhotosSession } from '../
 test('Photos picker imports only selected videos, pages results and skips already imported IDs', async t => {
   const fetched = [];
   t.mock.method(globalThis, 'fetch', async (raw, options) => {
-    const url = new URL(raw);
+    const url = new URL(raw, 'https://bailacue.test');
     fetched.push([url, options]);
     assert.equal(options.headers.Authorization, 'Bearer photos-token');
     if (url.pathname.endsWith('/sessions')) return Response.json({ id: 'session-one', pickerUri: 'https://photos.google.com/picker/example' });
