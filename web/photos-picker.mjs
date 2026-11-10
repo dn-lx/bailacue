@@ -1,8 +1,11 @@
-const API = 'https://photospicker.googleapis.com/v1';
+// Same-origin proxy avoids browser CORS failures from the Google Photos Picker API.
+const API = '/api/photos-picker/v1';
 const SCOPE = 'https://www.googleapis.com/auth/photospicker.mediaitems.readonly';
 
 async function request(url, token, options = {}) {
-  const response = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } });
+  let response;
+  try { response = await fetch(url, { ...options, headers: { Authorization: `Bearer ${token}`, ...options.headers } }); }
+  catch { throw new Error('Could not reach Google Photos. Check the connection and try again.'); }
   if (response.ok) return response;
   if (response.status === 401) throw new Error('Google Photos authorization expired. Choose from Google Photos again.');
   if (response.status === 403) throw new Error('Google Photos access was denied. Check that the Google Photos Picker API is enabled for BailaCue in Google Cloud.');
@@ -37,7 +40,7 @@ export async function selectedPhotosVideos(session, add) {
       if (url.protocol !== 'https:' || !(url.hostname === 'googleusercontent.com' || url.hostname.endsWith('.googleusercontent.com'))) {
         throw new Error('Google Photos returned an unexpected video download address.');
       }
-      const data = await (await request(url.href + '=dv', session.token)).blob();
+      const data = await (await request('/api/photos-picker/download?url=' + encodeURIComponent(url.href + '=dv'), session.token)).blob();
       if (!data.size) throw new Error('Google Photos returned an empty video.');
       add(new File([data], media.filename, { type: media.mimeType || 'video/mp4' }));
       session.imported.add(item.id);
