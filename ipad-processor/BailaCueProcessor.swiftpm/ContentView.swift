@@ -52,11 +52,11 @@ struct ProcessorHome: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Label("BAILACUE / IPAD VIDEO STUDIO", systemImage: "play.rectangle.on.rectangle")
+            Label("BAILACUE / VIDEO STUDIO", systemImage: "play.rectangle.on.rectangle")
                 .font(.caption.weight(.bold)).tracking(2).foregroundStyle(.mint)
             Text("One folder. Every video.")
                 .font(.system(size: 39, weight: .bold, design: .rounded))
-            Text("Your iPad does the conversion. Originals remain untouched. Optimized copies are saved in the existing Google Drive dance collections.")
+            Text("Your device does the conversion. Originals remain untouched. Optimized copies are saved in the existing Google Drive dance collections.")
                 .foregroundStyle(.secondary)
             HStack(spacing: 14) {
                 metric("\(studio.jobs.count)", "Videos queued")
@@ -179,7 +179,17 @@ struct ProcessorHome: View {
         panel {
             VStack(alignment: .leading, spacing: 14) {
                 Label("02  Choose output qualities", systemImage: "slider.horizontal.3").font(.headline)
-                HStack(spacing: 16) {
+                ForEach(VideoFormat.allCases) { format in
+                    Toggle(format.title, isOn: Binding(
+                        get: { studio.selectedFormats.contains(format) },
+                        set: { enabled in
+                            if enabled { studio.selectedFormats.insert(format) }
+                            else { studio.selectedFormats.remove(format) }
+                        }
+                    ))
+                }
+                .disabled(studio.running)
+                VStack(spacing: 8) {
                     ForEach(VideoQuality.allCases) { quality in
                         Toggle(quality.rawValue, isOn: Binding(
                             get: { studio.selectedQualities.contains(quality) },
@@ -190,7 +200,8 @@ struct ProcessorHome: View {
                         )).toggleStyle(.switch)
                     }
                 }
-                Text("H.264/AAC MP4. No upscaling. 360p, 720p and 1080p are generated when the source resolution supports them.")
+                .disabled(studio.running)
+                Text("MP4 and MOV use H.264 video and AAC audio. Only MP4 is listed in the BailaCue player. Resolution options depend on the source size.")
                     .font(.caption).foregroundStyle(.secondary)
                 Divider()
                 HStack(spacing: 10) {
@@ -247,7 +258,7 @@ struct ProcessorHome: View {
                             Label("Start / Resume conversion", systemImage: "play.fill")
                         }
                         .buttonStyle(.borderedProminent)
-                        .disabled(studio.selectedCount == 0 || studio.selectedQualities.isEmpty || !studio.auth.signedIn)
+                        .disabled(studio.selectedCount == 0 || studio.selectedQualities.isEmpty || studio.selectedFormats.isEmpty || !studio.auth.signedIn)
                     }
                     Spacer()
                 }

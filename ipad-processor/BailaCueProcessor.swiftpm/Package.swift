@@ -10,11 +10,11 @@ let package = Package(
             name: "BailaCue Processor",
             targets: ["AppModule"],
             bundleIdentifier: "app.bailacue.processor",
-            displayVersion: "0.1.0",
-            bundleVersion: "1",
+            displayVersion: "0.2.0",
+            bundleVersion: "2",
             appIcon: .placeholder(icon: .camera),
             accentColor: .presetColor(.blue),
-            supportedDeviceFamilies: [.pad],
+            supportedDeviceFamilies: [.phone, .pad],
             supportedInterfaceOrientations: [.landscapeRight, .landscapeLeft, .portrait, .portraitUpsideDown(.when(deviceFamilies: [.pad]))],
             additionalInfoPlistContentFilePath: "AppInfo.plist"
         )

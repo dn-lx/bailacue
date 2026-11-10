@@ -203,11 +203,11 @@ final class GoogleDriveService {
     }
 
     func uploadOptimized(_ local: URL, source: DriveVideo, dance: Dance,
-                         quality: VideoQuality, name: String) async throws -> Rendition {
+                         quality: VideoQuality, format: VideoFormat, name: String) async throws -> Rendition {
         guard source.parents.contains(dance.sourceFolder), Self.validID(source.id) else {
             throw ProcessorError.invalid("Original must first belong to the fixed Salsa or Bachata collection.")
         }
-        guard name.range(of: "^[A-Za-z0-9_.()-]{1,190}\\.mp4$", options: .regularExpression) != nil else {
+        guard name.range(of: "^[A-Za-z0-9_.()-]{1,190}\\." + format.rawValue + "$", options: .regularExpression) != nil else {
             throw ProcessorError.invalid("Invalid optimized video name.")
         }
         let size = (try FileManager.default.attributesOfItem(atPath: local.path)[.size] as? NSNumber)?.int64Value ?? 0
@@ -216,7 +216,7 @@ final class GoogleDriveService {
         }
         let attributes: [String: String] = [
             "bailacueSourceId": source.id,
-            "bailacuePreset": "h264-aac-ladder-v2",
+            "bailacuePreset": format == .mp4 ? "h264-aac-ladder-v2" : "h264-aac-mov-v1",
             "bailacueQuality": quality.rawValue
         ]
         let metadata: [String: Any] = [
@@ -230,7 +230,7 @@ final class GoogleDriveService {
             parts.url!, method: "POST", data: JSONSerialization.data(withJSONObject: metadata),
             headers: [
                 "Content-Type": "application/json; charset=UTF-8",
-                "X-Upload-Content-Type": "video/mp4",
+                "X-Upload-Content-Type": format.mimeType,
                 "X-Upload-Content-Length": String(size)
             ])
         _ = ignored
@@ -251,7 +251,7 @@ final class GoogleDriveService {
             }
             let end = offset + Int64(length) - 1
             let (data, reply) = try await request(sessionURL, method: "PUT", data: bytes,
-                headers: ["Content-Type": "video/mp4", "Content-Range": "bytes \(offset)-\(end)/\(size)"])
+                headers: ["Content-Type": format.mimeType, "Content-Range": "bytes \(offset)-\(end)/\(size)"])
             if [200, 201].contains(reply.statusCode) {
                 let video = try file(json(data))
                 guard video.parents.contains(dance.destinationFolder), video.name == name,
