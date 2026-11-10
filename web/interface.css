@@ -2268,3 +2268,81 @@ details > summary:hover::after { color: var(--blue); }
 @media (prefers-reduced-motion: reduce) {
   #player #video-frame[aria-busy="true"]::after { animation: none; }
 }
+
+/* Owner compression panel */
+#browser-compression {
+  margin-bottom: 24px;
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+#browser-compression [hidden] { display: none; }
+.compress-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.compress-header h2 {
+  margin: 6px 0;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.15;
+}
+.compress-header p, .compress-output p { margin: 0; color: var(--muted); }
+.compress-connection {
+  padding: 6px 11px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+}
+.compress-connection[data-connected="true"] { background: var(--soft); color: var(--blue); }
+.compress-grid, .compress-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.compress-settings, .compress-output {
+  padding: clamp(12px, 2.2vw, 18px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.compress-fields .field { min-width: 0; margin: 0; }
+.compress-fields select { width: 100%; min-height: 44px; font-size: 16px; }
+.compress-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.compress-actions .button { min-height: 44px; }
+.compress-output { background: var(--bg); }
+.compress-resolutions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 8px 0 10px;
+  list-style: none;
+}
+.compress-resolutions li {
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--blue);
+  font-weight: 700;
+}
+.compress-output a { display: inline-flex; align-items: center; min-height: 44px; color: var(--blue); }
+.compress-status {
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  text-align: start;
+}
+.compress-status p { margin: 0; overflow-wrap: anywhere; }
+.compress-status progress { width: 100%; height: 10px; margin: 8px 0; accent-color: var(--blue); }
+.compress-status .compress-note { margin-top: 4px; color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  .compress-grid { grid-template-columns: minmax(0, 1fr); }
+  .compress-actions > .button { flex: 1 1 auto; }
+}

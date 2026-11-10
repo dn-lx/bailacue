@@ -96,29 +96,75 @@ export function renderBrowserCompressor(panel, ctx) {
   if (!ctx.admin.isAdmin) return;
   panel.hidden = false;
   panel.innerHTML = `
-    <span class="eyebrow">BROWSER COMPRESSION PILOT</span>
-    <h2>Compress Drive videos on this device</h2>
-    <p>Save smaller 360p, 720p and 1080p MP4 copies when the source supports them to Salsa-compressed or Bachata-compressed inside Dancing. Start with one short clip. Keep this page open and your device awake. Pilot limit: 100 MB and five minutes per video.</p>
-    <label class="field">Collection <select id="browser-compress-dance"><option>Salsa</option><option>Bachata</option></select></label>
-    <label class="field">Batch size <select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All eligible videos</option></select></label>
-    <button class="button primary" type="button" id="browser-compress-start">Start compression</button>
-    <button class="button subtle" type="button" id="browser-compress-stop">Stop</button>
-    <progress max="100" value="0" aria-label="Current compression step progress"></progress>
-    <p class="helper-text" role="status"></p>`;
+    <header class="compress-header">
+      <div>
+        <span class="eyebrow">BAILACUE STUDIO · ON-DEVICE</span>
+        <h2 id="browser-compress-title">Video compression</h2>
+        <p>Make smaller playback copies from your Google Drive library.</p>
+      </div>
+      <span class="compress-connection" data-connected="${ctx.connection.connected}">
+        ${ctx.connection.connected ? 'Drive connected' : 'Drive disconnected'}
+      </span>
+    </header>
+    <div class="compress-grid">
+      <div class="compress-settings">
+        <div class="compress-fields">
+          <label class="field"><span class="field-label">Collection</span><select id="browser-compress-dance"><option>Salsa</option><option>Bachata</option></select></label>
+          <label class="field"><span class="field-label">Batch size</span><select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All eligible videos</option></select></label>
+        </div>
+        <div class="compress-actions">
+          <button class="button primary" type="button" id="browser-compress-start">${ctx.connection.connected ? 'Start compression' : 'Connect Google Drive'}</button>
+          <button class="button subtle" type="button" id="browser-compress-stop" hidden>Stop batch</button>
+        </div>
+      </div>
+      <div class="compress-output">
+        <span class="field-label">Playback copies · MP4</span>
+        <ul class="compress-resolutions" aria-label="Output resolutions">
+          <li>360p</li><li>720p</li><li>1080p</li>
+        </ul>
+        <p>Uses the resolutions each original supports.</p>
+        <a id="browser-compress-folder" target="_blank" rel="noopener noreferrer"></a>
+      </div>
+    </div>
+    <footer class="compress-status">
+      <p role="status"></p>
+      <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
+      <p class="compress-note">Pilot limits: 100 MB and 5 minutes per video. Keep this tab open and your device awake during a batch.</p>
+    </footer>`;
   const start = panel.querySelector('button#browser-compress-start');
   const stop = panel.querySelector('button#browser-compress-stop');
   const dance = panel.querySelector('select#browser-compress-dance');
   const limit = panel.querySelector('select#browser-compress-limit');
   const status = panel.querySelector('[role="status"]');
   const progress = panel.querySelector('progress');
-  start.disabled = Boolean(controller);
-  stop.disabled = !controller;
-  if (controller) status.textContent = 'A compression batch is running.';
+  const destinationLink = panel.querySelector('a#browser-compress-folder');
+  function showDestination() {
+    destinationLink.href = `https://drive.google.com/drive/folders/${COMPRESSED_FOLDERS[dance.value]}`;
+    destinationLink.textContent = `Open ${dance.value}-compressed ↗`;
+  }
+  dance.onchange = showDestination;
+  showDestination();
+  function setRunning(running) {
+    start.disabled = running;
+    dance.disabled = running;
+    limit.disabled = running;
+    stop.hidden = !running;
+    progress.hidden = !running;
+  }
+  setRunning(Boolean(controller));
+  status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
+    ? 'Ready. Try one video first.' : 'Connect the Google account that can read and write the Drive folders.';
   stop.onclick = () => controller?.abort();
   start.onclick = async () => {
     if (controller) return;
-    if (!ctx.admin.isAdmin || !ctx.connection.connected) {
-      status.textContent = 'Sign in as the BailaCue owner and connect Google Drive first.';
+    if (!ctx.admin.isAdmin) {
+      status.textContent = 'Sign in as the BailaCue owner first.';
+      return;
+    }
+    if (!ctx.connection.connected) {
+      const button = panel.parentElement.querySelector('button#connect-google');
+      button?.scrollIntoView({ block: 'center' });
+      button?.click();
       return;
     }
     const selectedDance = dance.value;
@@ -189,8 +235,8 @@ export function renderBrowserCompressor(panel, ctx) {
       report(`Published ${saved} copies across ${candidates.length} videos. ${skipped} above source resolution. ${failureCount} failed.${failures.length ? ' ' + failures.join(' | ') : ''}`, 1);
     };
     controller = new AbortController();
-    start.disabled = true;
-    stop.disabled = false;
+    setRunning(true);
+    status.textContent = 'Preparing the batch…';
     try {
       if (navigator.locks) await navigator.locks.request('bailacue-optimized-manifest', { signal: controller.signal }, run);
       else await run();
@@ -200,8 +246,7 @@ export function renderBrowserCompressor(panel, ctx) {
         : error.message;
     } finally {
       controller = null;
-      start.disabled = false;
-      stop.disabled = true;
+      setRunning(false);
     }
   };
 }
