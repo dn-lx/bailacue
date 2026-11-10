@@ -32,8 +32,9 @@ export async function selectedPhotosVideos(session, add) {
     for (const item of page.mediaItems || []) {
       if (item.type !== 'VIDEO' || session.imported.has(item.id)) continue;
       const media = item.mediaFile;
+      if (!media?.baseUrl || !media?.filename) throw new Error('Google Photos did not provide a downloadable video. Try selecting it again.');
       const url = new URL(media.baseUrl);
-      if (url.protocol !== 'https:' || !url.hostname.endsWith('.googleusercontent.com')) {
+      if (url.protocol !== 'https:' || !(url.hostname === 'googleusercontent.com' || url.hostname.endsWith('.googleusercontent.com'))) {
         throw new Error('Google Photos returned an unexpected video download address.');
       }
       const data = await (await request(url.href + '=dv', session.token)).blob();
