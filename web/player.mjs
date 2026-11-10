@@ -274,7 +274,7 @@ export class StudioPlayer {
     for (const select of [this.$('#media-quality'), this.fsQuality]) {
       if (!select) continue;
       const label = select.closest('label');
-      if (label) label.hidden = entries.length === 0;
+      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive'; label.title = entries.length ? 'Choose an available playback resolution' : 'Only the original is available until playback copies are created'; }
       for (const option of select.options) {
         option.disabled = option.value !== 'original' && !available.has(option.value);
       }
