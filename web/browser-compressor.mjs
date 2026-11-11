@@ -143,10 +143,6 @@ export function renderBrowserCompressor(panel, ctx) {
     </header>
     <div class="compress-grid">
       <div class="compress-settings">
-        <div class="compress-fields">
-          <label class="field"><span class="field-label">Collection</span><select id="browser-compress-dance"><option>Salsa</option><option>Bachata</option></select></label>
-          <label class="field"><span class="field-label">Batch size</span><select id="browser-compress-limit"><option value="1">1 video</option><option value="5">Up to 5 videos</option><option value="20">Up to 20 videos</option><option value="all">All videos</option></select></label>
-        </div>
         <div class="compress-actions">
           <button class="button primary" type="button" id="browser-compress-start">Start compression</button>
           <button class="button subtle" type="button" id="browser-compress-stop" hidden>Stop batch</button>
@@ -158,49 +154,59 @@ export function renderBrowserCompressor(panel, ctx) {
           <li title="Up to 360p for lower-resolution originals">360p</li><li>720p</li><li>1080p</li>
         </ul>
         
-        <a id="browser-compress-folder" target="_blank" rel="noopener noreferrer"></a>
+
       </div>
     </div>
     <footer class="compress-status">
-      <p id="browser-compress-pending" class="compress-note"></p><p role="status"></p>
+      <p id="browser-compress-pending" class="compress-note"></p><div id="browser-compress-missing" class="compress-missing" aria-live="polite"></div><p role="status"></p>
       <progress max="100" value="0" aria-label="Current compression step progress" hidden></progress>
       <p class="compress-note" title="On-device compression stops when the browser is suspended">Keep this tab open while compressing.</p>
     </footer>`;
   const start = panel.querySelector('button#browser-compress-start');
   const stop = panel.querySelector('button#browser-compress-stop');
-  const dance = panel.querySelector('select#browser-compress-dance');
-  const limit = panel.querySelector('select#browser-compress-limit');
   const status = panel.querySelector('[role="status"]');
   const progress = panel.querySelector('progress');
-  const destinationLink = panel.querySelector('a#browser-compress-folder');
-  function showDestination() {
-    destinationLink.href = `https://drive.google.com/drive/folders/${COMPRESSED_FOLDERS[dance.value]}`;
-    destinationLink.textContent = `Open ${dance.value}-compressed ↗`;
-  }
+  const missingList = panel.querySelector('#browser-compress-missing');
   const pending = panel.querySelector('#browser-compress-pending');
   let scanVersion = 0;
   async function scan() {
     const version = ++scanVersion;
-    const collection = dance.value;
-    const cached = ctx.videos().filter(video => video.provider === 'drive' && video.dance === collection);
-    pending.textContent = ctx.connection.connected ? 'Checking Drive for videos that need playback copies…' : '';
+    pending.textContent = ctx.connection.connected ? 'Checking both Drive collections…' : 'Connect Google Drive above to check conversions.';
+    missingList.replaceChildren();
     try {
-      const videos = ctx.connection.connected ? (await ctx.connection.list(collection)).videos : cached;
+      const [salsa, bachata] = await Promise.all(['Salsa', 'Bachata'].map(collection =>
+        ctx.connection.connected ? ctx.connection.list(collection).then(listing => listing.videos)
+          : Promise.resolve(ctx.videos().filter(video => video.provider === 'drive' && video.dance === collection))));
+      const raw = ctx.admin.isAdmin ? (await ctx.admin.readContent('optimized:manifest')).find(row => row.key === 'optimized:manifest')?.payload : null;
+      const manifest = raw == null ? null : parseOptimizedManifest(raw);
+      if (raw != null && !manifest) throw new Error('Cannot verify existing playback copies.');
       if (version !== scanVersion) return;
-      const count = videos.filter(video => pendingCopies(video, ctx.optimizedFor(video)).length).length;
-      pending.textContent = count ? `${count} ${count === 1 ? 'video needs' : 'videos need'} playback copies in ${collection}.`
-        : `No missing playback copies found in ${collection}.`;
+      const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
+      const incomplete = [...salsa, ...bachata].map(video => ({
+        video, missing: QUALITIES.filter(quality => !renditions(published.get(video.id)).some(copy => copy.quality === quality))
+      })).filter(item => item.missing.length);
+      pending.textContent = incomplete.length ? `${incomplete.length} videos missing one or more compressed versions.`
+        : 'All videos have all three compressed versions.';
+      const list = document.createElement('div');
+      list.className = 'compress-missing-list';
+      for (const { video, missing } of incomplete) {
+        const row = document.createElement('div');
+        row.className = 'compress-missing-row';
+        const name = document.createElement('span');
+        name.textContent = `${video.dance} · ${video.filename || video.title}`;
+        const qualities = document.createElement('span');
+        qualities.textContent = `Compressed version not available: ${missing.join(', ')}`;
+        row.append(name, qualities);
+        list.append(row);
+      }
+      missingList.replaceChildren(list);
     } catch (error) {
-      if (version === scanVersion) pending.textContent = 'Could not check Drive: ' + error.message;
+      if (version === scanVersion) pending.textContent = 'Could not check conversions: ' + error.message;
     }
   }
-  dance.onchange = () => { showDestination(); void scan(); };
-  showDestination();
   void scan();
   function setRunning(running) {
     start.disabled = running || !ctx.connection.connected;
-    dance.disabled = running;
-    limit.disabled = running;
     stop.hidden = !running;
     progress.hidden = !running;
   }
@@ -208,7 +214,7 @@ export function renderBrowserCompressor(panel, ctx) {
   status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
     ? 'Ready to compress.' : 'Connect Google Drive above to compress videos.';
   stop.onclick = () => controller?.abort();
-  start.onclick = () => startBatch(dance.value);
+  start.onclick = () => startBatch();
   panel.addEventListener('bailacue-uploaded', event => {
     const originals = (/** @type {CustomEvent} */ (event)).detail;
     for (const video of originals) automatic.set(video.id, video);
@@ -216,21 +222,17 @@ export function renderBrowserCompressor(panel, ctx) {
   });
   async function drainAutomatic() {
     if (controller || !ctx.connection.connected || !automatic.size) return;
-    const collection = automatic.values().next().value.dance;
-    const originals = [...automatic.values()].filter(video => video.dance === collection);
-    for (const video of originals) automatic.delete(video.id);
-    dance.value = collection;
-    showDestination();
-    await startBatch(collection, originals);
+    const originals = [...automatic.values()];
+    automatic.clear();
+    await startBatch(originals);
   }
-  async function startBatch(selectedDance, only = null) {
+  async function startBatch(only = null) {
     if (controller) return;
     if (!ctx.admin.isAdmin) {
       status.textContent = 'Sign in as the BailaCue owner first.';
       return;
     }
     if (!ctx.connection.connected) return;
-    const count = only || limit.value === 'all' ? Infinity : Number(limit.value);
     const run = async () => {
       const { signal } = controller;
       const report = (message, value) => {
@@ -245,12 +247,12 @@ export function renderBrowserCompressor(panel, ctx) {
       };
       report('Checking Drive and existing copies…', 0);
       const [originals, manifest] = await Promise.all([
-        only || ctx.connection.list(selectedDance).then(listing => listing.videos), readManifest(),
+        only || Promise.all([ctx.connection.list('Salsa'), ctx.connection.list('Bachata')]).then(lists => lists.flatMap(list => list.videos)), readManifest(),
       ]);
       const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
       const candidates = originals.map(video => ({ video, missing: pendingCopies(video, published.get(video.id)) }))
-        .filter(item => item.missing.length).slice(0, count);
-      if (!candidates.length) { report('No eligible videos need more playback copies in this collection.', 0); return; }
+        .filter(item => item.missing.length);
+      if (!candidates.length) { report('No eligible videos need more playback copies.', 0); return; }
       let saved = 0, skipped = 0, failureCount = 0;
       const failures = [];
       const recordFailure = (filename, error) => {
