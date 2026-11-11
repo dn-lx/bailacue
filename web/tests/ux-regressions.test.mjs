@@ -335,9 +335,8 @@ test('video-only fullscreen uses BailaCue controls rather than native or Drive c
   assert.match(playerSource, /frame\.allow = 'autoplay; encrypted-media; picture-in-picture'; frame\.allowFullscreen = false/);
   assert.match(playerSource, /this\.kind === 'native'/);
   assert.match(playerSource, /this\.kind === 'youtube'/);
-  assert.match(playerSource, /this\.kind = 'stream'/);
   assert.match(playerSource, /this\.kind = 'preview'/);
-  assert.match(playerSource, /Cross-origin Google Drive and Cloudflare player iframes cannot be controlled/);
+  assert.match(playerSource, /Cross-origin Google Drive preview iframes cannot be controlled/);
   assert.doesNotMatch(playerSource, /webkitEnterFullscreen/);
   assert.match(css, /#player #media-controls #fullscreen-button\[hidden\] \{ display: none !important; \}/);
 });

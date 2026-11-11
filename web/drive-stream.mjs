@@ -1,5 +1,5 @@
 import { SOURCES } from './core.mjs';
-import { OPTIMIZED_FOLDERS, OPTIMIZED_PRESET, LEGACY_PRESET } from './optimized-delivery.mjs';
+import { isOptimizedFolder, OPTIMIZED_PRESET, LEGACY_PRESET } from './optimized-delivery.mjs';
 
 // Stay below Netlify's buffered binary response limit, even if the platform buffers.
 export const MAX_CHUNK = 4 * 1024 * 1024;
@@ -94,7 +94,7 @@ export function createMediaHandler(catalogue, fetcher = fetch, loadPublishedFile
         if (derived?.provider === 'drive' &&
             derived.id === 'drive:' + match[1] && derived.providerId === match[1] &&
             [OPTIMIZED_PRESET, LEGACY_PRESET].includes(derived.optimizedPreset) &&
-            derived.folderId === OPTIMIZED_FOLDERS[derived.dance] &&
+            isOptimizedFolder(derived.dance, derived.folderId) &&
             derived.filename?.endsWith('.mp4') &&
             Number.isSafeInteger(derived.size) && derived.size >= 1024 &&
             /^drive:[A-Za-z0-9_-]{10,100}$/.test(derived.sourceId || '')) {

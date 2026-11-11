@@ -20,7 +20,7 @@ enum VideoEncoder {
         return (Int(abs(box.width)), Int(abs(box.height)))
     }
 
-    static func export(source: URL, quality: VideoQuality, destination: URL) async throws {
+    static func export(source: URL, quality: VideoQuality, format: VideoFormat, destination: URL) async throws {
         let asset = AVURLAsset(url: source)
         guard let track = try await asset.loadTracks(withMediaType: .video).first else {
             throw ProcessorError.invalid("This file contains no playable video track.")
@@ -61,14 +61,30 @@ enum VideoEncoder {
 
         guard let session = AVAssetExportSession(asset: asset,
                                                  presetName: AVAssetExportPresetHighestQuality) else {
-            throw ProcessorError.request("This iPad cannot export the source video.")
+            throw ProcessorError.request("This device cannot export the source video.")
         }
         session.videoComposition = videoComposition
         session.shouldOptimizeForNetworkUse = true
         try? FileManager.default.removeItem(at: destination)
         try Task.checkCancellation()
-        try await session.export(to: destination, as: .mp4)
+        let fileType: AVFileType = format == .mp4 ? .mp4 : .mov
+        guard session.supportedFileTypes.contains(fileType) else {
+            throw ProcessorError.request("This video cannot be exported as \(format.title) on this device.")
+        }
+        session.outputURL = destination
+        session.outputFileType = fileType
+        try await withTaskCancellationHandler {
+            try Task.checkCancellation()
+            await withCheckedContinuation { continuation in
+                session.exportAsynchronously { continuation.resume() }
+            }
+        } onCancel: {
+            session.cancelExport()
+        }
         try Task.checkCancellation()
+        guard session.status == .completed else {
+            throw session.error ?? ProcessorError.request("The video export failed.")
+        }
 
         let output = AVURLAsset(url: destination)
         guard let encoded = try await output.loadTracks(withMediaType: .video).first else {

@@ -2141,6 +2141,10 @@ details > summary:hover::after { color: var(--blue); }
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
 }
 #player #video-only-shell:fullscreen .fs-settings label { justify-self: center; }
+#player #video-only-shell:fullscreen .fs-settings label[hidden] { display: none; }
+#player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) {
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
+}
 #player #video-only-shell:fullscreen .fs-display-actions {
   display: flex; justify-self: end; align-items: center; gap: 6px;
 }
@@ -2195,6 +2199,17 @@ details > summary:hover::after { color: var(--blue); }
   #player #video-only-shell:fullscreen .fs-display-actions { display: contents; }
   #player #video-only-shell:fullscreen .fs-mirror { grid-area: mirror; justify-self: start; }
   #player #video-only-shell:fullscreen .fs-exit { grid-area: expand; justify-self: end; }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) {
+    grid-template-columns: auto auto minmax(44px, 1fr) 44px;
+    grid-template-areas: "volume volume volume volume" "quality speed mirror expand";
+  }
+  #player #video-only-shell:fullscreen .fs-settings label[for="fs-quality"] { grid-area: quality; }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) label > span {
+    display: none;
+  }
+  #player #video-only-shell:fullscreen .fs-settings:has(label[for="fs-quality"]:not([hidden])) .fs-mirror {
+    justify-self: end;
+  }
   #player #video-details-editor .player-info { grid-template-columns: minmax(0, 1fr); gap: 18px; }
 }
 @media (max-width: 380px) {
@@ -2267,4 +2282,174 @@ details > summary:hover::after { color: var(--blue); }
 @keyframes video-loading-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) {
   #player #video-frame[aria-busy="true"]::after { animation: none; }
+}
+
+/* Owner compression panel */
+#browser-compression {
+  margin-bottom: 24px;
+  padding: clamp(16px, 3vw, 28px);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--surface);
+}
+#browser-compression [hidden] { display: none; }
+.compress-header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+.compress-header h2 {
+  margin: 6px 0;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1.15;
+}
+.compress-header p, .compress-output p { margin: 0; color: var(--muted); }
+.compress-grid, .compress-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.compress-settings, .compress-output {
+  padding: clamp(12px, 2.2vw, 18px);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.compress-fields .field { min-width: 0; margin: 0; }
+.compress-fields select { width: 100%; min-height: 44px; font-size: 16px; }
+.compress-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.compress-actions .button { min-height: 44px; }
+.compress-output { background: var(--bg); }
+.compress-resolutions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0;
+  margin: 8px 0 10px;
+  list-style: none;
+}
+.compress-resolutions li {
+  padding: 5px 9px;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--blue);
+  font-weight: 700;
+}
+.compress-output a { display: inline-flex; align-items: center; min-height: 44px; color: var(--blue); }
+.compress-status {
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+  text-align: start;
+}
+.compress-status p { margin: 0; overflow-wrap: anywhere; }
+.compress-status progress { width: 100%; height: 10px; margin: 8px 0; accent-color: var(--blue); }
+.compress-status .compress-note { margin-top: 4px; color: var(--muted); font-size: 12px; }
+@media (max-width: 720px) {
+  .compress-grid { grid-template-columns: minmax(0, 1fr); }
+  .compress-actions > .button { flex: 1 1 auto; }
+}
+
+
+/* Mobile player: one consistent grid; override earlier conflicting area/column rules. */
+@media (max-width: 720px) {
+  #player #media-controls .transport {
+    display: grid;
+    grid-template-columns: 44px 56px 44px;
+    justify-content: center;
+    align-items: center;
+    column-gap: clamp(14px, 5vw, 26px);
+    padding: 4px 0 8px;
+  }
+  #player #media-controls .player-utilities,
+  #player.browser-wide #media-controls .player-utilities {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    grid-template-areas: "volume volume volume" "quality speed display";
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    min-width: 0;
+  }
+  #player #media-controls .volume-control,
+  #player.browser-wide #media-controls .volume-control {
+    grid-area: volume;
+    grid-column: auto;
+    width: 100%;
+    max-width: none;
+    justify-self: stretch;
+    justify-content: center;
+  }
+  #player #media-controls .speed-label[for="media-quality"],
+  #player.browser-wide #media-controls .speed-label[for="media-quality"] {
+    grid-area: quality;
+    grid-column: auto;
+    justify-self: start;
+  }
+  #player #media-controls .speed-label[for="media-speed"],
+  #player.browser-wide #media-controls .speed-label[for="media-speed"] {
+    grid-area: speed;
+    grid-column: auto;
+    justify-self: center;
+  }
+  #player #media-controls .media-display-actions,
+  #player.browser-wide #media-controls .media-display-actions {
+    grid-area: display;
+    grid-column: auto;
+    justify-self: end;
+    display: flex;
+    gap: 2px;
+  }
+  #player #media-controls .speed-label { min-width: 0; max-width: 100%; }
+  #player #media-controls .speed-caption { display: none; }
+  #player #media-controls #media-quality,
+  #player #media-controls #media-speed {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 112px;
+    min-height: 44px;
+    font-size: 13px;
+    padding: 7px 20px 7px 8px;
+  }
+  #player #media-controls .media-display-actions .media-icon {
+    width: 44px; min-width: 44px; height: 44px; min-height: 44px;
+  }
+  #player #media-controls .speed-label[hidden] { display: none !important; }
+}
+@media (max-width: 380px) {
+  #player #media-controls .player-utilities,
+  #player.browser-wide #media-controls .player-utilities { gap: 6px 4px; }
+  #player #media-controls .transport { column-gap: 12px; }
+  #player #media-controls #media-quality,
+  #player #media-controls #media-speed { font-size: 12px; padding-inline: 5px 16px; }
+}
+
+/* Add videos: consistent full-width sections, responsive spacing and alignment. */
+.upload-connect-section { margin: 0 0 24px; }
+.upload-connect-section .connection-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; padding: clamp(18px, 3vw, 28px); }
+.upload-connect-section .connection-card .eyebrow { flex-basis: 100%; }
+.upload-connect-section .connection-card h2 { margin: 0; flex: 1 1 160px; }
+.upload-connect-section .connection-card .helper-text { flex-basis: 100%; margin: 0; }
+.upload-section-heading { margin: 0 0 16px; font-size: clamp(20px, 3vw, 26px); }
+.upload-layout { display: block; width: 100%; margin-bottom: 28px; }
+.upload-layout .upload-main { min-width: 0; width: 100%; max-width: 100%; }
+.upload-layout .upload-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.upload-layout .upload-actions .button { min-height: 44px; }
+.upload-layout .upload-details { margin-top: 22px; }
+.upload-layout .drop-zone { width: 100%; box-sizing: border-box; }
+.upload-layout progress { display: block; width: 100%; margin-top: 18px; }
+#browser-compression { margin-top: 24px; margin-bottom: 24px; }
+@media(max-width: 720px) {
+ .upload-connect-section { margin-bottom: 22px; }
+ .upload-connect-section .connection-card { align-items: stretch; }
+ .upload-connect-section .connection-card h2 { flex-basis: 100%; }
+ .upload-connect-section .connection-card button { width: 100%; }
+ .upload-layout .upload-actions { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; }
+ .upload-layout .upload-actions #google-photos-start { grid-column: 1/-1; width: 100%; }
+ .upload-layout .upload-actions .button { min-width: 0; padding-inline: 10px; }
+ .upload-layout .form-columns { grid-template-columns: minmax(0,1fr); }
 }

@@ -61,7 +61,7 @@ let playbackIndex = -1;
 let toastTimeout;
 let removing = null;
 let localPreviewUrl = '';
-const connection = new DriveConnection(state.googleClientId);
+const connection = new DriveConnection();
 const admin = new BailaCueAdmin();
 const streamMap = new Map();
 const optimizedMap = new Map();
@@ -73,7 +73,6 @@ const pendingMetadata = new Map();
 const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
-  streamFor: video => streamMap.get(video.id),
   optimizedFor: video => optimizedMap.get(video.id),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
@@ -136,7 +135,12 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { save(); if (admin.isAdmin) { publishLabels(); publishDrive(); } }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
+function studioContext() { return { state: () => state, save: () => { const saved = save(); if (saved && admin.isAdmin) { publishLabels(); publishDrive(); } return saved; }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
+  if (catalogue.some(item => item.id === video.id)) return;
+  await admin.put('drive:' + video.id, video);
+  state.drive = [...state.drive.filter(item => item.id !== video.id), video];
+  save();
+}, publishOptimizedManifest: async manifest => { await admin.put('optimized:manifest', manifest); optimizedMap.clear(); for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }, preview: file => {
   if (!requireAdmin()) return;
   if (localPreviewUrl) URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = URL.createObjectURL(file);
   openPlayer('local:preview', null, { id: 'local:preview', provider: 'local', providerId: '', dance: 'Local preview', title: file.name, filename: file.name, size: file.size }, localPreviewUrl);
@@ -398,6 +402,11 @@ async function loadSharedContent() {
   for (const item of rows) {
     const key = item.key, v = item.payload;
     if (!v || typeof v !== 'object' || Array.isArray(v)) continue;
+    if (key === 'config:google-drive' && typeof v.clientId === 'string' &&
+        /^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(v.clientId)) {
+      if (connection.clientId !== v.clientId) connection.disconnect();
+      connection.clientId = v.clientId;
+    }
     if (key === 'labels' && Array.isArray(v.items)) state.labels = cleanLabels(v.items);
     if (key === 'optimized:manifest') { const manifest = parseOptimizedManifest(v); if (manifest) for (const entry of manifest.entries) optimizedMap.set(entry.sourceId, entry); }
     if (key?.startsWith('stream:') && /^drive:[A-Za-z0-9_-]{10,100}$/.test(key.slice(7))) { const converted = parseStreamDelivery(v); if (converted) streamMap.set(key.slice(7), converted); }

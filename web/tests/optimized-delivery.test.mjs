@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  OPTIMIZED_ROOT, OPTIMIZED_FOLDERS, OPTIMIZED_PRESET, LEGACY_PRESET, chooseRendition, renditions,
+  OPTIMIZED_ROOT, OPTIMIZED_FOLDERS, COMPRESSED_FOLDERS, OPTIMIZED_PRESET, LEGACY_PRESET, chooseRendition, renditions,
   parseOptimizedManifest, optimizedForSource, asOptimizedFile,
 } from '../optimized-delivery.mjs';
 import { createMediaHandler } from '../drive-stream.mjs';
@@ -89,4 +89,28 @@ test('modern manifest rejects repeated qualities and source mapping to another f
   const invalid = structuredClone(modern);
   invalid.entries[0].renditions[1].folderId = 'wrongPrivateFolder';
   assert.equal(parseOptimizedManifest(invalid), null);
+});
+
+test('browser copies can coexist with legacy-folder renditions and play only for their own dance', async () => {
+  const updated = structuredClone(modern);
+  const low = updated.entries[0].renditions[0];
+  low.folderId = COMPRESSED_FOLDERS.Salsa;
+  const entry = parseOptimizedManifest(updated).entries[0];
+  assert.equal(chooseRendition(entry, '720p').folderId, OPTIMIZED_FOLDERS.Salsa);
+  const derived = asOptimizedFile(entry, chooseRendition(entry, '360p'));
+  const catalogue = { rootFolderId: '1elTpDpgefwwlnrSEFc8vyREt3HUpDS8P', videos: [source] };
+  const handler = createMediaHandler(catalogue, async () => { throw new Error('HEAD should not fetch'); },
+    async () => null, async () => derived);
+  const response = await handler(new Request('https://baila.test/api/drive-video/' + low.driveId, { method: 'HEAD' }));
+  assert.equal(response.status, 200);
+  low.folderId = COMPRESSED_FOLDERS.Bachata;
+  assert.equal(parseOptimizedManifest(updated), null);
+});
+
+test('missing 720p defaults to the original and an available lower resolution remains selectable', () => {
+  const entry = { ...modern.entries[0], renditions: [modern.entries[0].renditions[0]] };
+  assert.equal(chooseRendition(entry), null);
+  assert.equal(chooseRendition(entry, '1080p'), null);
+  assert.equal(chooseRendition(entry, 'original'), null);
+  assert.equal(chooseRendition(entry, '360p').driveId, 'derivedDriveLow123');
 });

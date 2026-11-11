@@ -1,3 +1,4 @@
+import { COMPRESSED_FOLDERS, OPTIMIZED_PRESET, QUALITIES } from './optimized-delivery.mjs';
 import { SOURCES } from './core.mjs';
 import { mapDriveFile, nextNumber, numberedName } from './studio-model.mjs';
 
@@ -18,16 +19,33 @@ export class DriveConnection {
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
   async prepare() { if (this.clientId) await googleSdk(); }
   connect() {
-    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google uploads need a web OAuth client ID. Open Connection setup below. Browsing and local previews already work.'));
+    return this.authorize(SCOPE).then(response => {
+      this.accessToken = response.access_token;
+      this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000;
+    });
+  }
+  authorize(scope) {
+    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google Drive configuration is unavailable. Reload this page to retry.'));
     const google = (/** @type {any} */ (window)).google;
     if (!google?.accounts?.oauth2) return Promise.reject(new Error('Google is still loading. Tap Connect Google again in a moment.'));
     return new Promise((resolve, reject) => {
-      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope: SCOPE, include_granted_scopes: false,
+      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope, include_granted_scopes: false,
         callback: response => {
-          if (!response.access_token || response.error) { reject(new Error('Google access was not granted. Your library is unchanged.')); return; }
-          if (!google.accounts.oauth2.hasGrantedAllScopes(response, SCOPE)) { reject(new Error('Drive permission is needed to upload into the fixed dance folders.')); return; }
-          this.accessToken = response.access_token; this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000; resolve(undefined);
-        }, error_callback: () => reject(new Error('Google connection was closed. You can try again when ready.')) });
+          if (!response.access_token || response.error) {
+            const guidance = {
+              invalid_client: 'Google rejected BailaCue’s web client ID. Check its configuration in Google Cloud.',
+              unauthorized_client: 'Google rejected this OAuth client for the browser. Check its application type and authorized JavaScript origins.',
+              origin_mismatch: 'This site is missing from the OAuth client’s authorized JavaScript origins.',
+              access_denied: 'Google access was denied. If your OAuth app is in Testing, add this Google account as a test user.',
+            };
+            reject(new Error(guidance[response.error] || 'Google did not grant Drive access. Check the Google authorization window.'));
+            return;
+          }
+          if (!google.accounts.oauth2.hasGrantedAllScopes(response, scope)) { reject(new Error('Google did not grant the requested permission.')); return; }
+          resolve(response);
+        }, error_callback: error => reject(new Error(error.type === 'popup_failed_to_open'
+          ? 'The Google sign-in popup could not open. Allow popups for BailaCue, then tap Connect again.'
+          : 'The Google sign-in window closed before authorization completed. Tap Connect to try again.')) });
       this.client.requestAccessToken({ prompt: 'select_account' });
     });
   }
@@ -70,16 +88,56 @@ export class DriveConnection {
     if (!generated.ids?.[0]) throw new Error('Drive could not reserve a file identity.');
     return { id: generated.ids[0], name: numberedName(number, file.name), number, dance, folderId: listing.source.folderId, file, offset: 0, session: '', completed: false };
   }
+  async browserCopy(video, quality, signal) {
+    const folderId = COMPRESSED_FOLDERS[video.dance];
+    if (!QUALITIES.includes(quality)) throw new Error('Choose a supported playback resolution.');
+    if (!SOURCES.some(source => source.dance === video.dance && source.folderId === video.folderId) ||
+        !/^[A-Za-z0-9_-]{10,100}$/.test(video.providerId) || video.id !== 'drive:' + video.providerId) {
+      throw new Error('Choose a video from the fixed Drive collections.');
+    }
+    const base = (video.filename || 'video').replace(/\.[^.]+$/, '').replace(/[^A-Za-z0-9_.()-]+/g, '-').slice(0, 75) || 'video';
+    const simpleName = `${base}-${quality}.mp4`;
+    const params = new URLSearchParams({
+      q: `'${folderId}' in parents and trashed = false and (name = '${simpleName}' or (appProperties has { key='bailacueSourceId' and value='${video.providerId}' } and appProperties has { key='bailacueQuality' and value='${quality}' }))`,
+      fields: `files(${FIELDS},appProperties)`,
+      supportsAllDrives: 'true',
+      includeItemsFromAllDrives: 'true',
+    });
+    const { files } = await (await this.request(`${API}/files?${params}`, { signal })).json();
+    const appProperties = { bailacueSourceId: video.providerId, bailacueQuality: quality, bailacuePreset: OPTIMIZED_PRESET };
+    const existing = files?.find(file => file.mimeType === 'video/mp4' &&
+      Number.isSafeInteger(Number(file.size)) && Number(file.size) >= 1024 &&
+      Object.entries(appProperties).every(([key, value]) => file.appProperties?.[key] === value));
+    const name = files?.some(file => file.name === simpleName) && !existing
+      ? `${base}-${video.providerId}-${quality}.mp4` : simpleName;
+    return { folderId, name, appProperties, existing: existing ? mapDriveFile(existing, video.dance, folderId) : null };
+  }
+
+  async uploadBrowserCopy(video, copy, file, onProgress, signal) {
+    const generated = await (await this.request(`${API}/files/generateIds?count=1&space=drive&type=files`, { signal })).json();
+    if (!generated.ids?.[0]) throw new Error('Drive could not reserve a file identity.');
+    const job = { ...copy, id: generated.ids[0], dance: video.dance, file, offset: 0, session: '', completed: false };
+    try { return await this.upload(job, onProgress, signal); }
+    catch (error) {
+      if (!job.session || signal.aborted || error.status === 401 || error.status === 403) throw error;
+      return this.upload(job, onProgress, signal);
+    }
+  }
+
   async upload(job, onProgress, signal) {
-    if (!SOURCES.some(s => s.folderId === job.folderId && s.dance === job.dance)) throw new Error('The upload destination must be a fixed dance folder.');
+    const optimized = job.folderId === COMPRESSED_FOLDERS[job.dance] &&
+      job.appProperties?.bailacuePreset === OPTIMIZED_PRESET && QUALITIES.includes(job.appProperties?.bailacueQuality);
+    if (!optimized && !SOURCES.some(s => s.folderId === job.folderId && s.dance === job.dance)) throw new Error('The upload destination must be a fixed dance folder.');
     if (job.completed) return job.completed;
     if (!job.session) {
       // Refresh names immediately before creating a new file; never overwrite an existing one.
-      const listing = await this.list(job.dance);
-      if (listing.files.some(f => f.name === job.name)) throw new Error('That number was just used by another upload. Choose Recheck number before retrying.');
+      if (!optimized) {
+        const listing = await this.list(job.dance);
+        if (listing.files.some(f => f.name.replace(/\\.[^.]+$/, '') === job.name.replace(/\\.[^.]+$/, ''))) throw new Error('That video number is already used in Drive. Choose Recheck number before retrying.');
+      }
       const response = await this.request(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true&fields=${encodeURIComponent(FIELDS)}`, { method: 'POST', signal,
         headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': job.file.type || 'video/mp4', 'X-Upload-Content-Length': String(job.file.size) },
-        body: JSON.stringify({ id: job.id, name: job.name, parents: [job.folderId], description: `Added with BailaCue. Original filename: ${job.file.name.slice(0, 200)}` }) });
+        body: JSON.stringify({ id: job.id, name: job.name, parents: [job.folderId], ...(optimized ? { appProperties: job.appProperties } : { description: `Added with BailaCue. Original filename: ${job.file.name.slice(0, 200)}` }) }) });
       const location = response.headers.get('Location');
       if (!location || !/^https:\/\/(www|content)\.googleapis\.com\//.test(location)) throw new Error('Drive did not return a valid upload session. No completed upload is being reported.');
       job.session = location;

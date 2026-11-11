@@ -8,6 +8,7 @@ final class ProcessingStore: ObservableObject {
     @Published var selectedDance: Dance = .salsa
     @Published var folderLink = ""
     @Published var selectedQualities: Set<VideoQuality> = Set(VideoQuality.allCases)
+    @Published var selectedFormats: Set<VideoFormat> = [.mp4]
     @Published var running = false
     @Published var status = "Connect Google Drive, paste a folder link, and import the videos."
     @Published var lastError: String? = nil
@@ -18,6 +19,7 @@ final class ProcessingStore: ObservableObject {
     let publisher: BailaCuePublisher
     let auth: GoogleAuth
     private let drive: GoogleDriveService
+    private var existingMOV: [Dance: [String: Set<String>]] = [:]
     private var worker: Task<Void, Never>?
     private let location: URL
 
@@ -147,7 +149,7 @@ final class ProcessingStore: ObservableObject {
     }
 
     func start() {
-        guard !running, !selectedQualities.isEmpty else { return }
+        guard !running, !selectedQualities.isEmpty, !selectedFormats.isEmpty else { return }
         running = true
         UIApplication.shared.isIdleTimerDisabled = true
         worker = Task {
@@ -161,6 +163,7 @@ final class ProcessingStore: ObservableObject {
     }
 
     private func needsProcessing(_ job: VideoJob) -> Bool {
+        if selectedFormats.contains(.mov) { return true }
         if job.status == .failed { return true }
         if job.status != .complete && job.status != .skipped { return true }
         let previouslyCovered = Set(job.finished).union(job.unsupported ?? [])
@@ -223,7 +226,7 @@ final class ProcessingStore: ObservableObject {
         let original = try await drive.ensureOriginal(source, dance: item.dance)
         // The owner publisher checks both bundled and previously published
         // IDs before registering anything. Existing video metadata is preserved.
-        if ownerConnected && publishAutomatically {
+        if selectedFormats.contains(.mp4) && ownerConnected && publishAutomatically {
             try await publisher.ensureOriginalRegistered(original, dance: item.dance)
         }
         jobs[index].originalId = original.id
@@ -231,17 +234,23 @@ final class ProcessingStore: ObservableObject {
         let cached = manifest.entries.first { $0.sourceId == "drive:" + original.id }?.renditions ?? []
         let required = VideoQuality.allCases.filter { selectedQualities.contains($0) }
         let alreadyUnsupported = Set(jobs[index].unsupported ?? [])
-        let missing = required.filter { quality in
-            !cached.contains(where: { $0.quality == quality.rawValue }) &&
-            !alreadyUnsupported.contains(quality.rawValue)
+        let formats = VideoFormat.allCases.filter { selectedFormats.contains($0) }
+        let mov = existingMOV[item.dance]?[original.id] ?? []
+        let missing = formats.flatMap { format in
+            required.compactMap { quality -> (VideoFormat, VideoQuality)? in
+                let exists = format == .mp4
+                    ? cached.contains { $0.quality == quality.rawValue }
+                    : mov.contains(quality.rawValue)
+                return exists || alreadyUnsupported.contains(quality.rawValue) ? nil : (format, quality)
+            }
         }
         // Every quality is checked against the *actual* source dimensions below.
         if missing.isEmpty {
             jobs[index].finished = cached.map(\.quality)
-            if ownerConnected && publishAutomatically && !manifest.entries.isEmpty {
+            if selectedFormats.contains(.mp4) && ownerConnected && publishAutomatically && !manifest.entries.isEmpty {
                 try await publisher.publishManifest(manifest)
             }
-            if jobs[index].finished.isEmpty {
+            if required.allSatisfy({ alreadyUnsupported.contains($0.rawValue) }) {
                 jobs[index].status = .skipped
                 jobs[index].error = "No selected resolutions are available for this source."
             } else {
@@ -265,7 +274,7 @@ final class ProcessingStore: ObservableObject {
         status = "Downloading \(item.name) to temporary iPad storage…"
         try await drive.download(original, into: local)
         let dimensions = try await VideoEncoder.sourceDimensions(local)
-        jobs[index].unsupported = required.filter {
+        jobs[index].unsupported = VideoQuality.allCases.filter {
             !$0.supported(width: dimensions.width, height: dimensions.height)
         }.map(\.rawValue)
         saveQueue()
@@ -275,35 +284,33 @@ final class ProcessingStore: ObservableObject {
             saveQueue()
             return
         }
-        for quality in required {
+        for (format, quality) in missing {
             try Task.checkCancellation()
             guard quality.supported(width: dimensions.width, height: dimensions.height) else { continue }
-            if manifest.entries.first(where: { $0.sourceId == "drive:" + original.id })?
-                .renditions.contains(where: { $0.quality == quality.rawValue }) == true {
-                continue
-            }
             jobs[index].status = .processing
-            status = "Encoding \(quality.rawValue) on iPad: \(item.name)"
+            status = "Encoding \(quality.rawValue) \(format.title): \(item.name)"
             saveQueue()
-            let filename = outputName(original, quality)
+            let filename = outputName(original, quality, format)
             let output = scratch.appendingPathComponent(filename)
-            try await VideoEncoder.export(source: local, quality: quality, destination: output)
+            try await VideoEncoder.export(source: local, quality: quality, format: format, destination: output)
             try Task.checkCancellation()
             jobs[index].status = .uploading
-            status = "Uploading \(quality.rawValue) to Google Drive: \(item.name)"
+            status = "Uploading \(quality.rawValue) \(format.title): \(item.name)"
             saveQueue()
             let rendition = try await drive.uploadOptimized(
-                output, source: original, dance: item.dance, quality: quality, name: filename
+                output, source: original, dance: item.dance, quality: quality, format: format, name: filename
             )
-            manifest.set(sourceId: original.id, dance: item.dance, rendition: rendition)
-            saveManifest()
-            if !jobs[index].finished.contains(quality.rawValue) {
+            if format == .mp4 {
+                manifest.set(sourceId: original.id, dance: item.dance, rendition: rendition)
+                saveManifest()
                 jobs[index].finished.append(quality.rawValue)
+                saveQueue()
+            } else {
+                existingMOV[item.dance, default: [:]][original.id, default: []].insert(quality.rawValue)
             }
-            saveQueue()
             try? FileManager.default.removeItem(at: output)
         }
-        if ownerConnected && publishAutomatically {
+        if selectedFormats.contains(.mp4) && ownerConnected && publishAutomatically {
             status = "Publishing available qualities to BailaCue…"
             try await publisher.publishManifest(manifest)
         }
@@ -317,10 +324,18 @@ final class ProcessingStore: ObservableObject {
 
     private func reconcileRenditions() async throws {
         var discovered = OptimizedManifest.empty
+        var discoveredMOV: [Dance: [String: Set<String>]] = [:]
         for dance in Dance.allCases {
             let copies = try await drive.listAll(folderID: dance.destinationFolder)
             for item in copies {
                 let props = item.appProperties ?? [:]
+                if props["bailacuePreset"] == "h264-aac-mov-v1",
+                   let sourceID = props["bailacueSourceId"],
+                   let quality = props["bailacueQuality"], VideoQuality(rawValue: quality) != nil,
+                   item.mimeType == VideoFormat.mov.mimeType, item.size >= 1024, item.size <= 2_147_483_648,
+                   item.name.hasSuffix(".mov") {
+                    discoveredMOV[dance, default: [:]][sourceID, default: []].insert(quality)
+                }
                 guard let sourceID = props["bailacueSourceId"],
                       let quality = props["bailacueQuality"],
                       VideoQuality(rawValue: quality) != nil,
@@ -336,18 +351,19 @@ final class ProcessingStore: ObservableObject {
                 )
             }
         }
+        existingMOV = discoveredMOV
         manifest = discovered
         saveManifest()
     }
 
-    private func outputName(_ original: DriveVideo, _ quality: VideoQuality) -> String {
+    private func outputName(_ original: DriveVideo, _ quality: VideoQuality, _ format: VideoFormat) -> String {
         let stem = URL(fileURLWithPath: original.name).deletingPathExtension().lastPathComponent
         let allowed = CharacterSet(charactersIn: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_.()-")
         let normalized = stem.unicodeScalars.prefix(48).map {
             allowed.contains($0) ? String($0) : "_"
         }.joined().trimmingCharacters(in: CharacterSet(charactersIn: "._-"))
         let safe = normalized.isEmpty ? "video" : normalized
-        return safe + "-" + String(original.id.prefix(10)) + "-" + quality.rawValue + ".mp4"
+        return safe + "-" + String(original.id.prefix(10)) + "-" + quality.rawValue + "." + format.rawValue
     }
 
     private func saveQueue() {

@@ -1,7 +1,10 @@
 import { embedUrl } from './core.mjs';
 import { formatTime } from './studio-model.mjs';
-import { streamEmbedUrl } from './stream-delivery.mjs';
 import { chooseRendition, renditions } from './optimized-delivery.mjs';
+export function preferredPlaybackRendition(entry, excluded = []) {
+  const copies = renditions(entry);
+  return ['720p', '1080p', '360p'].map(quality => copies.find(copy => copy.quality === quality && !excluded.includes(copy.driveId))).find(Boolean) || null;
+}
 const paths = {
   play: '<path d="m9 5 12 9-12 9Z" fill="currentColor" stroke="none"/>',
   pause: '<path d="M9 5v18M19 5v18" stroke-width="4"/>',
@@ -26,8 +29,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, streamFor = _video => null, optimizedFor = _video => null, onEnded = _video => {}, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.streamFor = streamFor; this.optimizedFor = optimizedFor; this.onEnded = onEnded; this.toast = toast;
+  constructor({ token, allowedFile, optimizedFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.optimizedFor = optimizedFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = /** @type {HTMLElement} */ (document.querySelector('#video-frame')); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.lastLocalUrl = ''; this.lastAutoPlay = false; this.slowTimer = null;
@@ -43,7 +46,7 @@ export class StudioPlayer {
     this.fsVolume = /** @type {HTMLInputElement} */ (document.querySelector('#fs-volume'));
     this.fsSpeed = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-speed'));
     this.fsQuality = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-quality'));
-    this.preferredQuality = 'auto';
+    this.playbackQuality = 'original';
     this.fsVolumeDown = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-down'));
     this.fsVolumeUp = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-up'));
     this.fsMirror = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-mirror'));
@@ -64,7 +67,7 @@ export class StudioPlayer {
           <button type="button" id="media-volume-up" class="volume-step" aria-label="Increase volume" title="Volume up">+</button>
           <output id="media-volume-value" class="volume-value" aria-live="off">100%</output>
         </div>
-        <label class="speed-label" for="media-quality"><span class="speed-caption">Quality</span><select id="media-quality" aria-label="Video quality"><option value="auto">Auto</option><option value="360p">360p</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="original">Original</option></select></label><label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
+        <label class="speed-label" for="media-quality"><span class="speed-caption">Quality</span><select id="media-quality" aria-label="Video quality"><option value="360p">360p</option><option value="720p">720p</option><option value="1080p">1080p</option><option value="original">Original</option></select></label><label class="speed-label" for="media-speed"><span class="speed-caption">Speed</span><select id="media-speed" aria-label="Playback speed"><option value="0.25">0.25×</option><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="2">2×</option></select></label>
         <div class="media-display-actions"><button type="button" class="media-icon" id="media-mirror" aria-label="Mirror video" aria-pressed="false" title="Mirror video">${mediaIcon('mirror')}</button><button type="button" id="fullscreen-button" class="media-icon" aria-label="Fullscreen video" title="Fullscreen video" hidden>${mediaIcon('expand')}</button></div>
       </div>`;
     this.fullscreenButton = /** @type {HTMLButtonElement} */ (document.querySelector('#fullscreen-button'));
@@ -145,7 +148,7 @@ export class StudioPlayer {
   }
   async open(video, localUrl = '', autoPlay = false, forceOriginal = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
-    this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay;
+    this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay; this.failedOptimizedIds = [];
     const poster = this.posterFor(video);
     this.frame.style.backgroundImage = poster ? `url(${JSON.stringify(poster)})` : '';
     this.frame.dataset.starting = 'true';
@@ -153,6 +156,9 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
+    const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive'
+      ? preferredPlaybackRendition(this.optimizedFor(video)) : null;
+    this.playbackQuality = optimizedCopy?.quality || 'original';
     this.updateQualityControls(video);
     this.hideFullscreenControls();
     this.frame.classList.remove('portrait-video');
@@ -160,25 +166,6 @@ export class StudioPlayer {
     this.controls.setAttribute('data-preview-label', 'Loading playback…');
     this.status('Loading playback…');
     this.scheduleSlowNotice(generation);
-    const optimizedCopy = !localUrl && !forceOriginal && this.preferredQuality !== 'original' && video.provider === 'drive' ? chooseRendition(this.optimizedFor(video), this.preferredQuality) : null;
-    const deliveryUrl = !localUrl && !optimizedCopy && video.provider === 'drive' ? streamEmbedUrl(this.streamFor(video)) : null;
-    if (deliveryUrl) {
-      const frame = document.createElement('iframe');
-      frame.src = autoPlay ? deliveryUrl + '&autoplay=true' : deliveryUrl;
-      frame.title = video.title + ' · adaptive player';
-      frame.allow = 'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen';
-      frame.allowFullscreen = true;
-      frame.referrerPolicy = 'strict-origin-when-cross-origin';
-      frame.addEventListener('load', () => { if (generation === this.generation && frame.parentElement === this.frame) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); } });
-      this.frame.replaceChildren(frame);
-      this.kind = 'stream';
-      this.updateFullscreen();
-      this.controls.classList.add('preview-mode');
-      this.controls.setAttribute('data-preview-label', 'Adaptive video player');
-      this.setAvailable(false);
-      this.status('Adaptive video · quality adjusts to the connection.');
-      return;
-    }
     if (localUrl || video.provider === 'drive') {
       try {
         if (!localUrl && !optimizedCopy && this.token()) {
@@ -226,6 +213,20 @@ export class StudioPlayer {
             // failures of the first optimized file selected on open().
             const previousPosition = Number.isFinite(media.currentTime) ? media.currentTime : 0;
             const resumePlaying = !media.paused || this.autoStartPending;
+            const alternative = preferredPlaybackRendition(this.optimizedFor(video), [currentFileId, ...(this.failedOptimizedIds || [])]);
+            this.failedOptimizedIds = [...(this.failedOptimizedIds || []), currentFileId];
+            if (alternative) {
+              this.playbackQuality = alternative.quality;
+              this.updateQualityControls(video);
+              this.status('Trying another available playback quality…');
+              media.src = '/api/drive-video/' + alternative.driveId;
+              media.load();
+              if (previousPosition > 0) media.addEventListener('loadedmetadata', () => {
+                try { media.currentTime = Math.min(previousPosition, Number.isFinite(media.duration) ? media.duration : previousPosition); } catch {}
+              }, { once: true });
+              if (resumePlaying) media.play().catch(() => {});
+              return;
+            }
             this.open(video, localUrl, resumePlaying, true).then(() => {
               const replacement = this.media;
               if (!replacement || this.video !== video) return;
@@ -274,6 +275,8 @@ export class StudioPlayer {
   readyToPlay(media, localUrl) { clearTimeout(this.loadingTimer); this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.setAvailable(true); this.status(localUrl ? 'Local video ready' : 'Video buffered and ready · press Play'); if (this.autoStartPending) { this.autoStartPending = false; media.play().catch(() => this.status('Next video is ready. Tap Play to continue the mix.')); } }
   setAvailable(available) {
     this.controls.querySelectorAll('button,input,select').forEach(el => { if (!el.classList.contains('fullscreen-exit') && el.id !== 'fullscreen-button') (/** @type {any} */ (el)).disabled = !available; });
+    const quality = this.$('#media-quality');
+    if (this.kind === 'native' && !quality.closest('label').hidden) quality.disabled = false;
     this.$('#media-mirror').disabled = !available || !this.media;
     this.controls.classList.toggle('controls-unavailable', !available);
     this.updateFullscreen();
@@ -284,29 +287,24 @@ export class StudioPlayer {
     button.innerHTML = mediaIcon(playing ? 'pause' : 'play'); button.setAttribute('aria-label', label); button.title = label;
   }
   updateQualityControls(video) {
-    const entries = video?.provider === 'drive' ? renditions(this.optimizedFor(video)) : [];
+    const entries = !this.lastLocalUrl && video?.provider === 'drive' ? renditions(this.optimizedFor(video)) : [];
     const available = new Set(entries.map(item => item.quality));
     for (const select of [this.$('#media-quality'), this.fsQuality]) {
       if (!select) continue;
       const label = select.closest('label');
-      if (label) label.hidden = entries.length === 0;
+      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive'; label.title = entries.length ? 'Choose an available playback resolution' : 'Only the original is available until playback copies are created'; }
       for (const option of select.options) {
-        option.disabled = option.value !== 'auto' && option.value !== 'original' && !available.has(option.value);
+        option.disabled = option.value !== 'original' && !available.has(option.value);
       }
-      select.value = this.preferredQuality !== 'original' &&
-        this.preferredQuality !== 'auto' && !available.has(this.preferredQuality)
-        ? 'auto' : this.preferredQuality;
+      select.value = this.playbackQuality;
     }
   }
   changeQuality(value) {
-    if (!['auto','360p','720p','1080p','original'].includes(value) || !this.video) return;
-    const entries = renditions(this.optimizedFor(this.video));
-    if (!entries.length) return;
-    if (value !== 'auto' && value !== 'original' && !entries.some(item => item.quality === value)) return;
-    this.preferredQuality = value;
+    if (this.kind !== 'native' || !this.media || this.lastLocalUrl || this.video?.provider !== 'drive') return;
+    const variant = chooseRendition(this.optimizedFor(this.video), value);
+    if (value !== 'original' && !variant) return;
+    this.playbackQuality = variant?.quality || 'original';
     this.updateQualityControls(this.video);
-    if (this.kind !== 'native' || !this.media || this.video.provider !== 'drive') return;
-    const variant = value === 'original' ? null : chooseRendition(this.optimizedFor(this.video), value);
     const src = variant
       ? '/api/drive-video/' + variant.driveId
       : '/api/drive-video/' + this.video.providerId;
@@ -368,7 +366,7 @@ export class StudioPlayer {
     if (this.controls.classList.contains('controls-unavailable')) return false;
     if (this.kind === 'native') return !!this.media;
     if (this.kind === 'youtube') return !!this.youtube;
-    // Cross-origin Google Drive and Cloudflare player iframes cannot be controlled by BailaCue.
+    // Cross-origin Google Drive preview iframes cannot be controlled by BailaCue.
     return false;
   }
   updateFullscreenControls() {

@@ -22,6 +22,13 @@ enum VideoQuality: String, Codable, CaseIterable, Identifiable {
     }
 }
 
+enum VideoFormat: String, CaseIterable, Identifiable {
+    case mp4, mov
+    var id: String { rawValue }
+    var title: String { rawValue.uppercased() }
+    var mimeType: String { self == .mp4 ? "video/mp4" : "video/quicktime" }
+}
+
 enum JobStatus: String, Codable {
     case queued, downloading, processing, uploading, complete, skipped, failed
 }

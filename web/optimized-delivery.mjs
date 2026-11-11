@@ -4,6 +4,14 @@ export const OPTIMIZED_FOLDERS = Object.freeze({
   Salsa: '1Z8yfu20bLFKChQGXYQQ8uZZoEDMTSx1f',
   Bachata: '1rOwr5utjZ-gfCj5Zj6KlOjmqdFRu8ncq',
 });
+export const COMPRESSED_FOLDERS = Object.freeze({
+  Salsa: '17Ndihr1QjepwPzVsBBWoA-2MowfPPAWa',
+  Bachata: '12juoU5Gg7qLnkYJrTLVfeljqEEH4u8QX',
+});
+export function isOptimizedFolder(dance, folderId) {
+  return Object.hasOwn(OPTIMIZED_FOLDERS, dance) &&
+    (folderId === OPTIMIZED_FOLDERS[dance] || folderId === COMPRESSED_FOLDERS[dance]);
+}
 export const OPTIMIZED_PRESET = 'h264-aac-ladder-v2';
 export const LEGACY_PRESET = 'h264-aac-faststart-720p-v1';
 export const QUALITIES = Object.freeze(['360p','720p','1080p']);
@@ -14,7 +22,6 @@ const NAME = /^[A-Za-z0-9_.()-]{1,190}\.mp4$/i;
 export function parseOptimizedManifest(input) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
       input.rootFolderId !== OPTIMIZED_ROOT || !Array.isArray(input.entries) ||
-      input.entries.length > 1000 ||
       !((input.version === 1 && input.preset === LEGACY_PRESET) ||
         (input.version === 2 && input.preset === OPTIMIZED_PRESET))) return null;
   const entries = [], seenSources = new Set(), seenIds = new Set();
@@ -31,9 +38,8 @@ export function parseOptimizedManifest(input) {
       if (!variant || typeof variant !== 'object' || Array.isArray(variant) ||
           !QUALITIES.includes(variant.quality) ||
           !FILE_ID.test(variant.driveId || '') ||
-          variant.folderId !== OPTIMIZED_FOLDERS[raw.dance] ||
+          !isOptimizedFolder(raw.dance, variant.folderId) ||
           !Number.isSafeInteger(variant.size) || variant.size < 1024 ||
-          variant.size > 2 * 1024 * 1024 * 1024 ||
           typeof variant.filename !== 'string' || !NAME.test(variant.filename) ||
           seenQualities.has(variant.quality) || seenIds.has(variant.driveId)) return null;
       seenQualities.add(variant.quality); seenIds.add(variant.driveId);
@@ -61,18 +67,11 @@ export function renditions(entry) {
   return Array.isArray(entry.renditions) ? entry.renditions :
     (FILE_ID.test(entry.driveId || '') ? [{ quality: '720p', driveId: entry.driveId, folderId: entry.folderId, filename: entry.filename, size: entry.size }] : []);
 }
-export function chooseRendition(entry, quality = 'auto') {
-  const options = renditions(entry);
-  if (!options.length) return null;
-  if (quality !== 'auto') {
-    const exact = options.find(v => v.quality === quality);
-    if (exact) return exact;
-  }
-  return options.find(v => v.quality === '720p') ||
-    options.find(v => v.quality === '360p') || options[0];
+export function chooseRendition(entry, quality = '720p') {
+  return renditions(entry).find(item => item.quality === quality) || null;
 }
 
-export function asOptimizedFile(entry, selected = chooseRendition(entry)) {
+export function asOptimizedFile(entry, selected = chooseRendition(entry) || renditions(entry)[0]) {
   if (!entry || !selected || !SOURCE_ID.test(entry.sourceId || '')) return null;
   return {
     id: 'drive:' + selected.driveId,

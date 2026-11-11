@@ -15,7 +15,10 @@ if (!counts.Salsa || !counts.Bachata) throw new Error('Both fixed collections mu
 const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
-for (const name of ['index.html', 'app.js', 'admin.mjs', 'stream-admin.mjs', 'stream-delivery.mjs', 'optimized-delivery.mjs', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
+for (const name of ['index.html', 'app.js', 'admin.mjs', 'stream-admin.mjs', 'stream-delivery.mjs', 'optimized-delivery.mjs', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'browser-compressor.mjs', 'photos-picker.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
+await mkdir(resolve(dist, 'vendor'), { recursive: true });
+await cp(resolve(root, 'node_modules/mediabunny/dist/bundles/mediabunny.min.mjs'), resolve(dist, 'vendor/mediabunny.min.mjs'));
+await cp(resolve(root, 'node_modules/mediabunny/LICENSE'), resolve(dist, 'vendor/mediabunny-LICENSE.txt'));
 const { writeFile } = await import('node:fs/promises');
 const configuredId = process.env.BAILACUE_GOOGLE_CLIENT_ID || '';
 const publicDefaults = JSON.parse(await readFile(resolve(root, 'public-config.json'), 'utf8'));
