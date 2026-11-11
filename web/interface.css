@@ -2453,3 +2453,59 @@ details > summary:hover::after { color: var(--blue); }
  .upload-layout .upload-actions .button { min-width: 0; padding-inline: 10px; }
  .upload-layout .form-columns { grid-template-columns: minmax(0,1fr); }
 }
+
+/* Player select controls: explicit Safari/iPad appearance and matched sizing. */
+#player #media-controls .speed-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 0;
+  white-space: nowrap;
+}
+#player #media-controls .speed-label select,
+#player #media-controls #media-quality,
+#player #media-controls #media-speed {
+  -webkit-appearance: none;
+  appearance: none;
+  color-scheme: dark;
+  box-sizing: border-box;
+  width: 112px;
+  min-width: 100px;
+  max-width: 112px;
+  height: 44px;
+  min-height: 44px;
+  padding: 0 34px 0 12px;
+  border: 1px solid #63738d;
+  border-radius: 10px;
+  background-color: #263750;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23dbe7fb' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 16px;
+  font: 500 14px/1.2 system-ui, -apple-system, sans-serif;
+  text-align: left;
+  text-align-last: left;
+  box-shadow: none;
+  cursor: pointer;
+}
+#player #media-controls .speed-label select:focus-visible {
+  outline: 2px solid #a9c4ff;
+  outline-offset: 2px;
+}
+#player #media-controls .speed-label select:disabled { opacity: .55; cursor: not-allowed; }
+#player #media-controls .speed-label select option { color: #fff; background: #263750; }
+#player #media-controls .player-utilities { align-items: center; }
+#player #media-controls .media-display-actions { gap: 8px; }
+@media (max-width: 720px) {
+  #player #media-controls .speed-label select,
+  #player #media-controls #media-quality,
+  #player #media-controls #media-speed {
+    width: 100%;
+    min-width: 0;
+    max-width: 112px;
+    padding: 0 28px 0 9px;
+    background-position: right 7px center;
+    font-size: 13px;
+  }
+}
