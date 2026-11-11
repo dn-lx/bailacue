@@ -2468,3 +2468,12 @@ details > summary:hover::after { color: var(--blue); }
   content: none !important;
   display: none !important;
 }
+
+/* Compressor: show every incomplete video without additional collection or batch controls. */
+.compress-missing { max-height: 340px; overflow: auto; margin-top: 12px; border-radius: 10px; }
+.compress-missing-list { display: grid; gap: 0; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.compress-missing-row { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 4px 16px; padding: 11px 14px; background: var(--surface); border-bottom: 1px solid var(--line); font-size: 13px; }
+.compress-missing-row:last-child { border-bottom: 0; }
+.compress-missing-row span:first-child { font-weight: 600; overflow-wrap: anywhere; }
+.compress-missing-row span:last-child { color: var(--muted); }
+@media(max-width:720px) { .compress-missing-row { display: grid; } }
