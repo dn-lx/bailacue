@@ -108,3 +108,27 @@ test('thumbnail appears immediately and retry starts a fresh player attempt', as
     assert.equal(player.retryButton.hidden, true);
   });
 });
+
+test('player responds to startup, buffering, and recovery events without stale loading state', async () => {
+  await withPlayer(async (player, window) => {
+    const clock = performance.now();
+    await player.open(video, 'blob:performance');
+    const media = player.media;
+    assert.equal(player.frame.getAttribute('aria-busy'), 'true');
+    media.dispatchEvent(new window.Event('loadstart'));
+    media.dispatchEvent(new window.Event('loadedmetadata'));
+    assert.equal(player.frame.getAttribute('aria-busy'), 'true');
+    Object.defineProperty(media, 'readyState', { configurable: true, value: 3 });
+    media.dispatchEvent(new window.Event('canplay'));
+    const startupMs = performance.now() - clock;
+    assert.equal(player.frame.getAttribute('aria-busy'), 'false');
+    for (let n = 0; n < 5; n++) {
+      media.dispatchEvent(new window.Event('waiting'));
+      assert.equal(player.frame.getAttribute('aria-busy'), 'true', 'buffering must show a loader');
+      media.dispatchEvent(new window.Event('playing'));
+      assert.equal(player.frame.getAttribute('aria-busy'), 'false', 'recovery must clear the loader');
+    }
+    assert.ok(Number.isFinite(startupMs));
+    console.log('Mocked player event-response startup (not network/video latency): ' + startupMs.toFixed(1) + ' ms');
+  });
+});
