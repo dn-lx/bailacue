@@ -42,7 +42,7 @@ function fixture(files, beforeCopy = () => {}) {
   let manifest;
   const ctx = {
     admin: { isAdmin: true, readContent: async () => manifest ? [{ key: 'optimized:manifest', payload: manifest }] : [] },
-    connection: { connected: true, list: async () => ({ videos: files }), browserCopy: async (video, quality) => {
+    connection: { connected: true, list: async dance => ({ videos: files.filter(video => video.dance === dance) }), browserCopy: async (video, quality) => {
       calls.push([video.id, quality]);
       beforeCopy(quality);
       return { existing: { providerId: `${video.providerId}-${quality}`, filename: `0072-${quality}.mp4`,
@@ -59,7 +59,6 @@ function fixture(files, beforeCopy = () => {}) {
 
 test('all-video batch includes uncatalogued, long, large originals and resumes without duplicates', async () => {
   const f = fixture([original]);
-  f.panel.querySelector('#browser-compress-limit').value = 'all';
   const start = f.panel.querySelector('#browser-compress-start');
   await start.onclick();
   assert.deepEqual(f.registered, [original.id]);
@@ -67,7 +66,7 @@ test('all-video batch includes uncatalogued, long, large originals and resumes w
   assert.equal(f.manifest().entries[0].sourceId, original.id);
   await start.onclick();
   assert.equal(f.calls.length, 3);
-  assert.match(f.panel.querySelector('#browser-compress-pending').textContent, /No missing/);
+  assert.match(f.panel.querySelector('#browser-compress-pending').textContent, /All videos have/);
 });
 
 test('upload notification starts a batch for the uploaded original only', async () => {
