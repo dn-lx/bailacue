@@ -66,6 +66,7 @@ test('all-video batch includes uncatalogued, long, large originals and resumes w
   assert.equal(f.manifest().entries[0].sourceId, original.id);
   await start.onclick();
   assert.equal(f.calls.length, 3);
+  await new Promise(resolve => setImmediate(resolve));
   assert.match(f.panel.querySelector('#browser-compress-pending').textContent, /All videos have/);
 });
 
