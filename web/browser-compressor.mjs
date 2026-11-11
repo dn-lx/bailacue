@@ -187,14 +187,14 @@ export function renderBrowserCompressor(panel, ctx) {
       })).filter(item => item.missing.length);
       pending.textContent = incomplete.length ? `${incomplete.length} videos missing one or more compressed versions.`
         : 'All videos have all three compressed versions.';
-      const list = document.createElement('div');
+      const list = panel.ownerDocument.createElement('div');
       list.className = 'compress-missing-list';
       for (const { video, missing } of incomplete) {
-        const row = document.createElement('div');
+        const row = panel.ownerDocument.createElement('div');
         row.className = 'compress-missing-row';
-        const name = document.createElement('span');
+        const name = panel.ownerDocument.createElement('span');
         name.textContent = `${video.dance} · ${video.filename || video.title}`;
-        const qualities = document.createElement('span');
+        const qualities = panel.ownerDocument.createElement('span');
         qualities.textContent = `Compressed version not available: ${missing.join(', ')}`;
         row.append(name, qualities);
         list.append(row);
