@@ -2461,3 +2461,10 @@ details > summary:hover::after { color: var(--blue); }
   -webkit-appearance: none;
   appearance: none;
 }
+
+/* Quality already has its own background chevron. Hide the second arrow
+   drawn by the shared .speed-label::after rule; keep Speed's sole chevron. */
+#player #media-controls .speed-label:has(#media-quality)::after {
+  content: none !important;
+  display: none !important;
+}
