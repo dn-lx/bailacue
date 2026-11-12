@@ -19,6 +19,7 @@ export class DriveConnection {
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
   async prepare() {
     if (!this.connected) await this.restoreMePlus();
+    if (!this.connected && this.clientId) await googleSdk();
   }
   async restoreMePlus() {
     const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
@@ -30,26 +31,40 @@ export class DriveConnection {
     });
     if (!response.ok) {
       const result = await response.json().catch(() => ({}));
-      this.connectionError = result.error || 'Google Drive connection unavailable.';
+      this.connectionError = result.error || 'Connect Google Drive to continue.';
       return false;
     }
     const result = await response.json();
     if (!result.access_token) return false;
     this.accessToken = result.access_token;
-    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 90) * 1000;
+    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 60) * 1000;
     this.connectionError = '';
     return true;
   }
   async connect() {
+    if (!/^[a-zA-Z0-9_-]+\\.apps\\.googleusercontent\\.com$/.test(this.clientId)) throw new Error('BailaCue Google OAuth client ID is missing.');
+    await googleSdk();
+    const google = globalThis.google;
+    const response = await new Promise((resolve, reject) => {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: this.clientId, scope: SCOPE, include_granted_scopes: false,
+        callback: result => result.error || !result.access_token ? reject(new Error('Google authorization was not granted.')) : resolve(result),
+        error_callback: () => reject(new Error('Google authorization was closed or blocked.')),
+      });
+      client.requestAccessToken({ prompt: 'consent' });
+    });
     const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
     const session = raw ? JSON.parse(raw) : null;
     if (!session?.access_token) throw new Error('Sign in as administrator first.');
-    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/start', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: '{}',
+    const saved = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/save', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: response.access_token }),
     });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.url) throw new Error(result.error || 'Could not start Google authorization.');
-    window.location.assign(result.url);
+    const result = await saved.json().catch(() => ({}));
+    if (!saved.ok) throw new Error(result.error || 'Google connection could not be saved.');
+    this.accessToken = response.access_token;
+    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 60) * 1000;
+    this.connectionError = '';
   }
   disconnect() { this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   token() { return this.connected ? this.accessToken : ''; }
