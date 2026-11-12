@@ -69,6 +69,7 @@ export function renderUpload(page, ctx) {
   async function connectGoogle() {
     try {
       await connection.connect();
+      renderUpload(page, ctx);
     } catch (error) {
       page.querySelector('#connection-status').textContent = error.message;
       throw error;
