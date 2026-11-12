@@ -17,9 +17,29 @@ function googleSdk() {
 export class DriveConnection {
   constructor(clientId = '') { this.clientId = clientId; this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
-  async prepare() { if (this.clientId) await googleSdk(); }
+  async prepare() {
+    if (this.connected) return;
+    try { await this.restoreMePlus(); } catch { /* Google popup remains available as fallback. */ }
+    if (!this.connected && this.clientId) await googleSdk();
+  }
+  async restoreMePlus() {
+    const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    if (!session?.access_token) return false;
+    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-drive-session', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: '{}',
+    });
+    if (!response.ok) return false;
+    const result = await response.json();
+    if (!result.access_token) return false;
+    this.accessToken = result.access_token;
+    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 90) * 1000;
+    return true;
+  }
   connect() {
-    return this.authorize(SCOPE).then(response => {
+    return this.restoreMePlus().then(restored => restored ? null : this.authorize(SCOPE)).then(response => { if (!response) return;
       this.accessToken = response.access_token;
       this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000;
     });
