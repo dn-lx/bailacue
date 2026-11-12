@@ -42,7 +42,7 @@ export class DriveConnection {
     return true;
   }
   async connect() {
-    if (!/^[a-zA-Z0-9_-]+\\.apps\\.googleusercontent\\.com$/.test(this.clientId)) throw new Error('BailaCue Google OAuth client ID is missing.');
+    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) throw new Error('BailaCue Google OAuth client ID is missing.');
     await googleSdk();
     const google = globalThis.google;
     const response = await new Promise((resolve, reject) => {
