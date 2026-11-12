@@ -18,56 +18,38 @@ export class DriveConnection {
   constructor(clientId = '') { this.clientId = clientId; this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
   async prepare() {
-    if (this.connected) return;
-    try { await this.restoreMePlus(); } catch { /* Google popup remains available as fallback. */ }
-    if (!this.connected && this.clientId) await googleSdk();
+    if (!this.connected) await this.restoreMePlus();
   }
   async restoreMePlus() {
     const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
     if (!raw) return false;
     const session = JSON.parse(raw);
     if (!session?.access_token) return false;
-    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-drive-session', {
-      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
-      body: '{}',
+    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/token', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: '{}',
     });
-    if (!response.ok) return false;
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      this.connectionError = result.error || 'Google Drive connection unavailable.';
+      return false;
+    }
     const result = await response.json();
     if (!result.access_token) return false;
     this.accessToken = result.access_token;
     this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 90) * 1000;
+    this.connectionError = '';
     return true;
   }
-  connect() {
-    return this.restoreMePlus().then(restored => restored ? null : this.authorize(SCOPE)).then(response => { if (!response) return;
-      this.accessToken = response.access_token;
-      this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000;
+  async connect() {
+    const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
+    const session = raw ? JSON.parse(raw) : null;
+    if (!session?.access_token) throw new Error('Sign in as administrator first.');
+    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/start', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: '{}',
     });
-  }
-  authorize(scope) {
-    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google Drive configuration is unavailable. Reload this page to retry.'));
-    const google = (/** @type {any} */ (window)).google;
-    if (!google?.accounts?.oauth2) return Promise.reject(new Error('Google is still loading. Tap Connect Google again in a moment.'));
-    return new Promise((resolve, reject) => {
-      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope, include_granted_scopes: false,
-        callback: response => {
-          if (!response.access_token || response.error) {
-            const guidance = {
-              invalid_client: 'Google rejected BailaCue’s web client ID. Check its configuration in Google Cloud.',
-              unauthorized_client: 'Google rejected this OAuth client for the browser. Check its application type and authorized JavaScript origins.',
-              origin_mismatch: 'This site is missing from the OAuth client’s authorized JavaScript origins.',
-              access_denied: 'Google access was denied. If your OAuth app is in Testing, add this Google account as a test user.',
-            };
-            reject(new Error(guidance[response.error] || 'Google did not grant Drive access. Check the Google authorization window.'));
-            return;
-          }
-          if (!google.accounts.oauth2.hasGrantedAllScopes(response, scope)) { reject(new Error('Google did not grant the requested permission.')); return; }
-          resolve(response);
-        }, error_callback: error => reject(new Error(error.type === 'popup_failed_to_open'
-          ? 'The Google sign-in popup could not open. Allow popups for BailaCue, then tap Connect again.'
-          : 'The Google sign-in window closed before authorization completed. Tap Connect to try again.')) });
-      this.client.requestAccessToken({ prompt: 'select_account' });
-    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok || !result.url) throw new Error(result.error || 'Could not start Google authorization.');
+    window.location.assign(result.url);
   }
   disconnect() { this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   token() { return this.connected ? this.accessToken : ''; }
