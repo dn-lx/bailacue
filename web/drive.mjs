@@ -72,6 +72,7 @@ export class DriveConnection {
   disconnect() { this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   token() { return this.connected ? this.accessToken : ''; }
   async request(url, options = {}) {
+    if (!this.connected) await this.restoreMePlus().catch(() => false);
     if (!this.connected) throw new Error('Connect Google to continue. Google authorization has expired or is not connected.');
     const response = await fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${this.accessToken}` } });
     if (response.status === 401) { this.disconnect(); throw new Error('Google authorization expired. Reconnect, then retry this upload.'); }
