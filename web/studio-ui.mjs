@@ -227,6 +227,6 @@ export function renderUpload(page, ctx) {
     }
   };
 
-  connection.prepare().catch(error => { const el = page.querySelector('#connection-status'); if (el) el.textContent = error.message; });
+  connection.prepare().then(() => { if (connection.connected && page.querySelector('#connect-google')?.textContent?.includes('Connect Google')) renderUpload(page, ctx); }).catch(error => { const el = page.querySelector('#connection-status'); if (el) el.textContent = error.message; });
   renderFiles();
 }
