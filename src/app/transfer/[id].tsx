@@ -384,7 +384,11 @@ export default function Transfer() {
             </Card>
           ) : null}
           <Button onPress={start} disabled={busy || !sourceId}>
-            {job ? "Resume / check upload" : "Upload to selected folder"}
+            {job
+              ? error
+                ? "Try again"
+                : "Resume / check upload"
+              : "Upload to selected folder"}
           </Button>
           {busy ? (
             <Button variant="ghost" onPress={() => abort.current?.abort()}>
