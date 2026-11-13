@@ -28,6 +28,7 @@ export type PendingUpload = {
   path?: string;
   status: "queued" | "uploading" | "interrupted" | "ready";
   keepCopy: boolean;
+  contentSha256?: string;
 };
 type Transport = {
   token: () => Promise<string>;
@@ -78,6 +79,26 @@ export async function uploadFile(
   try {
     if (signal?.aborted) throw new Error("Upload paused.");
     if (job.provider === "google-drive") {
+      if (!job.fileId && job.contentSha256) {
+        const query = encodeURIComponent(
+          `'${folderId}' in parents and trashed=false and appProperties has { key='bailacueUploadSha256' and value='${job.contentSha256}' }`,
+        );
+        const duplicatesResponse = await ensure(
+          await request(
+            `https://www.googleapis.com/drive/v3/files?q=${query}&pageSize=10&fields=files(id,name,mimeType,size,videoMediaMetadata)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
+            { headers: await headers(), signal },
+          ),
+        );
+        const duplicates = (await duplicatesResponse.json()) as {
+          files?: Array<{ id: string; name: string; mimeType: string; size: string }>;
+        };
+        const duplicate = duplicates.files?.find((item) => Number(item.size) === job.size);
+        if (duplicate) {
+          const file = mapDriveVideo(duplicate);
+          await save({ fileId: duplicate.id, offset: job.size, status: "ready" });
+          return file;
+        }
+      }
       if (!job.fileId) {
         const response = await ensure(
           await request(
@@ -121,6 +142,9 @@ export async function uploadFile(
                 name: job.name,
                 parents: [folderId],
                 mimeType: job.mimeType,
+                ...(job.contentSha256
+                  ? { appProperties: { bailacueUploadSha256: job.contentSha256 } }
+                  : {}),
               }),
               signal,
             },
