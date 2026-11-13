@@ -230,8 +230,12 @@ struct ProcessorHome: View {
                                     Text("\(job.dance.rawValue) · \(formatBytes(job.size)) · \(job.status.rawValue.capitalized)")
                                         .font(.caption).foregroundStyle(.secondary)
                                     if !job.finished.isEmpty {
-                                        Text("Available: " + job.finished.map { $0.replacingOccurrences(of: "p", with: "") }.joined(separator: ", ") + "p")
+                                        Text("Available: " + job.finished.joined(separator: ", "))
                                             .font(.caption2).foregroundStyle(.green)
+                                    }
+                                    if let unsupported = job.unsupported, !unsupported.isEmpty {
+                                        Text("Too small for: " + unsupported.joined(separator: ", "))
+                                            .font(.caption2).foregroundStyle(.secondary)
                                     }
                                     if !missingQualities.isEmpty {
                                         Text("Missing: " + missingQualities.map { $0.rawValue }.joined(separator: ", ") + " · convertible")
