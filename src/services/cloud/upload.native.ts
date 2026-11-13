@@ -19,9 +19,11 @@ export async function uploadVideo(
   const file = new File(uri);
   if (!file.exists || file.size !== job.size)
     throw new Error("This local video is missing or changed. Import it again.");
+  const contentSha256 = await file.digest("SHA-256");
+  const identifiedJob = { ...job, contentSha256 };
   const handle = file.open(FileMode.ReadOnly);
   try {
-    return await uploadFile(job, source.folderId, {
+    return await uploadFile(identifiedJob, source.folderId, {
       token: () => accessToken(connection),
       read: async (start, end) => {
         handle.offset = start;
