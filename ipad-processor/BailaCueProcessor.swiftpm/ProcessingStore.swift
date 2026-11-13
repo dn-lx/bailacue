@@ -148,6 +148,20 @@ final class ProcessingStore: ObservableObject {
         saveQueue()
     }
 
+    func convertMissing(_ id: String) {
+        guard !running, let index = jobs.firstIndex(where: { $0.id == id }) else { return }
+        let covered = Set(jobs[index].finished).union(jobs[index].unsupported ?? [])
+        let missing = Set(VideoQuality.allCases.filter { !covered.contains($0.rawValue) })
+        guard !missing.isEmpty else { return }
+        selectedQualities = missing
+        selectedFormats = [.mp4]
+        for jobIndex in jobs.indices { jobs[jobIndex].isSelected = jobIndex == index }
+        jobs[index].status = .queued
+        jobs[index].error = nil
+        saveQueue()
+        start()
+    }
+
     func start() {
         guard !running, !selectedQualities.isEmpty, !selectedFormats.isEmpty else { return }
         running = true
