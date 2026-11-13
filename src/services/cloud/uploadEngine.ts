@@ -80,19 +80,42 @@ export async function uploadFile(
     if (signal?.aborted) throw new Error("Upload paused.");
     if (job.provider === "google-drive") {
       if (!job.fileId && job.contentSha256) {
-        const query = encodeURIComponent(
-          `'${folderId}' in parents and trashed=false and appProperties has { key='bailacueUploadSha256' and value='${job.contentSha256}' }`,
-        );
-        const duplicatesResponse = await ensure(
-          await request(
-            `https://www.googleapis.com/drive/v3/files?q=${query}&pageSize=10&fields=files(id,name,mimeType,size,videoMediaMetadata)&supportsAllDrives=true&includeItemsFromAllDrives=true`,
-            { headers: await headers(), signal },
-          ),
-        );
-        const duplicates = (await duplicatesResponse.json()) as {
-          files?: Array<{ id: string; name: string; mimeType: string; size: string }>;
-        };
-        const duplicate = duplicates.files?.find((item) => Number(item.size) === job.size);
+        let pageToken = "";
+        let duplicate:
+          | { id: string; name: string; mimeType: string; size: string }
+          | undefined;
+        do {
+          const page = new URLSearchParams({
+            q: `'${folderId}' in parents and trashed=false`,
+            pageSize: "1000",
+            fields: "nextPageToken,files(id,name,mimeType,size,sha256Checksum)",
+            supportsAllDrives: "true",
+            includeItemsFromAllDrives: "true",
+            ...(pageToken ? { pageToken } : {}),
+          });
+          const response = await ensure(
+            await request(`https://www.googleapis.com/drive/v3/files?${page.toString()}`, {
+              headers: await headers(),
+              signal,
+            }),
+          );
+          const results = (await response.json()) as {
+            files?: Array<{
+              id: string;
+              name: string;
+              mimeType: string;
+              size: string;
+              sha256Checksum?: string;
+            }>;
+            nextPageToken?: string;
+          };
+          duplicate = results.files?.find(
+            (item) =>
+              item.sha256Checksum === job.contentSha256 &&
+              Number(item.size) === job.size,
+          );
+          pageToken = results.nextPageToken ?? "";
+        } while (!duplicate && pageToken);
         if (duplicate) {
           const file = mapDriveVideo(duplicate);
           await save({ fileId: duplicate.id, offset: job.size, status: "ready" });
