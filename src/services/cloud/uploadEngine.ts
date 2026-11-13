@@ -79,7 +79,7 @@ export async function uploadFile(
   try {
     if (signal?.aborted) throw new Error("Upload paused.");
     if (job.provider === "google-drive") {
-      if (!job.fileId && job.contentSha256) {
+      if (!job.sessionUrl && job.contentSha256) {
         let pageToken = "";
         let duplicate:
           | { id: string; name: string; mimeType: string; size: string }
