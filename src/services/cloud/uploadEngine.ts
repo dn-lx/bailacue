@@ -88,7 +88,7 @@ export async function uploadFile(
           const page = new URLSearchParams({
             q: `'${folderId}' in parents and trashed=false`,
             pageSize: "1000",
-            fields: "nextPageToken,files(id,name,mimeType,size,sha256Checksum)",
+            fields: "nextPageToken,files(id,name,mimeType,size,sha256Checksum,modifiedTime,thumbnailLink,videoMediaMetadata(durationMillis),capabilities(canDownload))",
             supportsAllDrives: "true",
             includeItemsFromAllDrives: "true",
             ...(pageToken ? { pageToken } : {}),
@@ -106,6 +106,10 @@ export async function uploadFile(
               mimeType: string;
               size: string;
               sha256Checksum?: string;
+              modifiedTime?: string;
+              thumbnailLink?: string;
+              videoMediaMetadata?: { durationMillis?: string };
+              capabilities?: { canDownload?: boolean };
             }>;
             nextPageToken?: string;
           };
