@@ -218,6 +218,8 @@ struct ProcessorHome: View {
                 } else {
                     LazyVStack(spacing: 1) {
                         ForEach(studio.jobs) { job in
+                            let coveredQualities = Set(job.finished).union(job.unsupported ?? [])
+                            let missingQualities = VideoQuality.allCases.filter { !coveredQualities.contains($0.rawValue) }
                             HStack(spacing: 12) {
                                 Button { studio.toggleSelection(job.id) } label: {
                                     Image(systemName: job.isSelected ? "checkmark.circle.fill" : "circle")
@@ -227,6 +229,16 @@ struct ProcessorHome: View {
                                     Text(job.name).lineLimit(1).font(.subheadline.weight(.medium))
                                     Text("\(job.dance.rawValue) · \(formatBytes(job.size)) · \(job.status.rawValue.capitalized)")
                                         .font(.caption).foregroundStyle(.secondary)
+                                    if !job.finished.isEmpty {
+                                        Text("Available: " + job.finished.map { $0.replacingOccurrences(of: "p", with: "") }.joined(separator: ", ") + "p")
+                                            .font(.caption2).foregroundStyle(.green)
+                                    }
+                                    if !missingQualities.isEmpty {
+                                        Text("Missing: " + missingQualities.map { $0.rawValue }.joined(separator: ", ") + " · convertible")
+                                            .font(.caption2).foregroundStyle(.secondary)
+                                        Button("Convert missing") { studio.convertMissing(job.id) }
+                                            .font(.caption).buttonStyle(.bordered).disabled(studio.running)
+                                    }
                                     if let error = job.error {
                                         Text(error).font(.caption).foregroundStyle(.orange).lineLimit(2)
                                     }
