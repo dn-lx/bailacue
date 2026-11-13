@@ -160,12 +160,6 @@ export class StudioPlayer {
       ? preferredPlaybackRendition(this.optimizedFor(video)) : null;
     this.playbackQuality = optimizedCopy?.quality || '';
     this.updateQualityControls(video);
-    if (!localUrl && video.provider === 'drive' && !optimizedCopy) {
-      this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
-      this.controls.setAttribute('data-preview-label', 'Optimized video unavailable');
-      this.status('No converted 360p, 720p, or 1080p version is available yet. Convert this video first.');
-      return;
-    }
     this.hideFullscreenControls();
     this.frame.classList.remove('portrait-video');
     this.frame.setAttribute('aria-busy', 'true'); this.setAvailable(false);
@@ -181,7 +175,9 @@ export class StudioPlayer {
         }
         if (generation !== this.generation) return;
         const media = document.createElement('video'); media.controls = false; media.playsInline = true; media.preload = 'auto';
-        media.src = localUrl || `/api/drive-video/${optimizedCopy.driveId}`;
+        media.src = localUrl || (optimizedCopy
+          ? `/api/drive-video/${optimizedCopy.driveId}`
+          : (this.token() ? `/drive-media/${video.providerId}` : `/api/drive-video/${video.providerId}`));
         media.setAttribute('aria-label', `${video.title} video`);
         this.media = media; this.kind = 'native'; this.frame.replaceChildren(media); this.updateFullscreen();
         const loading = setTimeout(() => {
@@ -287,24 +283,32 @@ export class StudioPlayer {
   updateQualityControls(video) {
     const entries = !this.lastLocalUrl && video?.provider === 'drive' ? renditions(this.optimizedFor(video)) : [];
     const available = ['360p', '720p', '1080p'].filter(quality => entries.some(item => item.quality === quality));
+    const qualities = available.length ? available : ['original'];
     for (const select of [this.$('#media-quality'), this.fsQuality]) {
       if (!select) continue;
       const label = select.closest('label');
-      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive' || available.length === 0; label.title = 'Choose an available converted playback resolution'; }
-      select.replaceChildren(...available.map(quality => {
-        const option = document.createElement('option'); option.value = quality; option.textContent = quality; return option;
+      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive'; label.title = available.length ? 'Choose an available converted playback resolution' : 'No converted versions are available; play the original video'; }
+      select.replaceChildren(...qualities.map(quality => {
+        const option = document.createElement('option');
+        option.value = quality;
+        option.textContent = quality === 'original' ? 'Original' : quality;
+        return option;
       }));
       if (available.length && !available.includes(this.playbackQuality)) this.playbackQuality = available[0];
+      if (!available.length) this.playbackQuality = 'original';
       select.value = this.playbackQuality;
     }
   }
   changeQuality(value) {
     if (this.kind !== 'native' || !this.media || this.lastLocalUrl || this.video?.provider !== 'drive') return;
+    const entries = renditions(this.optimizedFor(this.video));
     const variant = chooseRendition(this.optimizedFor(this.video), value);
-    if (!variant) return;
-    this.playbackQuality = variant.quality;
+    if (!variant && !(value === 'original' && entries.length === 0)) return;
+    this.playbackQuality = variant?.quality || 'original';
     this.updateQualityControls(this.video);
-    const src = '/api/drive-video/' + variant.driveId;
+    const src = variant
+      ? '/api/drive-video/' + variant.driveId
+      : (this.token() ? '/drive-media/' + this.video.providerId : '/api/drive-video/' + this.video.providerId);
     if (this.media.getAttribute('src') === src) return;
     const current = this.current();
     const playing = !this.media.paused;
