@@ -87,7 +87,7 @@ const MAX = 2*1024*1024*1024, VALID = /\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i;
 function safe(text) { const el = document.createElement('span'); el.textContent = text; return el.innerHTML; }
 function chosenQualities() { return [...document.querySelectorAll('.quality-opt:checked')].map(input => input.value); }
 function queueRender() {
-  $('queue').innerHTML = selected.map((file,i) => '<li>'+safe(file.name)+' <small>· '+(file.size/1048576).toFixed(1)+' MiB · '+safe(file.state || 'waiting')+'</small></li>').join('');
+  $('queue').innerHTML = selected.map((file,i) => '<li>'+safe(file.name)+' <small>· '+(file.size/1048576).toFixed(1)+' MiB · '+safe(file.state || 'waiting')+'</small>'+(file.state==='failed'?' <button type="button" class="retry-upload" data-retry-index="'+i+'">Try again</button>':'')+'</li>').join('');
   $('start').disabled = busy || !selected.length || chosenQualities().length === 0;
   $('clear').disabled = busy;
   $('files').disabled = busy;
@@ -160,6 +160,22 @@ async function submitOne(file,dance,qualities) {
     xhr.send(file);
   });
 }
+$('queue').addEventListener('click', async event => {
+  const button = event.target.closest('.retry-upload');
+  if (!button || busy) return;
+  const file = selected[Number(button.dataset.retryIndex)];
+  if (!file || file.state !== 'failed') return;
+  const qualities = chosenQualities();
+  if (!qualities.length) return;
+  busy = true; $('upload-progress').hidden = false; file.state = 'uploading'; queueRender();
+  try {
+    const done = await submitOne(file, $('dance').value, qualities);
+    file.state = 'complete'; $('upload-status').textContent = file.name+' ready · '+(done.qualities||[]).join(', ');
+  } catch (error) {
+    file.state = 'failed'; $('upload-status').textContent = file.name+': '+error.message+' — select Try again to retry this video.';
+  }
+  $('upload-progress').hidden = true; busy = false; queueRender(); statePoll();
+});
 $('start').onclick=async()=>{
   if(busy||!selected.length)return;
   busy=true;$('upload-progress').hidden=false;
