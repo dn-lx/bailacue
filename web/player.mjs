@@ -146,7 +146,7 @@ export class StudioPlayer {
       this.status('This video is taking longer than expected. You can retry without leaving the page.');
     }, 6000);
   }
-  async open(video, localUrl = '', autoPlay = false, forceOriginal = false) {
+  async open(video, localUrl = '', autoPlay = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
     this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay; this.failedOptimizedIds = [];
     const poster = this.posterFor(video);
@@ -156,7 +156,7 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
-    const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive'
+    const optimizedCopy = !localUrl && video.provider === 'drive'
       ? preferredPlaybackRendition(this.optimizedFor(video)) : null;
     this.playbackQuality = optimizedCopy?.quality || '';
     this.updateQualityControls(video);
@@ -234,17 +234,6 @@ export class StudioPlayer {
             this.frame.setAttribute('aria-busy', 'false'); this.frame.dataset.starting = 'false';
             this.retryButton.hidden = false;
             this.status('The available converted versions could not be played. Try again or convert this video again.');
-            /* Never fall back to playing the original file. */
-            return;
-            this.open(video, localUrl, resumePlaying, true).then(() => {
-              const replacement = this.media;
-              if (!replacement || this.video !== video) return;
-              if (previousPosition > 0) replacement.addEventListener('loadedmetadata', () => {
-                try { replacement.currentTime = Math.min(previousPosition, Number.isFinite(replacement.duration) ? replacement.duration : previousPosition); }
-                catch { /* Keep the original playback available even if seek is unsupported. */ }
-              }, { once: true });
-              this.status('Optimized copy is unavailable; loading the original video.');
-            }).catch(() => {});
             return;
           }
           clearTimeout(loading); clearTimeout(this.slowTimer); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
@@ -303,7 +292,7 @@ export class StudioPlayer {
       const label = select.closest('label');
       if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive' || available.length === 0; label.title = 'Choose an available converted playback resolution'; }
       select.replaceChildren(...available.map(quality => {
-        const option = document.createElement('option'); option.value = quality; option.textContent = quality.slice(0, -1); return option;
+        const option = document.createElement('option'); option.value = quality; option.textContent = quality; return option;
       }));
       if (available.length && !available.includes(this.playbackQuality)) this.playbackQuality = available[0];
       select.value = this.playbackQuality;
