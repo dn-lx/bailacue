@@ -29,6 +29,7 @@ export type PendingUpload = {
   status: "queued" | "uploading" | "interrupted" | "ready";
   keepCopy: boolean;
   contentSha256?: string;
+  reusedDuplicate?: boolean;
 };
 type Transport = {
   token: () => Promise<string>;
@@ -122,7 +123,7 @@ export async function uploadFile(
         } while (!duplicate && pageToken);
         if (duplicate) {
           const file = mapDriveVideo(duplicate);
-          await save({ fileId: duplicate.id, offset: job.size, status: "ready" });
+          await save({ fileId: duplicate.id, offset: job.size, status: "ready", reusedDuplicate: true });
           return file;
         }
       }
