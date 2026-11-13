@@ -288,12 +288,10 @@ export default function Transfer() {
         <Card>
           <Badge tone="accent">UPLOAD CONFIRMED</Badge>
           <Txt>
-            Your video is saved online in{" "}
-            {
-              library.sources.find((s) => s.id === (job?.sourceId ?? sourceId))
-                ?.name
-            }
-            . Your notes, ratings and practice sections came along.
+            {job?.reusedDuplicate
+              ? "This same video was already in this folder, so BailaCue reused the existing file."
+              : "Your video is saved online in this folder."}{" "}
+            Your notes, ratings and practice sections came along.
           </Txt>
           <Button
             onPress={() =>
