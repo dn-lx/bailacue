@@ -181,7 +181,7 @@ export default function Transfer() {
       };
       await vault.set(`upload-${current.id}`, JSON.stringify(completedJob));
       setJob(completedJob);
-      if (file.name !== finalName) {
+      if (file.name !== finalName && !completedJob.reusedDuplicate) {
         try {
           await provider(connection).renameVideo(
             file.fileId,
