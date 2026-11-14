@@ -11,10 +11,10 @@ const original = {
   width: 1920, height: 1080, size: 180 * 1024 ** 2, duration: 690,
 };
 
-test('resolution profiles preserve portrait and small originals without upscaling', () => {
+test('resolution profiles preserve aspect ratio and upscale smaller originals when needed', () => {
   assert.deepEqual(compressionSize(1080, 1920, '1080p'), { width: 1080, height: 1920 });
-  assert.deepEqual(compressionSize(320, 240, '360p'), { width: 320, height: 240 });
-  assert.equal(compressionSize(1280, 720, '1080p'), null);
+  assert.deepEqual(compressionSize(320, 240, '360p'), { width: 480, height: 360 });
+  assert.deepEqual(compressionSize(1280, 720, '1080p'), { width: 1920, height: 1080 });
   assert.deepEqual(pendingCopies(original, { renditions: [{ quality: '720p' }] }), ['360p', '1080p']);
 });
 
