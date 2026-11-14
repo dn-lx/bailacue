@@ -13,8 +13,9 @@ let library;
 export function compressionSize(width, height, quality = '360p') {
   const profile = PROFILES[quality];
   if (!Object.hasOwn(PROFILES, quality) || !Number.isFinite(width) || !Number.isFinite(height) ||
-      Math.min(width, height) < (quality === '360p' ? 2 : profile.height)) return null;
-  const scale = Math.min(1, profile.width / Math.max(width, height), profile.height / Math.min(width, height));
+      Math.min(width, height) < 2) return null;
+  // Always create the requested output size, upscaling smaller sources when needed.
+  const scale = Math.min(profile.width / Math.max(width, height), profile.height / Math.min(width, height));
   return { width: Math.floor(width * scale / 2) * 2, height: Math.floor(height * scale / 2) * 2 };
 }
 
@@ -151,9 +152,9 @@ export function renderBrowserCompressor(panel, ctx) {
       <div class="compress-output">
         <span class="field-label" title="Available output qualities depend on each original video">Playback quality ⓘ</span>
         <ul class="compress-resolutions" aria-label="Output resolutions">
-          <li title="Up to 360p for lower-resolution originals">360p</li><li>720p</li><li>1080p</li>
+          <li>360p</li><li>720p</li><li>1080p</li>
         </ul>
-        
+        <p class="compress-note">Missing versions can be created even when that means upscaling. Upscaling changes the output size, not the source detail.</p>
 
       </div>
     </div>
