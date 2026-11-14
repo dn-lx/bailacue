@@ -190,7 +190,7 @@ export function renderBrowserCompressor(panel, ctx) {
       }).filter(item => item.missing.length);
       const convertibleCount = incomplete.filter(item => item.convertible.length).length;
       pending.textContent = incomplete.length
-        ` ${incomplete.length} videos are missing versions; ${convertibleCount} can be created from their Originals, upscaling when needed.`
+        ? `${incomplete.length} videos are missing versions; ${convertibleCount} can be created from their Originals, upscaling when needed.`
         : 'All videos have all three compressed versions.';
       const list = panel.ownerDocument.createElement('div');
       list.className = 'compress-missing-list';
