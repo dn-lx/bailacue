@@ -13,9 +13,8 @@ let library;
 export function compressionSize(width, height, quality = '360p') {
   const profile = PROFILES[quality];
   if (!Object.hasOwn(PROFILES, quality) || !Number.isFinite(width) || !Number.isFinite(height) ||
-      Math.min(width, height) < 2) return null;
-  // Always create the requested output size, upscaling smaller sources when needed.
-  const scale = Math.min(profile.width / Math.max(width, height), profile.height / Math.min(width, height));
+      Math.min(width, height) < (quality === '360p' ? 2 : profile.height)) return null;
+  const scale = Math.min(1, profile.width / Math.max(width, height), profile.height / Math.min(width, height));
   return { width: Math.floor(width * scale / 2) * 2, height: Math.floor(height * scale / 2) * 2 };
 }
 
@@ -152,9 +151,9 @@ export function renderBrowserCompressor(panel, ctx) {
       <div class="compress-output">
         <span class="field-label" title="Available output qualities depend on each original video">Playback quality ⓘ</span>
         <ul class="compress-resolutions" aria-label="Output resolutions">
-          <li>360p</li><li>720p</li><li>1080p</li>
+          <li title="Maximum output resolution is limited by the Original">360p</li><li title="Maximum output resolution is limited by the Original">720p</li><li title="Maximum output resolution is limited by the Original">1080p</li>
         </ul>
-        <p class="compress-note">Missing versions can be created even when that means upscaling. Upscaling changes the output size, not the source detail.</p>
+        <p class="compress-note">All copies are encoded directly from the Original. Versions above its native resolution are skipped; no upscaling is used.</p>
 
       </div>
     </div>
@@ -183,20 +182,29 @@ export function renderBrowserCompressor(panel, ctx) {
       if (raw != null && !manifest) throw new Error('Cannot verify existing playback copies.');
       if (version !== scanVersion) return;
       const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
-      const incomplete = [...salsa, ...bachata].map(video => ({
-        video, missing: QUALITIES.filter(quality => !renditions(published.get(video.id)).some(copy => copy.quality === quality))
-      })).filter(item => item.missing.length);
-      pending.textContent = incomplete.length ? `${incomplete.length} videos missing one or more compressed versions.`
+      const incomplete = [...salsa, ...bachata].map(video => {
+        const entry = published.get(video.id);
+        const missing = QUALITIES.filter(quality => !renditions(entry).some(copy => copy.quality === quality));
+        return { video, missing, convertible: pendingCopies(video, entry) };
+      }).filter(item => item.missing.length);
+      const convertibleCount = incomplete.filter(item => item.convertible.length).length;
+      pending.textContent = incomplete.length
+        ? `${incomplete.length} videos are missing versions; ${convertibleCount} can be created from their Originals without upscaling.`
         : 'All videos have all three compressed versions.';
       const list = panel.ownerDocument.createElement('div');
       list.className = 'compress-missing-list';
-      for (const { video, missing } of incomplete) {
+      for (const { video, missing, convertible } of incomplete) {
         const row = panel.ownerDocument.createElement('div');
         row.className = 'compress-missing-row';
         const name = panel.ownerDocument.createElement('span');
         name.textContent = `${video.dance} · ${video.filename || video.title}`;
         const qualities = panel.ownerDocument.createElement('span');
-        qualities.textContent = `Compressed version not available: ${missing.join(', ')}`;
+        const unsupported = missing.filter(quality => !convertible.includes(quality));
+        qualities.textContent = [
+          `Compressed version not available: ${missing.join(', ')}`,
+          convertible.length ? `Can create from Original: ${convertible.join(', ')}` : '',
+          unsupported.length ? `Cannot create without upscaling: ${unsupported.join(', ')}` : '',
+        ].filter(Boolean).join(' · ');
         row.append(name, qualities);
         list.append(row);
       }
@@ -253,7 +261,7 @@ export function renderBrowserCompressor(panel, ctx) {
       const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
       const candidates = originals.map(video => ({ video, missing: pendingCopies(video, published.get(video.id)) }))
         .filter(item => item.missing.length);
-      if (!candidates.length) { report('No eligible videos need more playback copies.', 0); return; }
+      if (!candidates.length) { report('No missing versions can be created from the Originals without upscaling.', 0); return; }
       let saved = 0, skipped = 0, failureCount = 0;
       const failures = [];
       const recordFailure = (filename, error) => {
