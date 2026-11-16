@@ -110,7 +110,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     const addedArtist=rows.get('labels').items.find(l=>l.name==='New public teacher');
     assert.deepEqual(rows.get('meta:'+videoId),{
       title:'Editable partnerwork',notes:'Keep the weight transfer smooth.',
-      moveIds:['qa-move'],styleTimingIds:['qa-style'],level:'Intermediate',
+      labelIds:[],moveIds:['qa-move'],styleTimingIds:['qa-style'],level:'Intermediate',
       artistIds:['qa-artist',addedArtist.id],recordedAt:'2026-11-06',
       event:'Evening class',location:'Valencia',
     });
