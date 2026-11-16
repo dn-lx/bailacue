@@ -144,8 +144,8 @@ export function filterVideos(videos, meta, filters, labels = []) {
       && (!filters.labelIds?.length || filters.labelIds.every(id => m.labelIds?.includes(id)))
       && (!filters.artistIds?.length || filters.artistIds.some(id => m.artistIds?.includes(id)))
       && (!filters.level || m.level === filters.level)
-      && (!filters.moves?.length || filters.moves.every(id => m.moveIds?.includes(id)))
-      && (!filters.danceStyles?.length || filters.danceStyles.every(id => m.styleTimingIds?.includes(id)))
+      && (!filters.moves?.length || filters.moves.every(id => m.moveIds?.includes(id) || m.labelIds?.includes(id)))
+      && (!filters.danceStyles?.length || filters.danceStyles.every(id => m.styleTimingIds?.includes(id) || m.labelIds?.includes(id)))
       && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   return out.sort((a, b) => {
