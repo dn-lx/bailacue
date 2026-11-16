@@ -121,13 +121,13 @@ export function dailyPicks(videos, meta, day, previous = []) {
     let pool = videos.filter(v => v.dance === dance && v.provider === 'drive');
     const fresh = pool.filter(v => !previous.includes(v.id));
     if (fresh.length) pool = fresh;
-    pool.sort((a, b) => ((meta[b.id]?.rating ?? 10) - (meta[a.id]?.rating ?? 10)) || (hash(day + a.id) - hash(day + b.id)));
+    pool.sort((a, b) => hash(day + a.id) - hash(day + b.id));
     return pool[0] ? [pool[0].id] : [];
   });
 }
 /** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta */
 export function practiceQueue(videos, meta, random = Math.random) {
-  const byDance = ['Salsa', 'Bachata'].map(dance => videos.filter(v => v.dance === dance).map(v => ({ id: v.id, key: -Math.log(Math.max(0.000001, random())) / (meta[v.id]?.rating ?? 10) })).sort((a, b) => a.key - b.key));
+  const byDance = ['Salsa', 'Bachata'].map(dance => videos.filter(v => v.dance === dance).map(v => ({ id: v.id, key: -Math.log(Math.max(0.000001, random())) })).sort((a, b) => a.key - b.key));
   const out = [];
   while (byDance.some(x => x.length)) for (const pool of byDance) if (pool.length) out.push(pool.shift().id);
   return out;
@@ -142,11 +142,12 @@ export function filterVideos(videos, meta, filters, labels = []) {
       && (!filters.favorite || m.favorite)
       && (!filters.labelIds?.length || filters.labelIds.every(id => m.labelIds?.includes(id)))
       && (!filters.artistIds?.length || filters.artistIds.some(id => m.artistIds?.includes(id)))
-      && (!filters.rating || (filters.rating === 'unrated' ? !m.rating : m.rating === Number(filters.rating)))
-      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${labels.filter(l => [...(m.labelIds || []), ...(m.artistIds || [])].includes(l.id)).map(l => l.name).join(' ')}`.toLocaleLowerCase().includes(query));
+      && (!filters.level || m.level === filters.level)
+      && (!filters.moves?.length || filters.moves.every(value => m.moves?.includes(value)))
+      && (!filters.danceStyles?.length || filters.danceStyles.every(value => m.danceStyles?.includes(value)))
+      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.artistIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   return out.sort((a, b) => {
-    if (filters.sort === 'rating') return (meta[b.id]?.rating ?? 0) - (meta[a.id]?.rating ?? 0) || displayTitle(a, meta).localeCompare(displayTitle(b, meta), undefined, { numeric: true });
     if (filters.sort === 'recent') return (b.addedAt || '').localeCompare(a.addedAt || '');
     return a.dance.localeCompare(b.dance) || displayTitle(a, meta).localeCompare(displayTitle(b, meta), undefined, { numeric: true });
   });
