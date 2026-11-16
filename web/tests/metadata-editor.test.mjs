@@ -76,7 +76,7 @@ async function visitor(rows) {
 test('guests edit, create labels and artists, save, retry and share metadata across fresh browsers without sign-in', async () => {
   const rows=new Map([['labels',{items:[
     {id:'qa-move',name:'Partnerwork',type:'Moves',dance:'Both'},
-    {id:'qa-style',name:'Bachata Sensual',type:'Style & timing',dance:'Bachata'},
+    {id:'qa-style',name:'Sensual',type:'Style & timing',dance:'Both'},
     {id:'qa-artist',name:'Test teacher',type:'Artist',dance:'Both'},
   ]}]]);
   let h=await visitor(rows), videoId;
