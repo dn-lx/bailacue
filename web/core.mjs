@@ -121,7 +121,7 @@ export function dailyPicks(videos, meta, day, previous = []) {
     let pool = videos.filter(v => v.dance === dance && v.provider === 'drive');
     const fresh = pool.filter(v => !previous.includes(v.id));
     if (fresh.length) pool = fresh;
-    pool.sort((a, b) => hash(day + a.id) - hash(day + b.id));
+    pool.sort((a, b) => (rating(meta[b.id]?.rating) || 0) - (rating(meta[a.id]?.rating) || 0) || hash(day + a.id) - hash(day + b.id));
     return pool[0] ? [pool[0].id] : [];
   });
 }
@@ -140,6 +140,7 @@ export function filterVideos(videos, meta, filters, labels = []) {
     return (!filters.dance || filters.dance === 'All' || v.dance === filters.dance)
       && (!filters.provider || filters.provider === 'all' || v.provider === filters.provider)
       && (!filters.favorite || m.favorite)
+      && (!filters.rating || (filters.rating === 'unrated' ? !rating(m.rating) : rating(m.rating) === Number(filters.rating)))
       && (!filters.labelIds?.length || filters.labelIds.every(id => m.labelIds?.includes(id)))
       && (!filters.artistIds?.length || filters.artistIds.some(id => m.artistIds?.includes(id)))
       && (!filters.level || m.level === filters.level)
