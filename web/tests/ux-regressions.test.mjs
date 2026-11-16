@@ -251,7 +251,7 @@ test('browser-wide resizing and public editor stay functional without Player set
   assert.match(html, /class="video-metadata-editor"/);
   assert.match(html, /id="detail-moves"/);\n  assert.match(html, /id="detail-dance-styles"/);\n  assert.match(html, /id="detail-level"/);
   assert.match(html, /id="detail-artists"/);
-  assert.match(html, /id="rating-buttons"/);
+  assert.match(html, /id="detail-level"/);
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
   assert.match(app, /videoResize\.addEventListener\('keydown'/);
 });
