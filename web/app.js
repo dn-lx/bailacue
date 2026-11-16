@@ -93,7 +93,7 @@ function publishKey(key, payload) {
 }
 function publishLabels() { return publishKey('labels', { items: state.labels }); }
 function publicMetadata(value = {}) {
-  const kept = ['title', 'notes', 'labelIds', 'artistIds', 'recordedAt', 'event', 'location', 'rating', 'moves', 'danceStyles', 'level'];
+  const kept = ['title', 'notes', 'labelIds', 'artistIds', 'recordedAt', 'event', 'location', 'rating', 'moves', 'danceStyles', 'moveIds', 'styleTimingIds', 'level'];
   return Object.fromEntries(kept.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
 }
 function publishDrive() {
@@ -155,18 +155,8 @@ async function addLabel(name, type, dance) {
 }
 function readableDate(value) { if (!value || Number.isNaN(Date.parse(value))) return 'Unknown'; return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
 function cardDetails(v) { const m = meta(v.id); const artists = state.labels.filter(l => m.artistIds?.includes(l.id));
-  const tags = [...(m.moves || []), ...(m.danceStyles || [])];
+  const tags = [...state.labels.filter(item => m.moveIds?.includes(item.id) || m.styleTimingIds?.includes(item.id)).map(item => item.name), ...(m.moves || []), ...(m.danceStyles || [])];
   return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${tags.slice(0, 2).map(name => `<span class="tag">${esc(name)}</span>`).join('')}${tags.length > 2 ? `<span class="empty-tag">+${tags.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
-}
-
-function mountMultiValuePicker(container, { title, choices, selected = [], onChange, allowCustom = false }) {
-  const values = [...new Set(selected.filter(value => typeof value === 'string' && value.trim()).map(value => value.trim()))];
-  const render = () => { container.innerHTML = `<fieldset class="dance-value-picker"><legend>${esc(title)}</legend><div class="dance-value-options">${choices.map(value => `<button type="button" class="dance-choice ${values.includes(value) ? 'selected' : ''}" data-value="${esc(value)}" aria-pressed="${values.includes(value)}">${esc(value)}</button>`).join('')}${values.filter(value => !choices.includes(value)).map(value => `<button type="button" class="dance-choice selected" data-value="${esc(value)}" aria-pressed="true">${esc(value)} <span aria-hidden="true">×</span></button>`).join('')}</div>${allowCustom ? `<div class="dance-value-add"><input class="dance-value-input" maxlength="80" placeholder="Add another ${esc(title.toLocaleLowerCase())}" aria-label="Add another ${esc(title.toLocaleLowerCase())}"><button type="button" class="button subtle small dance-value-submit">Add</button></div>` : ''}</fieldset>`; };
-  const commit = next => { values.splice(0, values.length, ...[...new Map(next.map(value => [value.toLocaleLowerCase(), value])).values()]); onChange([...values]); render(); };
-  const addValue = () => { const input = container.querySelector('.dance-value-input'), value = input?.value.trim().replace(/\s+/g, ' '); if (!value || value.length > 80 || values.some(item => item.toLocaleLowerCase() === value.toLocaleLowerCase())) return; commit([...values, value]); };
-  container.onclick = event => { const button = event.target.closest('button'); if (!button || !container.contains(button)) return; if (button.classList.contains('dance-value-submit')) { addValue(); return; } if (button.dataset.value) commit(values.includes(button.dataset.value) ? values.filter(value => value !== button.dataset.value) : [...values, button.dataset.value]); };
-  container.onkeydown = event => { if (event.key === 'Enter' && event.target.classList.contains('dance-value-input')) { event.preventDefault(); addValue(); } };
-  render();
 }
 
 function mountVideoDetails() { if (!selected) return; const v = selected, m = meta(v.id);
@@ -174,8 +164,8 @@ function mountVideoDetails() { if (!selected) return; const v = selected, m = me
   $('#notes').value = m.notes || '';
   setMetadataStatus(v.id);
   for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).value = m[key] || '';
-  mountMultiValuePicker($('#detail-moves'), { title: 'Moves', choices: ['Titanic', 'Copa', 'Right turn', 'Left turn'], selected: m.moves || [], allowCustom: true, onChange: moves => patchMeta(v.id, { moves }) });
-  mountMultiValuePicker($('#detail-dance-styles'), { title: 'Style & timing', choices: ['Bachazouk', 'Dominicana', 'On2', 'On1', 'Sensual'], selected: m.danceStyles || [], allowCustom: true, onChange: danceStyles => patchMeta(v.id, { danceStyles }) });
+  labelPicker($('#detail-moves'), { title: 'Moves', labels: () => state.labels.filter(item => item.type === 'Moves'), selected: m.moveIds || [], dance: v.dance, onChange: moveIds => patchMeta(v.id, { moveIds }) });
+  labelPicker($('#detail-dance-styles'), { title: 'Style & timing', labels: () => state.labels.filter(item => item.type === 'Style & timing'), selected: m.styleTimingIds || [], dance: v.dance, onChange: styleTimingIds => patchMeta(v.id, { styleTimingIds }) });
   const level = $('#detail-level'); level.value = m.level || ''; level.onchange = () => patchMeta(v.id, { level: level.value || null });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
@@ -245,8 +235,8 @@ function renderLibrary() {
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.level || filters.sort !== 'title' || filters.moves?.length || filters.danceStyles?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
   for (const [id, key] of [['provider-filter', 'provider'], ['level-filter', 'level'], ['sort-filter', 'sort']]) $(`#${id}`).addEventListener('change', e => { filters[key] = e.target.value; currentPage = 1; renderResults(); });
-  mountMultiValuePicker($('#filter-moves'), { title: 'Filter moves', choices: ['Titanic', 'Copa', 'Right turn', 'Left turn'], selected: filters.moves || [], onChange: moves => { filters.moves = moves; currentPage = 1; renderResults(); } });
-  mountMultiValuePicker($('#filter-dance-styles'), { title: 'Filter style & timing', choices: ['Bachazouk', 'Dominicana', 'On2', 'On1', 'Sensual'], selected: filters.danceStyles || [], onChange: danceStyles => { filters.danceStyles = danceStyles; currentPage = 1; renderResults(); } });
+  labelPicker($('#filter-moves'), { title: 'Filter moves', labels: () => state.labels.filter(item => item.type === 'Moves'), selected: filters.moves || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.moves = ids; currentPage = 1; renderResults(); } });
+  labelPicker($('#filter-dance-styles'), { title: 'Filter style & timing', labels: () => state.labels.filter(item => item.type === 'Style & timing'), selected: filters.danceStyles || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.danceStyles = ids; currentPage = 1; renderResults(); } });
   labelPicker($('#filter-artists'), { title: 'Filter artists', labels: () => state.labels, selected: filters.artistIds || [], artists: true, onChange: ids => { filters.artistIds = ids; currentPage = 1; renderResults(); } });
   renderResults();
 }
