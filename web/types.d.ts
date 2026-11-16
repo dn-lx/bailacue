@@ -18,6 +18,11 @@ export interface Video {
 }
 export interface Metadata {
   rating?: number | null;
+  level?: 'Basic' | 'Intermediate' | 'Advanced' | string;
+  moves?: string[];
+  danceStyles?: string[];
+  moveIds?: string[];
+  styleTimingIds?: string[];
   favorite?: boolean;
   notes?: string;
   title?: string;
@@ -57,6 +62,9 @@ export interface Filters {
   sort?: string;
   labelIds?: string[];
   artistIds?: string[];
+  level?: string;
+  moves?: string[];
+  danceStyles?: string[];
 }
 
 export {};
