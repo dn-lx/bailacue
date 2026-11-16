@@ -249,7 +249,7 @@ test('browser-wide resizing and public editor stay functional without Player set
   assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
   assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
   assert.match(html, /class="video-metadata-editor"/);
-  assert.match(html, /id="detail-labels"/);
+  assert.match(html, /id="detail-moves"/);\n  assert.match(html, /id="detail-dance-styles"/);\n  assert.match(html, /id="detail-level"/);
   assert.match(html, /id="detail-artists"/);
   assert.match(html, /id="rating-buttons"/);
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
@@ -270,11 +270,11 @@ test('browser-wide player fills the viewport with Close and Escape support', () 
 });
 
 
-test('video metadata is public, with rating, labels, artists and upload date', () => {
+test('video metadata is public, with moves, style and timing, level, artists and upload date', () => {
   const stage = html.indexOf('id="full-stage"'), section = html.indexOf('id="public-video-details"');
   assert.ok(stage > 0 && section > stage);
   assert.match(html, /id="public-video-details" class="public-video-details" aria-label="Video details"/);
-  for (const id of ['rating-buttons', 'detail-labels', 'detail-artists', 'detail-recorded', 'notes']) {
+  for (const id of ['detail-moves', 'detail-dance-styles', 'detail-level', 'detail-artists', 'detail-recorded', 'notes']) {
     assert.ok(html.includes('id="' + id + '"'));
   }
   assert.match(app, /readableDate\(v\.addedAt\)/);
