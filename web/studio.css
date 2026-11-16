@@ -13,3 +13,5 @@ html:has(dialog[open]){overflow:hidden}#player.fullscreen-mode{width:100%!import
 [hidden]{display:none!important}
 
 .transport .volume-label input{width:65px;min-width:45px;max-width:80px;accent-color:#aac5ff}.video-frame>video{background:#101723}
+
+.dance-value-picker{border:0;padding:0;margin:0;min-width:0}.dance-value-picker legend{font-size:12px;font-weight:600;margin-bottom:8px}.dance-value-options{display:flex;flex-wrap:wrap;gap:7px}.dance-choice{border:1px solid var(--line);border-radius:999px;padding:7px 11px;background:var(--surface);color:var(--text);font:inherit;font-size:12px;cursor:pointer}.dance-choice:hover{border-color:var(--blue)}.dance-choice.selected{background:var(--blue);border-color:var(--blue);color:white}.dance-value-add{display:flex;gap:7px;margin-top:9px}.dance-value-input{min-width:0;flex:1;border:1px solid var(--line);border-radius:7px;background:var(--surface);color:var(--text);padding:8px 10px;font:inherit;font-size:12px}.level-field select{width:100%}
