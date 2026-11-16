@@ -1,4 +1,4 @@
-export const LABEL_TYPES = ['Style', 'Technique', 'Video type', 'Level', 'Artist'];
+export const LABEL_TYPES = ['Moves', 'Style & timing', 'Style', 'Technique', 'Video type', 'Level', 'Artist'];
 const suggestions = [
   ['Salsa On1', 'Style', 'Salsa'], ['Salsa On2', 'Style', 'Salsa'], ['Cuban / Casino', 'Style', 'Salsa'], ['Rueda de Casino', 'Style', 'Salsa'], ['Colombian / Cali', 'Style', 'Salsa'],
   ['Sensual Bachata', 'Style', 'Bachata'], ['Dominican Bachata', 'Style', 'Bachata'], ['Modern Bachata', 'Style', 'Bachata'], ['Bachata Fusion', 'Style', 'Bachata'],
@@ -34,7 +34,7 @@ export function cleanDetails(value = {}) {
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value.recordedAt || '') && !Number.isNaN(Date.parse(value.recordedAt)) ? value.recordedAt : '';
   const strings = key => Array.isArray(value[key]) ? [...new Map(value[key].filter(x => typeof x === 'string').map(x => x.trim().slice(0, 80)).filter(Boolean).map(x => [x.toLocaleLowerCase(), x])).values()].slice(0, 40) : [];
   const level = ['Basic', 'Intermediate', 'Advanced'].includes(value.level) ? value.level : '';
-  return { labelIds: ids('labelIds'), artistIds: ids('artistIds'), moves: strings('moves'), danceStyles: strings('danceStyles'), level, recordedAt: date, event: String(value.event || '').slice(0, 160), location: String(value.location || '').slice(0, 160), bpm: Number.isFinite(Number(value.bpm)) && Number(value.bpm) > 0 && Number(value.bpm) < 400 ? Number(value.bpm) : null,
+  return { labelIds: ids('labelIds'), artistIds: ids('artistIds'), moveIds: ids('moveIds'), styleTimingIds: ids('styleTimingIds'), moves: strings('moves'), danceStyles: strings('danceStyles'), level, recordedAt: date, event: String(value.event || '').slice(0, 160), location: String(value.location || '').slice(0, 160), bpm: Number.isFinite(Number(value.bpm)) && Number(value.bpm) > 0 && Number(value.bpm) < 400 ? Number(value.bpm) : null,
     loops: Array.isArray(value.loops) ? value.loops.filter(v => v && Number.isFinite(v.start) && Number.isFinite(v.end) && v.start >= 0 && v.end > v.start).slice(0, 30).map(v => ({ id: String(v.id || '').slice(0, 80), name: String(v.name || 'Practice loop').slice(0, 80), start: v.start, end: v.end })) : [] };
 }
 export function nextNumber(names, reserved = 0) {
