@@ -249,7 +249,9 @@ test('browser-wide resizing and public editor stay functional without Player set
   assert.ok(css.includes('#player.browser-wide:has(#video-frame[style*="--video-height"])'));
   assert.ok(css.includes('height: min(var(--video-height), 83dvh) !important'));
   assert.match(html, /class="video-metadata-editor"/);
-  assert.match(html, /id="detail-moves"/);\n  assert.match(html, /id="detail-dance-styles"/);\n  assert.match(html, /id="detail-level"/);
+  assert.match(html, /id="detail-moves"/);
+  assert.match(html, /id="detail-dance-styles"/);
+  assert.match(html, /id="detail-level"/);
   assert.match(html, /id="detail-artists"/);
   assert.match(html, /id="detail-level"/);
   assert.match(app, /videoResize\.addEventListener\('pointermove'/);
