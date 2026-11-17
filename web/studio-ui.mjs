@@ -65,7 +65,7 @@ export function renderLabelManager(page, ctx) {
       dialog.innerHTML = `<h2>Delete “${esc(label.name)}”?</h2><p class="muted">This removes the label from every shared video detail. Video files are kept.</p><div class="dialog-footer"><button class="button subtle" data-cancel>Keep label</button><button class="button danger" data-confirm>Delete label</button></div>`; document.body.append(dialog); dialog.showModal();
       dialog.querySelector('[data-cancel]').addEventListener('click', () => dialog.close()); dialog.addEventListener('close', () => dialog.remove());
       dialog.querySelector('[data-confirm]').addEventListener('click', async event => {
-        const confirm = event.currentTarget;
+        const confirm = /** @type {HTMLButtonElement} */ (event.currentTarget);
         const previousLabels = ctx.state().labels;
         const previousMeta = JSON.parse(JSON.stringify(ctx.state().meta));
         ctx.state().labels = ctx.state().labels.filter(item => item.id !== label.id);
