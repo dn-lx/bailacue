@@ -3,9 +3,62 @@ import { SOURCES } from './core.mjs';
 import { mapDriveFile, nextNumber, numberedName } from './studio-model.mjs';
 
 const API = 'https://www.googleapis.com/drive/v3';
-const FIELDS = 'id,name,mimeType,size,createdTime,modifiedTime,parents,videoMediaMetadata';
+const FIELDS = 'id,name,mimeType,size,md5Checksum,createdTime,modifiedTime,parents,videoMediaMetadata';
 const SCOPE = 'https://www.googleapis.com/auth/drive';
 let scriptPromise;
+
+const MD5_SHIFTS = [
+  7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+  5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+  4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+  6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21,
+];
+const MD5_CONSTANTS = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0);
+function md5Block(state, bytes, offset = 0) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 64);
+  let a = state[0], b = state[1], c = state[2], d = state[3];
+  for (let i = 0; i < 64; i++) {
+    let f, g;
+    if (i < 16) { f = (b & c) | (~b & d); g = i; }
+    else if (i < 32) { f = (d & b) | (~d & c); g = (5 * i + 1) % 16; }
+    else if (i < 48) { f = b ^ c ^ d; g = (3 * i + 5) % 16; }
+    else { f = c ^ (b | ~d); g = (7 * i) % 16; }
+    const sum = (a + f + MD5_CONSTANTS[i] + view.getUint32(g * 4, true)) >>> 0;
+    const shift = MD5_SHIFTS[i];
+    const rotated = ((sum << shift) | (sum >>> (32 - shift))) >>> 0;
+    a = d; d = c; c = b; b = (b + rotated) >>> 0;
+  }
+  state[0] = (state[0] + a) >>> 0;
+  state[1] = (state[1] + b) >>> 0;
+  state[2] = (state[2] + c) >>> 0;
+  state[3] = (state[3] + d) >>> 0;
+}
+export async function fileMd5Checksum(file, chunkSize = 4 * 1024 * 1024) {
+  const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+  const buffer = new Uint8Array(64);
+  let buffered = 0, total = 0;
+  for (let offset = 0; offset < file.size; offset += chunkSize) {
+    const chunk = new Uint8Array(await file.slice(offset, Math.min(file.size, offset + chunkSize)).arrayBuffer());
+    total += chunk.length;
+    let cursor = 0;
+    if (buffered) {
+      const take = Math.min(64 - buffered, chunk.length);
+      buffer.set(chunk.subarray(0, take), buffered);
+      buffered += take; cursor += take;
+      if (buffered === 64) { md5Block(state, buffer); buffered = 0; }
+    }
+    while (cursor + 64 <= chunk.length) { md5Block(state, chunk, cursor); cursor += 64; }
+    if (cursor < chunk.length) { buffer.set(chunk.subarray(cursor), 0); buffered = chunk.length - cursor; }
+  }
+  const padded = new Uint8Array(buffered < 56 ? 64 : 128);
+  padded.set(buffer.subarray(0, buffered));
+  padded[buffered] = 0x80;
+  const bits = total * 8, length = new DataView(padded.buffer);
+  length.setUint32(padded.length - 8, bits >>> 0, true);
+  length.setUint32(padded.length - 4, Math.floor(bits / 0x100000000) >>> 0, true);
+  for (let offset = 0; offset < padded.length; offset += 64) md5Block(state, padded, offset);
+  return state.map(word => [0, 8, 16, 24].map(shift => ((word >>> shift) & 0xff).toString(16).padStart(2, '0')).join('')).join('');
+}
 function googleSdk() {
   if ((/** @type {any} */ (window)).google?.accounts?.oauth2) return Promise.resolve();
   if (!scriptPromise) scriptPromise = new Promise((resolve, reject) => {
@@ -17,41 +70,59 @@ function googleSdk() {
 export class DriveConnection {
   constructor(clientId = '') { this.clientId = clientId; this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   get connected() { return !!this.accessToken && Date.now() < this.expiresAt; }
-  async prepare() { if (this.clientId) await googleSdk(); }
-  connect() {
-    return this.authorize(SCOPE).then(response => {
-      this.accessToken = response.access_token;
-      this.expiresAt = Date.now() + Math.max(0, Number(response.expires_in) - 60) * 1000;
-    });
+  async prepare() {
+    if (!this.connected) await this.restoreMePlus();
+    if (!this.connected && this.clientId) await googleSdk();
   }
-  authorize(scope) {
-    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) return Promise.reject(new Error('Google Drive configuration is unavailable. Reload this page to retry.'));
-    const google = (/** @type {any} */ (window)).google;
-    if (!google?.accounts?.oauth2) return Promise.reject(new Error('Google is still loading. Tap Connect Google again in a moment.'));
-    return new Promise((resolve, reject) => {
-      this.client = google.accounts.oauth2.initTokenClient({ client_id: this.clientId, scope, include_granted_scopes: false,
-        callback: response => {
-          if (!response.access_token || response.error) {
-            const guidance = {
-              invalid_client: 'Google rejected BailaCue’s web client ID. Check its configuration in Google Cloud.',
-              unauthorized_client: 'Google rejected this OAuth client for the browser. Check its application type and authorized JavaScript origins.',
-              origin_mismatch: 'This site is missing from the OAuth client’s authorized JavaScript origins.',
-              access_denied: 'Google access was denied. If your OAuth app is in Testing, add this Google account as a test user.',
-            };
-            reject(new Error(guidance[response.error] || 'Google did not grant Drive access. Check the Google authorization window.'));
-            return;
-          }
-          if (!google.accounts.oauth2.hasGrantedAllScopes(response, scope)) { reject(new Error('Google did not grant the requested permission.')); return; }
-          resolve(response);
-        }, error_callback: error => reject(new Error(error.type === 'popup_failed_to_open'
-          ? 'The Google sign-in popup could not open. Allow popups for BailaCue, then tap Connect again.'
-          : 'The Google sign-in window closed before authorization completed. Tap Connect to try again.')) });
-      this.client.requestAccessToken({ prompt: 'select_account' });
+  async restoreMePlus() {
+    const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
+    if (!raw) return false;
+    const session = JSON.parse(raw);
+    if (!session?.access_token) return false;
+    const response = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/token', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' }, body: '{}',
     });
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      this.connectionError = result.error || 'Connect Google Drive to continue.';
+      return false;
+    }
+    const result = await response.json();
+    if (!result.access_token) return false;
+    this.accessToken = result.access_token;
+    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 60) * 1000;
+    this.connectionError = '';
+    return true;
+  }
+  async connect() {
+    if (!/^[a-zA-Z0-9_-]+\.apps\.googleusercontent\.com$/.test(this.clientId)) throw new Error('BailaCue Google OAuth client ID is missing.');
+    await googleSdk();
+    const google = globalThis.google;
+    const response = await new Promise((resolve, reject) => {
+      const client = google.accounts.oauth2.initTokenClient({
+        client_id: this.clientId, scope: SCOPE, include_granted_scopes: false,
+        callback: result => result.error || !result.access_token ? reject(new Error('Google authorization was not granted.')) : resolve(result),
+        error_callback: () => reject(new Error('Google authorization was closed or blocked.')),
+      });
+      client.requestAccessToken({ prompt: 'consent' });
+    });
+    const raw = globalThis.localStorage?.getItem('bailacue:web:admin-session:v1');
+    const session = raw ? JSON.parse(raw) : null;
+    if (!session?.access_token) throw new Error('Sign in as administrator first.');
+    const saved = await fetch('https://wbqnctrvxohxwiaignhg.supabase.co/functions/v1/bailacue-google-oauth/save', {
+      method: 'POST', headers: { Authorization: 'Bearer ' + session.access_token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ access_token: response.access_token }),
+    });
+    const result = await saved.json().catch(() => ({}));
+    if (!saved.ok) throw new Error(result.error || 'Google connection could not be saved.');
+    this.accessToken = response.access_token;
+    this.expiresAt = Date.now() + Math.max(0, Number(result.expires_in) - 60) * 1000;
+    this.connectionError = '';
   }
   disconnect() { this.accessToken = ''; this.expiresAt = 0; this.client = null; }
   token() { return this.connected ? this.accessToken : ''; }
   async request(url, options = {}) {
+    if (!this.connected) await this.restoreMePlus().catch(() => false);
     if (!this.connected) throw new Error('Connect Google to continue. Google authorization has expired or is not connected.');
     const response = await fetch(url, { ...options, headers: { ...options.headers, Authorization: `Bearer ${this.accessToken}` } });
     if (response.status === 401) { this.disconnect(); throw new Error('Google authorization expired. Reconnect, then retry this upload.'); }
@@ -83,6 +154,13 @@ export class DriveConnection {
     if (!file || !file.size || (!file.type.startsWith('video/') && !/\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i.test(file.name))) throw new Error('Choose a non-empty video file.');
     await this.inspect(dance);
     const listing = await this.list(dance);
+    const sameSize = listing.files.filter(item => item.mimeType?.startsWith('video/') &&
+      Number(item.size) === Number(file.size) && /^[a-f0-9]{32}$/i.test(item.md5Checksum || ''));
+    if (sameSize.length) {
+      const checksum = await fileMd5Checksum(file);
+      const duplicate = sameSize.find(item => item.md5Checksum.toLowerCase() === checksum);
+      if (duplicate) throw new Error(`This video has already been uploaded as “${duplicate.name}”, even though this filename is different. No duplicate was uploaded.`);
+    }
     const number = nextNumber(listing.files.map(f => f.name), reserved);
     const generated = await (await this.request(`${API}/files/generateIds?count=1&space=drive&type=files`)).json();
     if (!generated.ids?.[0]) throw new Error('Drive could not reserve a file identity.');

@@ -46,7 +46,7 @@ export class StudioPlayer {
     this.fsVolume = /** @type {HTMLInputElement} */ (document.querySelector('#fs-volume'));
     this.fsSpeed = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-speed'));
     this.fsQuality = /** @type {HTMLSelectElement} */ (document.querySelector('#fs-quality'));
-    this.playbackQuality = 'original';
+    this.playbackQuality = '';
     this.fsVolumeDown = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-down'));
     this.fsVolumeUp = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-volume-up'));
     this.fsMirror = /** @type {HTMLButtonElement} */ (document.querySelector('#fs-mirror'));
@@ -110,7 +110,10 @@ export class StudioPlayer {
     this.fullscreenButton.addEventListener('click', () => this.fullscreen());
     /* The player fills the browser viewport, not the device screen, so Close and Escape remain available. */
     document.addEventListener('keydown', event => {
-      if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof Element && event.target.closest('input,select,textarea,button,[contenteditable=true]'))) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const editing = target?.closest('input,select,textarea,[contenteditable=true]');
+      const activatingButton = target?.closest('button') && [' ', 'Enter'].includes(event.key);
+      if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || editing || activatingButton) return;
       if ([' ', 'k', 'ArrowLeft', 'ArrowRight', 'f'].includes(event.key)) event.preventDefault();
       if (event.key === ' ' || event.key === 'k') this.playPause();
       if (event.key === 'ArrowLeft') this.seek(this.current() - 5);
@@ -146,7 +149,7 @@ export class StudioPlayer {
       this.status('This video is taking longer than expected. You can retry without leaving the page.');
     }, 6000);
   }
-  async open(video, localUrl = '', autoPlay = false, forceOriginal = false) {
+  async open(video, localUrl = '', autoPlay = false) {
     this.stop(); const generation = this.generation; this.video = video; this.autoStartPending = autoPlay;
     this.lastLocalUrl = localUrl; this.lastAutoPlay = autoPlay; this.failedOptimizedIds = [];
     const poster = this.posterFor(video);
@@ -156,9 +159,9 @@ export class StudioPlayer {
     this.$('#media-volume').value = '100'; this.$('#media-time').textContent = '0:00 / 0:00'; this.updatePlay(false); this.updateVolume(); this.$('#media-seek').value = '0';
     this.$('#media-speed').value = '1'; this.$('#media-mirror').setAttribute('aria-pressed', 'false'); this.fsMirror.setAttribute('aria-pressed','false');
     this.controls.classList.remove('preview-mode');
-    const optimizedCopy = !localUrl && !forceOriginal && video.provider === 'drive'
+    const optimizedCopy = !localUrl && video.provider === 'drive'
       ? preferredPlaybackRendition(this.optimizedFor(video)) : null;
-    this.playbackQuality = optimizedCopy?.quality || 'original';
+    this.playbackQuality = optimizedCopy?.quality || '';
     this.updateQualityControls(video);
     this.hideFullscreenControls();
     this.frame.classList.remove('portrait-video');
@@ -227,15 +230,9 @@ export class StudioPlayer {
               if (resumePlaying) media.play().catch(() => {});
               return;
             }
-            this.open(video, localUrl, resumePlaying, true).then(() => {
-              const replacement = this.media;
-              if (!replacement || this.video !== video) return;
-              if (previousPosition > 0) replacement.addEventListener('loadedmetadata', () => {
-                try { replacement.currentTime = Math.min(previousPosition, Number.isFinite(replacement.duration) ? replacement.duration : previousPosition); }
-                catch { /* Keep the original playback available even if seek is unsupported. */ }
-              }, { once: true });
-              this.status('Optimized copy is unavailable; loading the original video.');
-            }).catch(() => {});
+            this.frame.setAttribute('aria-busy', 'false'); this.frame.dataset.starting = 'false';
+            this.retryButton.hidden = false;
+            this.status('The available converted versions could not be played. Try again or convert this video again.');
             return;
           }
           clearTimeout(loading); clearTimeout(this.slowTimer); this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false);
@@ -288,26 +285,33 @@ export class StudioPlayer {
   }
   updateQualityControls(video) {
     const entries = !this.lastLocalUrl && video?.provider === 'drive' ? renditions(this.optimizedFor(video)) : [];
-    const available = new Set(entries.map(item => item.quality));
+    const available = ['360p', '720p', '1080p'].filter(quality => entries.some(item => item.quality === quality));
+    const qualities = available.length ? available : ['original'];
     for (const select of [this.$('#media-quality'), this.fsQuality]) {
       if (!select) continue;
       const label = select.closest('label');
-      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive'; label.title = entries.length ? 'Choose an available playback resolution' : 'Only the original is available until playback copies are created'; }
-      for (const option of select.options) {
-        option.disabled = option.value !== 'original' && !available.has(option.value);
-      }
+      if (label) { label.hidden = Boolean(this.lastLocalUrl) || video?.provider !== 'drive'; label.title = available.length ? 'Choose an available converted playback resolution' : 'No converted versions are available; play the original video'; }
+      select.replaceChildren(...qualities.map(quality => {
+        const option = document.createElement('option');
+        option.value = quality;
+        option.textContent = quality === 'original' ? 'Original' : quality;
+        return option;
+      }));
+      if (available.length && !available.includes(this.playbackQuality)) this.playbackQuality = available[0];
+      if (!available.length) this.playbackQuality = 'original';
       select.value = this.playbackQuality;
     }
   }
   changeQuality(value) {
     if (this.kind !== 'native' || !this.media || this.lastLocalUrl || this.video?.provider !== 'drive') return;
+    const entries = renditions(this.optimizedFor(this.video));
     const variant = chooseRendition(this.optimizedFor(this.video), value);
-    if (value !== 'original' && !variant) return;
+    if (!variant && !(value === 'original' && entries.length === 0)) return;
     this.playbackQuality = variant?.quality || 'original';
     this.updateQualityControls(this.video);
     const src = variant
       ? '/api/drive-video/' + variant.driveId
-      : '/api/drive-video/' + this.video.providerId;
+      : (this.token() ? '/drive-media/' + this.video.providerId : '/api/drive-video/' + this.video.providerId);
     if (this.media.getAttribute('src') === src) return;
     const current = this.current();
     const playing = !this.media.paused;

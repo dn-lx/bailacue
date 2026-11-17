@@ -21,7 +21,7 @@ jobs:
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test
-      - run: npx expo-doctor
+      # Align installed native packages with the current Expo SDK before validating.\n      - run: npx expo install --fix --npm\n      - run: npx expo-doctor
       - run: npm run build:web
       # GitHub's hosted Ubuntu image already supplies Chrome and its libraries.
       # Avoid a second browser/system-dependency installation and its network stalls.

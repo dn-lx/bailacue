@@ -75,7 +75,8 @@ async function visitor(rows) {
 
 test('guests edit, create labels and artists, save, retry and share metadata across fresh browsers without sign-in', async () => {
   const rows=new Map([['labels',{items:[
-    {id:'qa-style',name:'Partnerwork',type:'Technique',dance:'Both'},
+    {id:'qa-move',name:'Partnerwork',type:'Moves',dance:'Both'},
+    {id:'qa-style',name:'Sensual',type:'Style & timing',dance:'Both'},
     {id:'qa-artist',name:'Test teacher',type:'Artist',dance:'Both'},
   ]}]]);
   let h=await visitor(rows), videoId;
@@ -86,7 +87,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     const video=$('#video-frame video'); video.currentTime=15;
     assert.equal($('#video-details-editor').hidden,false);
     assert.equal($('#video-details-editor').hasAttribute('data-admin-only'),false);
-    assert.equal($('#rating-buttons [data-rating="8"]').disabled,false);
+    assert.equal($('#detail-level').disabled,false);
     assert.equal(h.window.document.body.classList.contains('is-admin'),false);
     assert.equal($('[data-action="edit-video-details"]'),null);
     assert.equal($('#video-details-summary'),null);
@@ -97,18 +98,21 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     fill('#detail-event','Evening class','change');
     fill('#detail-location','Valencia','change');
     fill('#detail-recorded','2026-11-06','change');
-    $('#detail-labels [data-id="qa-style"]').click();
+    $('#detail-moves [data-id="qa-move"]').click();
+    $('#detail-dance-styles [data-id="qa-style"]').click();
+    fill('#detail-level','Intermediate','change');
     $('#detail-artists [data-id="qa-artist"]').click();
     fill('#detail-artists .picker-search','New public teacher');
     $('#detail-artists .picker-create button').click();
     await until(()=>$('#detail-artists .selected-tags').textContent.includes('New public teacher'));
-    $('[data-action="rate"][data-rating="8"]').click();
+    // Level replaces the old numeric rating editor.
     await until(()=>$('#note-status').textContent==='All changes saved');
     const addedArtist=rows.get('labels').items.find(l=>l.name==='New public teacher');
     assert.deepEqual(rows.get('meta:'+videoId),{
       title:'Editable partnerwork',notes:'Keep the weight transfer smooth.',
-      labelIds:['qa-style'],artistIds:['qa-artist',addedArtist.id],recordedAt:'2026-11-06',
-      event:'Evening class',location:'Valencia',rating:8,
+      labelIds:[],moveIds:['qa-move'],styleTimingIds:['qa-style'],level:'Intermediate',
+      artistIds:['qa-artist',addedArtist.id],recordedAt:'2026-11-06',
+      event:'Evening class',location:'Valencia',
     });
     assert.equal($('#player-title').textContent,'Editable partnerwork');
     assert.equal($('#video-details-editor').hidden,false);
@@ -131,6 +135,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     assert.equal(h.$('#personal-title').value,'Editable partnerwork');
     assert.equal(h.$('#notes').value,'Retry this public change.');
     assert.equal(h.$('#detail-recorded').value,'2026-11-06');
+    assert.equal(h.$('#detail-level').value,'Intermediate');
     assert.match(h.$('#detail-artists .selected-tags').textContent,/New public teacher/);
     assert.equal(h.authenticationRequests,0);
   } finally { h.close(); }

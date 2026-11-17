@@ -28,6 +28,8 @@ export type PendingUpload = {
   path?: string;
   status: "queued" | "uploading" | "interrupted" | "ready";
   keepCopy: boolean;
+  contentSha256?: string;
+  reusedDuplicate?: boolean;
 };
 type Transport = {
   token: () => Promise<string>;
@@ -78,6 +80,53 @@ export async function uploadFile(
   try {
     if (signal?.aborted) throw new Error("Upload paused.");
     if (job.provider === "google-drive") {
+      if (!job.sessionUrl && job.contentSha256) {
+        let pageToken = "";
+        let duplicate:
+          | { id: string; name: string; mimeType: string; size: string }
+          | undefined;
+        do {
+          const page = new URLSearchParams({
+            q: `'${folderId}' in parents and trashed=false`,
+            pageSize: "1000",
+            fields: "nextPageToken,files(id,name,mimeType,size,sha256Checksum,modifiedTime,thumbnailLink,videoMediaMetadata(durationMillis),capabilities(canDownload))",
+            supportsAllDrives: "true",
+            includeItemsFromAllDrives: "true",
+            ...(pageToken ? { pageToken } : {}),
+          });
+          const response = await ensure(
+            await request(`https://www.googleapis.com/drive/v3/files?${page.toString()}`, {
+              headers: await headers(),
+              signal,
+            }),
+          );
+          const results = (await response.json()) as {
+            files?: Array<{
+              id: string;
+              name: string;
+              mimeType: string;
+              size: string;
+              sha256Checksum?: string;
+              modifiedTime?: string;
+              thumbnailLink?: string;
+              videoMediaMetadata?: { durationMillis?: string };
+              capabilities?: { canDownload?: boolean };
+            }>;
+            nextPageToken?: string;
+          };
+          duplicate = results.files?.find(
+            (item) =>
+              item.sha256Checksum === job.contentSha256 &&
+              Number(item.size) === job.size,
+          );
+          pageToken = results.nextPageToken ?? "";
+        } while (!duplicate && pageToken);
+        if (duplicate) {
+          const file = mapDriveVideo(duplicate);
+          await save({ fileId: duplicate.id, offset: job.size, status: "ready", reusedDuplicate: true });
+          return file;
+        }
+      }
       if (!job.fileId) {
         const response = await ensure(
           await request(
@@ -121,6 +170,9 @@ export async function uploadFile(
                 name: job.name,
                 parents: [folderId],
                 mimeType: job.mimeType,
+                ...(job.contentSha256
+                  ? { appProperties: { bailacueUploadSha256: job.contentSha256 } }
+                  : {}),
               }),
               signal,
             },

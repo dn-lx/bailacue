@@ -108,3 +108,4 @@ test('thumbnail appears immediately and retry starts a fresh player attempt', as
     assert.equal(player.retryButton.hidden, true);
   });
 });
+

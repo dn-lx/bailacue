@@ -1,0 +1,2 @@
+# Isolated local dev tool only.
+graphifyy[sql]==0.9.63

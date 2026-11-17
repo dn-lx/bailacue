@@ -1,4 +1,4 @@
-export const LABEL_TYPES = ['Style', 'Technique', 'Video type', 'Level', 'Artist'];
+export const LABEL_TYPES = ['Level', 'Style & timing', 'Moves', 'Artist', 'Video type', 'Style', 'Technique'];
 const suggestions = [
   ['Salsa On1', 'Style', 'Salsa'], ['Salsa On2', 'Style', 'Salsa'], ['Cuban / Casino', 'Style', 'Salsa'], ['Rueda de Casino', 'Style', 'Salsa'], ['Colombian / Cali', 'Style', 'Salsa'],
   ['Sensual Bachata', 'Style', 'Bachata'], ['Dominican Bachata', 'Style', 'Bachata'], ['Modern Bachata', 'Style', 'Bachata'], ['Bachata Fusion', 'Style', 'Bachata'],
@@ -32,7 +32,9 @@ export function createLabel(labels, name, type = 'Style', dance = 'Both') {
 export function cleanDetails(value = {}) {
   const ids = key => Array.isArray(value[key]) ? [...new Set(value[key].filter(x => typeof x === 'string' && /^[a-zA-Z0-9_-]{1,100}$/.test(x)))].slice(0, 100) : [];
   const date = /^\d{4}-\d{2}-\d{2}$/.test(value.recordedAt || '') && !Number.isNaN(Date.parse(value.recordedAt)) ? value.recordedAt : '';
-  return { labelIds: ids('labelIds'), artistIds: ids('artistIds'), recordedAt: date, event: String(value.event || '').slice(0, 160), location: String(value.location || '').slice(0, 160), bpm: Number.isFinite(Number(value.bpm)) && Number(value.bpm) > 0 && Number(value.bpm) < 400 ? Number(value.bpm) : null,
+  const strings = key => Array.isArray(value[key]) ? [...new Map(value[key].filter(x => typeof x === 'string').map(x => x.trim().slice(0, 80)).filter(Boolean).map(x => [x.toLocaleLowerCase(), x])).values()].slice(0, 40) : [];
+  const level = ['Basic', 'Intermediate', 'Advanced'].includes(value.level) ? value.level : '';
+  return { labelIds: ids('labelIds'), artistIds: ids('artistIds'), moveIds: ids('moveIds'), styleTimingIds: ids('styleTimingIds'), moves: strings('moves'), danceStyles: strings('danceStyles'), level, recordedAt: date, event: String(value.event || '').slice(0, 160), location: String(value.location || '').slice(0, 160), bpm: Number.isFinite(Number(value.bpm)) && Number(value.bpm) > 0 && Number(value.bpm) < 400 ? Number(value.bpm) : null,
     loops: Array.isArray(value.loops) ? value.loops.filter(v => v && Number.isFinite(v.start) && Number.isFinite(v.end) && v.start >= 0 && v.end > v.start).slice(0, 30).map(v => ({ id: String(v.id || '').slice(0, 80), name: String(v.name || 'Practice loop').slice(0, 80), start: v.start, end: v.end })) : [] };
 }
 export function nextNumber(names, reserved = 0) {

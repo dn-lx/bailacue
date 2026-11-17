@@ -1,0 +1,17 @@
+.git/
+node_modules/
+dist/
+build/
+coverage/
+.venv/
+.venv-graphify/
+.graphify/
+.env*
+*.pem
+*.p12
+*.pfx
+*.min.js
+*.map
+public/
+static/
+assets/

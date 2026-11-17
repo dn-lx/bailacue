@@ -45,3 +45,8 @@ Docs: https://docs.expo.dev/eas/index.md
 - **find-skills** — Discover agent skills for a task and help install the ones the user wants. Read [its instructions](.agents/skills/find-skills/SKILL.md) when the user asks to find a skill, add a skill, or explore available agent capabilities.
 - Keep project skills in `.agents/skills/`. Read the relevant `SKILL.md` before using a skill; project skills do not need a global installation.
 - The vendored `find-skills` instructions come from [vercel-labs/skills](https://github.com/vercel-labs/skills/tree/a80e4c9d12d607631249d4d7d059f835d4b2f13a/skills/find-skills), pinned to revision `a80e4c9d12d607631249d4d7d059f835d4b2f13a`. Its upstream MIT license is included in the skill directory.
+
+
+## Agent Project Starter
+
+The Expo rules above remain authoritative. Read project memory and current handoff, then use the skill index to load one relevant workflow. Machine policy maps develop to integration and main to production. Ponytail and local Graphify are guidance only, not app runtime dependencies. Preserve original media and secret boundaries.

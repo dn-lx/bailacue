@@ -11,10 +11,10 @@ const original = {
   width: 1920, height: 1080, size: 180 * 1024 ** 2, duration: 690,
 };
 
-test('resolution profiles preserve portrait and small originals without upscaling', () => {
+test('resolution profiles preserve aspect ratio and upscale Originals to requested qualities', () => {
   assert.deepEqual(compressionSize(1080, 1920, '1080p'), { width: 1080, height: 1920 });
-  assert.deepEqual(compressionSize(320, 240, '360p'), { width: 320, height: 240 });
-  assert.equal(compressionSize(1280, 720, '1080p'), null);
+  assert.deepEqual(compressionSize(320, 240, '360p'), { width: 480, height: 360 });
+  assert.deepEqual(compressionSize(1280, 720, '1080p'), { width: 1920, height: 1080 });
   assert.deepEqual(pendingCopies(original, { renditions: [{ quality: '720p' }] }), ['360p', '1080p']);
 });
 
@@ -42,7 +42,7 @@ function fixture(files, beforeCopy = () => {}) {
   let manifest;
   const ctx = {
     admin: { isAdmin: true, readContent: async () => manifest ? [{ key: 'optimized:manifest', payload: manifest }] : [] },
-    connection: { connected: true, list: async () => ({ videos: files }), browserCopy: async (video, quality) => {
+    connection: { connected: true, list: async dance => ({ videos: files.filter(video => video.dance === dance) }), browserCopy: async (video, quality) => {
       calls.push([video.id, quality]);
       beforeCopy(quality);
       return { existing: { providerId: `${video.providerId}-${quality}`, filename: `0072-${quality}.mp4`,
@@ -57,9 +57,22 @@ function fixture(files, beforeCopy = () => {}) {
   return { window, panel, calls, registered, manifest: () => manifest };
 }
 
+test('missing copies can be created per video even when catalogue dimensions are absent', async () => {
+  const unknownSize = { ...original, width: 0, height: 0 };
+  assert.deepEqual(pendingCopies(unknownSize, null), QUALITIES);
+  const f = fixture([unknownSize]);
+  await new Promise(resolve => setImmediate(resolve));
+  const create = f.panel.querySelector('.compress-create-button');
+  assert.ok(create, 'the missing video row offers a direct create action');
+  assert.match(create.textContent, /360p, 720p, 1080p/);
+  create.click();
+  for (let i = 0; i < 10 && f.calls.length < 3; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.calls.map(([, quality]) => quality), QUALITIES);
+  assert.deepEqual(f.registered, [unknownSize.id]);
+});
+
 test('all-video batch includes uncatalogued, long, large originals and resumes without duplicates', async () => {
   const f = fixture([original]);
-  f.panel.querySelector('#browser-compress-limit').value = 'all';
   const start = f.panel.querySelector('#browser-compress-start');
   await start.onclick();
   assert.deepEqual(f.registered, [original.id]);
@@ -67,7 +80,8 @@ test('all-video batch includes uncatalogued, long, large originals and resumes w
   assert.equal(f.manifest().entries[0].sourceId, original.id);
   await start.onclick();
   assert.equal(f.calls.length, 3);
-  assert.match(f.panel.querySelector('#browser-compress-pending').textContent, /No missing/);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.match(f.panel.querySelector('#browser-compress-pending').textContent, /All videos have/);
 });
 
 test('upload notification starts a batch for the uploaded original only', async () => {

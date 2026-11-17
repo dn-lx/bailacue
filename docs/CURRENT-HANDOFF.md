@@ -32,3 +32,8 @@ native run and successful rerun; browser fixtures are owned generated test patte
 
 PR#1 remains draft and main unmerged. Do not use TinyFish, paid services, production
 DB deletion or store submission. Do not spawn agents without explicit delegation.
+
+
+## Agent workflow update
+
+The develop branch now contains progressive starter guidance with Ponytail, local Graphify, compact project memory and repeatable workflows. This changes repository guidance only, not app runtime code. Run documented checks on the exact commit before calling it verified.

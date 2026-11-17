@@ -181,7 +181,7 @@ export default function Transfer() {
       };
       await vault.set(`upload-${current.id}`, JSON.stringify(completedJob));
       setJob(completedJob);
-      if (file.name !== finalName) {
+      if (file.name !== finalName && !completedJob.reusedDuplicate) {
         try {
           await provider(connection).renameVideo(
             file.fileId,
@@ -288,12 +288,10 @@ export default function Transfer() {
         <Card>
           <Badge tone="accent">UPLOAD CONFIRMED</Badge>
           <Txt>
-            Your video is saved online in{" "}
-            {
-              library.sources.find((s) => s.id === (job?.sourceId ?? sourceId))
-                ?.name
-            }
-            . Your notes, ratings and practice sections came along.
+            {job?.reusedDuplicate
+              ? "This same video was already in this folder, so BailaCue reused the existing file."
+              : "Your video is saved online in this folder."}{" "}
+            Your notes, ratings and practice sections came along.
           </Txt>
           <Button
             onPress={() =>
@@ -384,7 +382,11 @@ export default function Transfer() {
             </Card>
           ) : null}
           <Button onPress={start} disabled={busy || !sourceId}>
-            {job ? "Resume / check upload" : "Upload to selected folder"}
+            {job
+              ? error
+                ? "Try again"
+                : "Resume / check upload"
+              : "Upload to selected folder"}
           </Button>
           {busy ? (
             <Button variant="ghost" onPress={() => abort.current?.abort()}>
