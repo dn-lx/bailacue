@@ -58,6 +58,8 @@ const pageSize = 20;
 let selected = null;
 let playbackQueue = [];
 let playbackIndex = -1;
+let recentlyClearedQueue = [];
+let queueUndoTimeout;
 let toastTimeout;
 let removing = null;
 let localPreviewUrl = '';
@@ -135,7 +137,7 @@ function applyAccess() {
   $('#admin-login').hidden = admin.isAdmin;
   $('#admin-logout').hidden = !admin.isAdmin;
 }
-function studioContext() { return { state: () => state, save: () => { const saved = save(); if (saved && admin.isAdmin) { publishLabels(); publishDrive(); } return saved; }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
+function studioContext() { return { state: () => state, save: () => { const saved = save(); if (saved && admin.isAdmin) { publishLabels(); publishDrive(); } return saved; }, saveLabels: async () => { if (!save()) return false; if (!admin.isAdmin) throw new Error('Sign in as the administrator to publish labels.'); await publishLabels(); return true; }, patchMeta, toast, videos, connection, admin, optimizedFor: video => optimizedMap.get(video.id), ensureDriveOriginal: async video => {
   if (catalogue.some(item => item.id === video.id)) return;
   await admin.put('drive:' + video.id, video);
   state.drive = [...state.drive.filter(item => item.id !== video.id), video];
@@ -156,7 +158,7 @@ async function addLabel(name, type, dance) {
 function readableDate(value) { if (!value || Number.isNaN(Date.parse(value))) return 'Unknown'; return new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)); }
 function cardDetails(v) { const m = meta(v.id); const artists = state.labels.filter(l => m.artistIds?.includes(l.id));
   const tags = [...state.labels.filter(item => m.moveIds?.includes(item.id) || m.styleTimingIds?.includes(item.id) || m.labelIds?.includes(item.id)).map(item => item.name), ...(m.moves || []), ...(m.danceStyles || [])];
-  return `<div class="card-artists">${esc(artists.length ? artists.map(l => l.name).join(' · ') : 'Artist not set')}</div><div class="card-tags">${tags.slice(0, 2).map(name => `<span class="tag">${esc(name)}</span>`).join('')}${tags.length > 2 ? `<span class="empty-tag">+${tags.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}${v.provider === 'drive' ? ' · Drive original' : ''}</div>`;
+  return `<div class="card-artists">${artists.length ? esc(artists.map(l => l.name).join(' · ')) : ''}</div><div class="card-tags">${tags.slice(0, 2).map(name => `<span class="tag">${esc(name)}</span>`).join('')}${tags.length > 2 ? `<span class="empty-tag">+${tags.length - 2}</span>` : ''}</div><div class="card-date">Added ${esc(readableDate(v.addedAt))}</div>`;
 }
 
 function mountVideoDetails() { if (!selected) return; const v = selected, m = meta(v.id);
@@ -198,29 +200,29 @@ function toast(message) { $('#toast').textContent = message; $('#toast').classLi
 function applyTheme() { document.documentElement.dataset.theme = state.theme; $('#theme-toggle').innerHTML = icon(state.theme === 'dark' ? 'sun' : 'moon'); $('#theme-toggle').setAttribute('aria-label', `Switch to ${state.theme === 'dark' ? 'light' : 'dark'} theme`); }
 function dateLabel() { return new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' }).format(new Date()); }
 function badge(dance) { return `<span class="dance-badge ${dance.toLowerCase()}"><i class="dance-dot ${dance.toLowerCase()}"></i>${esc(dance)}</span>`; }
-function levelPill(id) { const value = meta(id).level; return `<span class="level-pill">${esc(value || 'Level not set')}</span>`; }
+function levelPill(id) { const value = meta(id).level; return value ? `<span class="level-pill">${esc(value)}</span>` : ''; }
 function thumb(v) { const converted = streamMap.get(v.id); if (converted) return streamThumbnailUrl(converted); return v.provider === 'drive' ? `https://drive.google.com/thumbnail?id=${v.providerId}&sz=w600` : (v.kind === 'video' ? `https://i.ytimg.com/vi/${v.providerId}/hqdefault.jpg` : null); }
 function artwork(v, eager = false) { const url = thumb(v); return `${url ? `<img src="${esc(url)}" alt="" loading="${eager ? 'eager' : 'lazy'}" referrerpolicy="no-referrer">` : ''}<span class="visual-fallback">${esc(v.provider === 'drive' ? v.title : '▶')}</span>`; }
 function handleImages(root = page) { root.querySelectorAll('.pick-visual,.card-visual').forEach(el => { const img = el.querySelector('img'); if (!img) el.classList.add('image-failed'); else { img.addEventListener('error', () => el.classList.add('image-failed')); if (img.complete && !img.naturalWidth) el.classList.add('image-failed'); } }); }
 function card(v) {
   const m = meta(v.id), queued = state.queue.includes(v.id), title = displayTitle(v, state.meta);
-  return `<article class="video-card"><div class="card-visual ${v.dance.toLowerCase()}">${artwork(v)}<button class="full-play" data-action="open" data-id="${esc(v.id)}" aria-label="Play ${esc(title)}"><span>${icon('play')}</span></button><span class="provider-badge">${icon(v.provider)}${v.provider === 'drive' ? 'GOOGLE DRIVE' : (v.kind === 'playlist' ? 'YOUTUBE PLAYLIST' : 'YOUTUBE')}</span></div><div class="card-content"><div class="card-labels">${badge(v.dance)}${levelPill(v.id)}</div><button class="title-button" data-action="open" data-id="${esc(v.id)}">${esc(title)}</button>${cardDetails(v)}<div class="card-bottom"><span>${esc(v.provider === 'drive' ? 'Original video' : 'YouTube')}</span><button class="queue-button ${queued ? 'selected' : ''}" data-action="queue" data-id="${esc(v.id)}" aria-label="${queued ? 'Remove from' : 'Add to'} mix: ${esc(title)}" aria-pressed="${queued}">${icon(queued ? 'check' : 'plus')} ${queued ? 'In mix' : 'Add to mix'}</button></div></div></article>`;
+  return `<article class="video-card"><div class="card-visual ${v.dance.toLowerCase()}">${artwork(v)}<button class="full-play" data-action="open" data-autoplay="true" data-id="${esc(v.id)}" aria-label="Play ${esc(title)}"><span>${icon('play')}</span></button><span class="provider-badge">${icon(v.provider)}${v.provider === 'drive' ? 'GOOGLE DRIVE' : (v.kind === 'playlist' ? 'YOUTUBE PLAYLIST' : 'YOUTUBE')}</span></div><div class="card-content"><div class="card-labels">${badge(v.dance)}${levelPill(v.id)}</div><button class="title-button" data-action="open" data-id="${esc(v.id)}">${esc(title)}</button>${cardDetails(v)}<div class="card-bottom"><button class="queue-button ${queued ? 'selected' : ''}" data-action="queue" data-id="${esc(v.id)}" aria-label="${queued ? 'Remove from' : 'Add to'} mix: ${esc(title)}" aria-pressed="${queued}">${icon(queued ? 'check' : 'plus')} ${queued ? 'In mix' : 'Add to mix'}</button></div></div></article>`;
 }
 function pick(v) {
-  return `<article class="pick-card"><div class="pick-visual ${v.dance.toLowerCase()}">${artwork(v, true)}${badge(v.dance)}<span class="pick-type">TODAY’S PICK</span><button class="play-round" data-action="open" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><div class="pick-overlay"><h3>${esc(displayTitle(v, state.meta))}</h3><span>A ${v.dance.toLowerCase()} cue for today</span></div></div><div class="pick-detail"><div>${levelPill(v.id)}<p>${meta(v.id).level ? `Level: ${esc(meta(v.id).level)}.` : 'A fresh cue from your fixed collection.'}</p></div><button class="text-button" data-action="open" data-id="${esc(v.id)}">Watch video ${icon('arrow')}</button></div></article>`;
+  return `<article class="pick-card"><div class="pick-visual ${v.dance.toLowerCase()}">${artwork(v, true)}${badge(v.dance)}<span class="pick-type">TODAY’S PICK</span><button class="play-round" data-action="open" data-autoplay="true" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><div class="pick-overlay"><h3>${esc(displayTitle(v, state.meta))}</h3><span>A ${v.dance.toLowerCase()} cue for today</span></div></div><div class="pick-detail"><div>${levelPill(v.id)}<p>${meta(v.id).level ? `Level: ${esc(meta(v.id).level)}.` : 'A fresh cue from your fixed collection.'}</p></div><button class="text-button" data-action="open" data-id="${esc(v.id)}">Watch video ${icon('arrow')}</button></div></article>`;
 }
 function heading(eyebrow, title, description, extra = '') { return `<div class="page-heading"><div><span class="eyebrow">${esc(eyebrow)}</span><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${extra}</div>`; }
 function ensurePicks(refresh = false) {
   const today = localDay();
   if (refresh || !state.daily || state.daily.day !== today || state.daily.ids.some(id => !videoById(id)) || state.daily.ids.length !== 2) {
-    state.daily = { day: today, ids: dailyPicks(driveVideos(), state.meta, today + (refresh ? `:${Date.now()}` : ''), state.daily?.ids || []) }; save();
+    state.daily = { day: today, ids: dailyPicks(videos(), state.meta, today + (refresh ? `:${Date.now()}` : ''), state.daily?.ids || []) }; save();
   }
   return state.daily.ids.map(videoById).filter(Boolean);
 }
 function renderToday() {
   const picks = ensurePicks();
   const recent = recentOpenings(state.history, videos(), 4);
-  const preview = filterVideos(driveVideos(), state.meta, { sort: 'recent' }).slice(0, 4);
+  const preview = filterVideos(videos(), state.meta, { sort: 'recent' }).slice(0, 4);
   page.innerHTML = `${heading('SALSA + BACHATA', 'Find your next dance.', 'Browse the collection, play videos and create Salsa, Bachata or combined mixes.', `<span class="date-chip">${icon('calendar')}${dateLabel()}</span>`)}
     <div class="stats-row"><span><strong>${videos().length}</strong> dance videos</span><span><strong>2</strong> collections</span></div>
     <div class="section-heading"><div><h2>Discover today</h2><span class="count-chip">2 PICKS</span></div><button class="text-button" data-action="refresh-picks">${icon('refresh')} New picks</button></div>
@@ -231,7 +233,7 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option></select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#level-filter').value = filters.level; $('#sort-filter').value = filters.sort;
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.level || filters.sort !== 'title' || filters.moves?.length || filters.danceStyles?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
@@ -246,14 +248,16 @@ function renderFilterChips() {
   if (filters.dance !== 'All') chips.push({ key: 'dance', label: filters.dance });
   if (filters.query.trim()) chips.push({ key: 'query', label: 'Search: ' + filters.query.trim() });
   if (filters.provider !== 'all') chips.push({ key: 'provider', label: filters.provider === 'drive' ? 'Google Drive' : 'YouTube' });
-  if (filters.level) chips.push({ key: 'level', label: filters.level });
+  if (filters.level) chips.push({ key: 'level', label: filters.level === '__unset__' ? 'Level: Not set' : 'Level: ' + filters.level });
   if (filters.sort !== 'title') chips.push({ key: 'sort', label: 'Sort: Recently added' });
   for (const field of ['moves', 'danceStyles', 'artistIds']) {
     const ids = filters[field] || [];
     if (!ids.length) continue;
-    const label = field === 'artistIds' && ids.length === 1 ? state.labels.find(item => item.id === ids[0])?.name : null;
     const title = field === 'moves' ? 'Moves/Technique' : field === 'danceStyles' ? 'Styles' : 'Artists';
-    chips.push({ key: field, label: label || title + ' (' + ids.length + ')' });
+    const names = ids.map(id => state.labels.find(item => item.id === id)?.name).filter(Boolean);
+    const shown = names.slice(0, 2).join(', ');
+    const more = ids.length > 2 ? ` +${ids.length - 2}` : '';
+    chips.push({ key: field, label: names.length ? `${title}: ${shown}${more}` : `${title} (${ids.length})` });
   }
   const target = $('#active-filter-chips');
   target.replaceChildren();
@@ -293,7 +297,7 @@ function renderPractice() {
   const queue = state.queue.map(videoById).filter(Boolean);
   const available = videos().length;
   const requested = clampMixCount(state.mixSize, available);
-  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Choose Salsa, Bachata or both, and decide how many videos to include.')}<div class="practice-layout"><section class="practice-start" aria-labelledby="mix-heading"><span class="eyebrow">CREATE YOUR VIDEO MIX</span><h2 id="mix-heading">What are we dancing today?</h2><p>Select the number of videos, then choose a mix. Videos play in the order shown below.</p><div class="mix-count-setting"><label for="mix-count">Number of videos</label><div class="mix-count-field"><input id="mix-count" type="number" min="1" max="${available}" step="1" inputmode="numeric" value="${requested}" aria-describedby="mix-count-help"><span>videos</span></div><p id="mix-count-help">Choose 1–${available}. The number is capped by available Salsa or Bachata videos.</p></div><div class="mix-options" role="group" aria-label="Create a video mix"><button type="button" class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button type="button" class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button type="button" class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button type="button" class="button subtle mix-play-button" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</section></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
+  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Choose Salsa, Bachata or both, and decide how many videos to include.')}<div class="practice-layout"><section class="practice-start" aria-labelledby="mix-heading"><span class="eyebrow">CREATE YOUR VIDEO MIX</span><h2 id="mix-heading">What are we dancing today?</h2><p>Select the number of videos, then choose a mix. Videos play in the order shown below.</p><div class="mix-count-setting"><label for="mix-count">Number of videos</label><div class="mix-count-field"><input id="mix-count" type="number" min="1" max="${available}" step="1" inputmode="numeric" value="${requested}" aria-describedby="mix-count-help"><span>videos</span></div><p id="mix-count-help">Choose 1–${available}. A dance-only mix uses as many videos as are available for that dance, up to this number.</p></div><div class="mix-options" role="group" aria-label="Create a video mix"><button type="button" class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button type="button" class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button type="button" class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button type="button" class="button subtle mix-play-button" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</section></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : recentlyClearedQueue.length ? '<button class="text-button" data-action="undo-clear">Undo clear</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
   $('#mix-count')?.addEventListener('change', event => {
     const count = clampMixCount(event.target.value, videos().length);
     state.mixSize = count;
@@ -302,7 +306,7 @@ function renderPractice() {
   });
 }
 function renderSettings() {
-  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${catalogue.filter(v => v.dance === source.dance).length} original videos</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<button class="text-button" data-action="reload-catalogue">${icon('refresh')} Refresh the catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
+  page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${driveVideos().filter(v => v.dance === source.dance).length} in library</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<p class="helper-text">Counts show videos currently loaded in the BailaCue library. Reloading updates the deployed catalogue snapshot; it does not scan Google Drive.</p><button class="text-button" data-action="reload-catalogue">${icon('refresh')} Reload library catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
 function render() {
@@ -478,7 +482,7 @@ document.addEventListener('click', async event => {
   const close = event.target.closest('[data-close]'); if (close instanceof HTMLElement) { const dialog = document.getElementById(close.dataset.close); if (dialog instanceof HTMLDialogElement) dialog.close(); return; }
   const button = event.target.closest('[data-action]'); if (!(button instanceof HTMLButtonElement) || button.disabled) return;
   const action = button.dataset.action, id = button.dataset.id;
-  if (action === 'open') openPlayer(id);
+  if (action === 'open') openPlayer(id, null, null, '', button.dataset.autoplay === 'true');
   if (action === 'queue') toggleQueue(id);
   if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); page.querySelector('.segmented [data-dance="' + filters.dance + '"]')?.focus({ preventScroll: true }); }
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
@@ -488,17 +492,40 @@ document.addEventListener('click', async event => {
    if (action === 'clear-filter') { const field = button.dataset.filter; if (!['dance', 'query', 'provider', 'level', 'sort', 'moves', 'danceStyles', 'artistIds'].includes(field)) return; filters[field] = { dance: 'All', query: '', provider: 'all', level: '', sort: 'title', moves: [], danceStyles: [], artistIds: [] }[field]; currentPage = 1; renderLibrary(); if (field === 'query') $('#search')?.focus({ preventScroll: true }); }
   if (action === 'mix') {
     const dance = button.dataset.dance || 'Both';
-    const pool = videos().filter(v => dance === 'Both' || v.dance === dance);
     const requested = clampMixCount($('#mix-count')?.value ?? state.mixSize, videos().length);
-    state.mixSize = requested;
-    const count = clampMixCount(requested, pool.length);
-    state.queue = practiceQueue(pool, state.meta).slice(0, count);
-    save(); render();
-    toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.${count < requested ? ' That is every available video for this dance.' : ''}`);
+    const createMix = () => {
+      const pool = videos().filter(v => dance === 'Both' || v.dance === dance);
+      state.mixSize = requested;
+      const count = clampMixCount(requested, pool.length);
+      state.queue = practiceQueue(pool, state.meta).slice(0, count);
+      save(); render();
+      toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.${count < requested ? ' That is every available video for this dance.' : ''}`);
+    };
+    if (state.queue.length) {
+      const dialog = document.createElement('dialog');
+      dialog.innerHTML = `<h2>Replace your current mix?</h2><p class="muted">Your current mix has ${state.queue.length} videos. Creating a new ${esc(dance === 'Both' ? 'Salsa and Bachata' : dance)} mix will replace it.</p><div class="dialog-footer"><button type="button" class="button subtle" data-cancel>Keep current mix</button><button type="button" class="button primary" data-replace>Replace mix</button></div>`;
+      document.body.append(dialog);
+      dialog.addEventListener('close', () => dialog.remove());
+      dialog.querySelector('[data-cancel]').addEventListener('click', () => dialog.close());
+      dialog.querySelector('[data-replace]').addEventListener('click', () => { dialog.close(); createMix(); });
+      dialog.showModal();
+    } else createMix();
   }
   if (action === 'start-queue') { const ids = state.queue.filter(x => videoById(x)); if (ids.length) openPlayer(ids[0], ids, null, '', true); }
   if (action === 'open-queue') openPlayer(id, state.queue, null, '', true);
-  if (action === 'clear-queue') { state.queue = []; save(); render(); toast('Mix cleared.'); }
+  if (action === 'clear-queue') {
+    recentlyClearedQueue = [...state.queue];
+    clearTimeout(queueUndoTimeout);
+    state.queue = []; save(); render(); toast('Mix cleared. You can undo this for 15 seconds.');
+    queueUndoTimeout = setTimeout(() => { recentlyClearedQueue = []; if (activeView === 'practice') renderPractice(); }, 15000);
+    page.querySelector('[data-action="undo-clear"]')?.focus({ preventScroll: true });
+  }
+  if (action === 'undo-clear') {
+    if (!state.queue.length && recentlyClearedQueue.length) {
+      state.queue = recentlyClearedQueue; recentlyClearedQueue = []; clearTimeout(queueUndoTimeout);
+      save(); render(); toast('Previous mix restored.');
+    }
+  }
   if (action === 'clear-recent') { state.history = []; save(); renderToday(); toast('Recent videos cleared from this browser.'); }
   if (action === 'mix-move-up' || action === 'mix-move-down') {
     const previousIndex = state.queue.indexOf(id);
@@ -547,7 +574,7 @@ $('#youtube-form').addEventListener('submit', async event => {
 $('#theme-toggle').addEventListener('click', () => { state.theme = state.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); });
 for (const id of ['add-youtube', 'youtube-nav']) $(`#${id}`).addEventListener('click', openYoutube);
 for (const id of ['settings-nav', 'mobile-settings']) $(`#${id}`).addEventListener('click', () => navigate('settings'));
-document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.addEventListener('click', () => { if (!(button instanceof HTMLElement)) return; filters = { dance: button.dataset.dance, provider: 'drive', level: '', moves: [], danceStyles: [], sort: 'title', query: '' }; currentPage = 1; navigate('library'); }));
+document.querySelectorAll('.source-nav [data-dance]').forEach(button => button.addEventListener('click', () => { if (!(button instanceof HTMLElement)) return; filters.dance = button.dataset.dance; currentPage = 1; navigate('library'); }));
 window.addEventListener('hashchange', () => { if (catalogue.length) route(); });
 window.addEventListener('storage', event => { if (event.key === STORAGE_KEY && event.newValue) { try { state = cleanState(JSON.parse(event.newValue)); applyTheme(); render(); if (selected) { updatePlayer(); $('#notes').value = meta(selected.id).notes || ''; $('#personal-title').value = meta(selected.id).title || ''; } } catch { toast('Another tab saved unreadable data. Export your current progress.'); } } });
 async function start() { try { await loadCatalogue(); protectLegacyBrowserData(); resetPublicContent(); try { await loadSharedContent(); } catch (error) { toast('Shared labels are temporarily unavailable: ' + error.message); } await admin.restore(); applyAccess(); route(); } catch { page.innerHTML = '<div class="error-message"><h2>Your library needs a moment.</h2><p>The catalogue could not be loaded. Check your connection and try again. Your saved progress stays in this browser.</p><button class="button primary" data-action="retry-load">Try again</button></div>'; } }

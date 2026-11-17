@@ -5,7 +5,6 @@ const PROFILES = {
   '720p': { width: 1280, height: 720, bitrate: 2_000_000 },
   '1080p': { width: 1920, height: 1080, bitrate: 4_000_000 },
 };
-const probedDimensions = new Map();
 const browserLibrary = './vendor/mediabunny.min.mjs';
 /** @type {Promise<typeof import('mediabunny')>} */
 let library;
@@ -125,11 +124,11 @@ function addRendition(manifest, video, copy, quality) {
 let controller;
 const automatic = new Map();
 
-export function pendingCopies(video, entry) {
-  const dimensions = probedDimensions.get(video.id + ':' + video.updatedAt) || video;
+export function pendingCopies(_video, entry) {
   const published = new Set(renditions(entry).map(item => item.quality));
-  return QUALITIES.filter(quality => !published.has(quality) &&
-    (!dimensions.width || !dimensions.height || compressionSize(dimensions.width, dimensions.height, quality)));
+  // Probe the Original only after a conversion starts. Catalogue dimensions can
+  // be absent or stale, so they must not hide a missing playback copy.
+  return QUALITIES.filter(quality => !published.has(quality));
 }
 export function renderBrowserCompressor(panel, ctx) {
   if (!ctx.admin.isAdmin) return;
@@ -190,8 +189,8 @@ export function renderBrowserCompressor(panel, ctx) {
       }).filter(item => item.missing.length);
       const convertibleCount = incomplete.filter(item => item.convertible.length).length;
       pending.textContent = incomplete.length
-        ? `${incomplete.length} videos are missing versions; ${convertibleCount} can be created from their Originals, upscaling when needed.`
-        : 'All videos have all three compressed versions.';
+        ? `${incomplete.length} videos are missing versions; ${convertibleCount} can be created from their Originals, upscaling when needed.${ctx.connection.connected ? '' : ' Connect Drive to check the live folders and start conversion.'}`
+        : ctx.connection.connected ? 'All videos have all three compressed versions in Drive.' : 'Connect Drive to verify the catalogue against the live folders.';
       const list = panel.ownerDocument.createElement('div');
       list.className = 'compress-missing-list';
       for (const { video, missing, convertible } of incomplete) {
@@ -207,6 +206,17 @@ export function renderBrowserCompressor(panel, ctx) {
           unsupported.length ? `Could not read usable Original dimensions for: ${unsupported.join(', ')}` : '',
         ].filter(Boolean).join(' · ');
         row.append(name, qualities);
+        if (convertible.length) {
+          const create = panel.ownerDocument.createElement('button');
+          create.type = 'button';
+          create.className = 'button primary small compress-create-button';
+          create.textContent = `Create missing copies (${convertible.join(', ')})`;
+          create.setAttribute('aria-label', `Create missing ${convertible.join(', ')} copies for ${video.filename || video.title} from the Original`);
+          create.title = 'Build every missing version from the Original; upscaling is allowed.';
+          create.disabled = !ctx.connection.connected || Boolean(controller);
+          create.addEventListener('click', () => { void startBatch([video]); });
+          row.append(create);
+        }
         list.append(row);
       }
       missingList.replaceChildren(list);
@@ -219,6 +229,9 @@ export function renderBrowserCompressor(panel, ctx) {
     start.disabled = running || !ctx.connection.connected;
     stop.hidden = !running;
     progress.hidden = !running;
+    missingList.querySelectorAll('.compress-create-button').forEach(button => {
+      button.disabled = running || !ctx.connection.connected;
+    });
   }
   setRunning(Boolean(controller));
   status.textContent = controller ? 'A compression batch is running.' : ctx.connection.connected
@@ -262,8 +275,8 @@ export function renderBrowserCompressor(panel, ctx) {
       const published = new Map((manifest?.entries || []).map(entry => [entry.sourceId, entry]));
       const candidates = originals.map(video => ({ video, missing: pendingCopies(video, published.get(video.id)) }))
         .filter(item => item.missing.length);
-      if (!candidates.length) { report('No missing playback versions need to be created.', 0); return; }
-      let saved = 0, skipped = 0, failureCount = 0;
+      if (!candidates.length) { report('Nothing is missing now. The list is being refreshed from Drive.', 0); return; }
+      let saved = 0, failureCount = 0;
       const failures = [];
       const recordFailure = (filename, error) => {
         if (signal.aborted || !ctx.connection.connected || !ctx.admin.isAdmin) throw error;
@@ -285,8 +298,9 @@ export function renderBrowserCompressor(panel, ctx) {
               let result = copy.existing;
               if (!result) {
                 source ??= await (loadingSource ??= openSource(video, ctx.connection, step, signal));
-                probedDimensions.set(video.id + ':' + video.updatedAt, { width: source.width, height: source.height });
-                if (!compressionSize(source.width, source.height, quality)) { skipped++; continue; }
+                if (!compressionSize(source.width, source.height, quality)) {
+                  throw new Error(`Could not determine output dimensions for ${quality} from the Original.`);
+                }
                 const encoded = await encode(source, quality, copy.name, step, signal);
                 try {
                   result = await ctx.connection.uploadBrowserCopy(video, copy, encoded.file,
@@ -302,7 +316,7 @@ export function renderBrowserCompressor(panel, ctx) {
         } catch (error) { recordFailure(video.filename, error); }
         finally { await source?.close(); }
       }
-      report(`Published ${saved} copies across ${candidates.length} videos. ${skipped} above source resolution. ${failureCount} failed.${failures.length ? ' ' + failures.join(' | ') : ''}`, 1);
+      report(`Created ${saved} missing copies across ${candidates.length} videos. ${failureCount} failed.${failures.length ? ' ' + failures.join(' | ') : ''}${failureCount > failures.length ? ' More failed items remain listed below for retry.' : ''}`, 1);
     };
     controller = new AbortController();
     setRunning(true);

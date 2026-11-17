@@ -110,7 +110,10 @@ export class StudioPlayer {
     this.fullscreenButton.addEventListener('click', () => this.fullscreen());
     /* The player fills the browser viewport, not the device screen, so Close and Escape remain available. */
     document.addEventListener('keydown', event => {
-      if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || (event.target instanceof Element && event.target.closest('input,select,textarea,button,[contenteditable=true]'))) return;
+      const target = event.target instanceof Element ? event.target : null;
+      const editing = target?.closest('input,select,textarea,[contenteditable=true]');
+      const activatingButton = target?.closest('button') && [' ', 'Enter'].includes(event.key);
+      if (!document.querySelector('#player')?.matches('[open]') || event.ctrlKey || event.metaKey || event.altKey || editing || activatingButton) return;
       if ([' ', 'k', 'ArrowLeft', 'ArrowRight', 'f'].includes(event.key)) event.preventDefault();
       if (event.key === ' ' || event.key === 'k') this.playPause();
       if (event.key === 'ArrowLeft') this.seek(this.current() - 5);

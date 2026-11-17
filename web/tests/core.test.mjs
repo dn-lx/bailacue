@@ -20,7 +20,7 @@ test('ratings keep every integer from 1 to 10 and reject other values', () => {
   for (let n = 1; n <= 10; n++) assert.equal(rating(n), n);
   for (const n of [0, 11, 2.5, '10', null, NaN]) assert.equal(rating(n), null);
 });
-test('daily picks are stable per date, balanced, rating-first and exclude YouTube', () => {
+test('daily picks are stable per date, balanced and rating-first across selected sources', () => {
   const samples = data.videos.filter(v => v.dance === 'Salsa').slice(0, 3).concat(data.videos.filter(v => v.dance === 'Bachata').slice(0, 3));
   const metadata = Object.fromEntries(samples.map((v, i) => [v.id, { rating: i % 3 === 1 ? 10 : 1 }]));
   const result = dailyPicks(samples, metadata, '2026-10-24');
@@ -28,7 +28,8 @@ test('daily picks are stable per date, balanced, rating-first and exclude YouTub
   assert.deepEqual(result, dailyPicks(samples, metadata, '2026-10-24'));
   const refreshed = dailyPicks(samples, metadata, '2026-10-24', result);
   assert.ok(refreshed.every(id => !result.includes(id)));
-  assert.deepEqual(dailyPicks([{ ...samples[0], provider: 'youtube' }], {}, '2026-10-24'), []);
+  const youtube = { ...samples[0], id: 'youtube:sampleClip123', provider: 'youtube' };
+  assert.deepEqual(dailyPicks([youtube, samples[4]], {}, '2026-10-24'), [youtube.id, samples[4].id]);
 });
 test('practice queues never duplicate or lose videos and balance dance turns', () => {
   const queue = practiceQueue(data.videos, {}, () => 0.5);
@@ -42,6 +43,18 @@ test('exact rating filters, unrated and favourites stay independent', () => {
   assert.deepEqual(filterVideos([a, b, c], metadata, { rating: 'unrated' }).map(v => v.id), [c.id]);
   assert.deepEqual(filterVideos([a, b, c], metadata, { query: 'weight' }).map(v => v.id), [c.id]);
   assert.equal(filterVideos([a, b, c], metadata, { favorite: true }).length, 1);
+});
+
+test('multi-select style and move filters match any selected label, and unset level can be filtered', () => {
+  const [a, b, c] = data.videos;
+  const metadata = {
+    [a.id]: { moveIds: ['move-a'], level: 'Basic' },
+    [b.id]: { moveIds: ['move-b'], level: 'Advanced' },
+    [c.id]: { styleTimingIds: ['style-a'] },
+  };
+  assert.deepEqual(filterVideos([a, b, c], metadata, { moves: ['move-a', 'move-b'] }).map(v => v.id).sort(), [a.id, b.id].sort());
+  assert.deepEqual(filterVideos([a, b, c], metadata, { danceStyles: ['style-a', 'style-b'] }).map(v => v.id), [c.id]);
+  assert.deepEqual(filterVideos([a, b, c], metadata, { level: '__unset__' }).map(v => v.id), [c.id]);
 });
 test('backup validation drops unsafe URLs, duplicates, invalid ratings and unexpected metadata', () => {
   const state = emptyState(); state.meta['drive:abcdefghijk'] = { rating: 11, notes: '<script>alert(1)</script>', status: 'Unknown' };

@@ -118,7 +118,7 @@ function hash(text) { let h = 2166136261; for (const ch of text) h = Math.imul(h
 /** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta @param {string} day @param {string[]} previous */
 export function dailyPicks(videos, meta, day, previous = []) {
   return ['Salsa', 'Bachata'].flatMap(dance => {
-    let pool = videos.filter(v => v.dance === dance && v.provider === 'drive');
+    let pool = videos.filter(v => v.dance === dance);
     const fresh = pool.filter(v => !previous.includes(v.id));
     if (fresh.length) pool = fresh;
     pool.sort((a, b) => (rating(meta[b.id]?.rating) || 0) - (rating(meta[a.id]?.rating) || 0) || hash(day + a.id) - hash(day + b.id));
@@ -143,14 +143,14 @@ export function filterVideos(videos, meta, filters, labels = []) {
       && (!filters.rating || (filters.rating === 'unrated' ? !rating(m.rating) : rating(m.rating) === Number(filters.rating)))
       && (!filters.labelIds?.length || filters.labelIds.every(id => m.labelIds?.includes(id)))
       && (!filters.artistIds?.length || filters.artistIds.some(id => m.artistIds?.includes(id)))
-      && (!filters.level || m.level === filters.level)
-      && (!filters.moves?.length || filters.moves.every(id => m.moveIds?.includes(id) || m.labelIds?.includes(id)))
-      && (!filters.danceStyles?.length || filters.danceStyles.every(id => m.styleTimingIds?.includes(id) || m.labelIds?.includes(id)))
+      && (!filters.level || (filters.level === '__unset__' ? !m.level : m.level === filters.level))
+      && (!filters.moves?.length || filters.moves.some(id => m.moveIds?.includes(id) || m.labelIds?.includes(id)))
+      && (!filters.danceStyles?.length || filters.danceStyles.some(id => m.styleTimingIds?.includes(id) || m.labelIds?.includes(id)))
       && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   return out.sort((a, b) => {
     if (filters.sort === 'recent') return (b.addedAt || '').localeCompare(a.addedAt || '');
-    return a.dance.localeCompare(b.dance) || displayTitle(a, meta).localeCompare(displayTitle(b, meta), undefined, { numeric: true });
+    return displayTitle(a, meta).localeCompare(displayTitle(b, meta), undefined, { numeric: true }) || a.dance.localeCompare(b.dance);
   });
 }
 /** @param {import('./types.js').Video} video */

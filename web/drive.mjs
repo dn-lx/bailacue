@@ -3,9 +3,62 @@ import { SOURCES } from './core.mjs';
 import { mapDriveFile, nextNumber, numberedName } from './studio-model.mjs';
 
 const API = 'https://www.googleapis.com/drive/v3';
-const FIELDS = 'id,name,mimeType,size,createdTime,modifiedTime,parents,videoMediaMetadata';
+const FIELDS = 'id,name,mimeType,size,md5Checksum,createdTime,modifiedTime,parents,videoMediaMetadata';
 const SCOPE = 'https://www.googleapis.com/auth/drive';
 let scriptPromise;
+
+const MD5_SHIFTS = [
+  7,12,17,22,7,12,17,22,7,12,17,22,7,12,17,22,
+  5,9,14,20,5,9,14,20,5,9,14,20,5,9,14,20,
+  4,11,16,23,4,11,16,23,4,11,16,23,4,11,16,23,
+  6,10,15,21,6,10,15,21,6,10,15,21,6,10,15,21,
+];
+const MD5_CONSTANTS = Array.from({ length: 64 }, (_, i) => Math.floor(Math.abs(Math.sin(i + 1)) * 0x100000000) >>> 0);
+function md5Block(state, bytes, offset = 0) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset + offset, 64);
+  let a = state[0], b = state[1], c = state[2], d = state[3];
+  for (let i = 0; i < 64; i++) {
+    let f, g;
+    if (i < 16) { f = (b & c) | (~b & d); g = i; }
+    else if (i < 32) { f = (d & b) | (~d & c); g = (5 * i + 1) % 16; }
+    else if (i < 48) { f = b ^ c ^ d; g = (3 * i + 5) % 16; }
+    else { f = c ^ (b | ~d); g = (7 * i) % 16; }
+    const sum = (a + f + MD5_CONSTANTS[i] + view.getUint32(g * 4, true)) >>> 0;
+    const shift = MD5_SHIFTS[i];
+    const rotated = ((sum << shift) | (sum >>> (32 - shift))) >>> 0;
+    a = d; d = c; c = b; b = (b + rotated) >>> 0;
+  }
+  state[0] = (state[0] + a) >>> 0;
+  state[1] = (state[1] + b) >>> 0;
+  state[2] = (state[2] + c) >>> 0;
+  state[3] = (state[3] + d) >>> 0;
+}
+export async function fileMd5Checksum(file, chunkSize = 4 * 1024 * 1024) {
+  const state = [0x67452301, 0xefcdab89, 0x98badcfe, 0x10325476];
+  const buffer = new Uint8Array(64);
+  let buffered = 0, total = 0;
+  for (let offset = 0; offset < file.size; offset += chunkSize) {
+    const chunk = new Uint8Array(await file.slice(offset, Math.min(file.size, offset + chunkSize)).arrayBuffer());
+    total += chunk.length;
+    let cursor = 0;
+    if (buffered) {
+      const take = Math.min(64 - buffered, chunk.length);
+      buffer.set(chunk.subarray(0, take), buffered);
+      buffered += take; cursor += take;
+      if (buffered === 64) { md5Block(state, buffer); buffered = 0; }
+    }
+    while (cursor + 64 <= chunk.length) { md5Block(state, chunk, cursor); cursor += 64; }
+    if (cursor < chunk.length) { buffer.set(chunk.subarray(cursor), 0); buffered = chunk.length - cursor; }
+  }
+  const padded = new Uint8Array(buffered < 56 ? 64 : 128);
+  padded.set(buffer.subarray(0, buffered));
+  padded[buffered] = 0x80;
+  const bits = total * 8, length = new DataView(padded.buffer);
+  length.setUint32(padded.length - 8, bits >>> 0, true);
+  length.setUint32(padded.length - 4, Math.floor(bits / 0x100000000) >>> 0, true);
+  for (let offset = 0; offset < padded.length; offset += 64) md5Block(state, padded, offset);
+  return state.map(word => [0, 8, 16, 24].map(shift => ((word >>> shift) & 0xff).toString(16).padStart(2, '0')).join('')).join('');
+}
 function googleSdk() {
   if ((/** @type {any} */ (window)).google?.accounts?.oauth2) return Promise.resolve();
   if (!scriptPromise) scriptPromise = new Promise((resolve, reject) => {
@@ -101,6 +154,13 @@ export class DriveConnection {
     if (!file || !file.size || (!file.type.startsWith('video/') && !/\.(mp4|mov|m4v|webm|mkv|avi|3gp)$/i.test(file.name))) throw new Error('Choose a non-empty video file.');
     await this.inspect(dance);
     const listing = await this.list(dance);
+    const sameSize = listing.files.filter(item => item.mimeType?.startsWith('video/') &&
+      Number(item.size) === Number(file.size) && /^[a-f0-9]{32}$/i.test(item.md5Checksum || ''));
+    if (sameSize.length) {
+      const checksum = await fileMd5Checksum(file);
+      const duplicate = sameSize.find(item => item.md5Checksum.toLowerCase() === checksum);
+      if (duplicate) throw new Error(`This video has already been uploaded as “${duplicate.name}”, even though this filename is different. No duplicate was uploaded.`);
+    }
     const number = nextNumber(listing.files.map(f => f.name), reserved);
     const generated = await (await this.request(`${API}/files/generateIds?count=1&space=drive&type=files`)).json();
     if (!generated.ids?.[0]) throw new Error('Drive could not reserve a file identity.');

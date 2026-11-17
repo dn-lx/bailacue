@@ -57,6 +57,20 @@ function fixture(files, beforeCopy = () => {}) {
   return { window, panel, calls, registered, manifest: () => manifest };
 }
 
+test('missing copies can be created per video even when catalogue dimensions are absent', async () => {
+  const unknownSize = { ...original, width: 0, height: 0 };
+  assert.deepEqual(pendingCopies(unknownSize, null), QUALITIES);
+  const f = fixture([unknownSize]);
+  await new Promise(resolve => setImmediate(resolve));
+  const create = f.panel.querySelector('.compress-create-button');
+  assert.ok(create, 'the missing video row offers a direct create action');
+  assert.match(create.textContent, /360p, 720p, 1080p/);
+  create.click();
+  for (let i = 0; i < 10 && f.calls.length < 3; i++) await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(f.calls.map(([, quality]) => quality), QUALITIES);
+  assert.deepEqual(f.registered, [unknownSize.id]);
+});
+
 test('all-video batch includes uncatalogued, long, large originals and resumes without duplicates', async () => {
   const f = fixture([original]);
   const start = f.panel.querySelector('#browser-compress-start');
