@@ -1,4 +1,4 @@
-export const LABEL_TYPES = ['Level', 'Style & timing', 'Moves', 'Artist', 'Video type', 'Style', 'Technique'];
+export const LABEL_TYPES = ['Level', 'Style & timing', 'Moves', 'Artist', 'Video type', 'Style', 'Technique', 'Position', 'Musicality'];
 const suggestions = [
   ['Salsa On1', 'Style', 'Salsa'], ['Salsa On2', 'Style', 'Salsa'], ['Cuban / Casino', 'Style', 'Salsa'], ['Rueda de Casino', 'Style', 'Salsa'], ['Colombian / Cali', 'Style', 'Salsa'],
   ['Sensual Bachata', 'Style', 'Bachata'], ['Dominican Bachata', 'Style', 'Bachata'], ['Modern Bachata', 'Style', 'Bachata'], ['Bachata Fusion', 'Style', 'Bachata'],
