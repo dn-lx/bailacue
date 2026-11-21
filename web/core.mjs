@@ -86,7 +86,7 @@ export function displayTitle(video, meta = {}, labels = []) {
   // Deliberately edited titles remain; copies of source filenames do not.
   const explicit = String(details.title || '').trim();
   const original = String(video.filename || video.title || '').replace(/\.[^.]+$/, '').trim();
-  if (explicit && (video.provider !== 'drive' || explicit !== original)) return explicit;
+  if (explicit && (video.provider !== 'drive' || explicit.replace(/\.[^.]+$/, '') !== original)) return explicit;
   if (video.provider !== 'drive') return video.title || 'YouTube video';
   const names = (ids, kinds) => [...new Set((ids || []).map(id => labels.find(label => label.id === id && kinds.includes(label.type))?.name).filter(Boolean))];
   const moves = [...(details.moves || []), ...names([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Position', 'Technique'])];
