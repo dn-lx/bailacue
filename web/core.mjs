@@ -82,12 +82,20 @@ export function cleanState(input) {
 }
 /** @param {import('./types.js').Video} video @param {Record<string, import('./types.js').Metadata>} meta */
 export function displayTitle(video, meta = {}, labels = []) {
-  // Opaque, repeatable, filename-independent public label. Do not use dance metadata.
-  // Two salted hashes make collisions between clips exceptionally unlikely.
-  const identity = String(video.id || video.providerId || '');
-  const code = (hash('bailacue-a:' + identity).toString(36).padStart(7, '0') +
-    hash('bailacue-b:' + identity).toString(36).padStart(7, '0')).slice(0, 10).toUpperCase();
-  return 'BC-' + code;
+  const details = meta[video.id] || {};
+  const labelNames = (ids, kinds) => [...new Set((ids || []).map(id =>
+    labels.find(label => label.id === id && kinds.includes(label.type))?.name).filter(Boolean))];
+  const styles = [...(details.danceStyles || []),
+    ...labelNames([...(details.styleTimingIds || []), ...(details.labelIds || [])], ['Style', 'Style & timing'])];
+  const moves = [...(details.moves || []),
+    ...labelNames([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Technique', 'Position'])];
+  const artists = labelNames(details.artistIds || [], ['Artist', 'Teacher']);
+  const dateValue = video.updatedAt || video.addedAt || '';
+  const date = /^\\d{4}-\\d{2}-\\d{2}/.test(dateValue) ? dateValue.slice(0, 10) : '';
+  const parts = [date, video.dance || 'Dance', styles[0], moves[0],
+    details.level, details.event, artists[0]].map(v => String(v || '').trim()).filter(Boolean);
+  // Never expose original Drive filenames, even when no descriptive metadata exists.
+  return parts.join(' · ');
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
