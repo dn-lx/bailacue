@@ -186,8 +186,8 @@ function mountVideoDetails() { if (!selected) return; const v = selected, m = me
       }).join('') + '</div>' + (admin.isAdmin ? '<div class="cue-add"><select aria-label="Move for timestamp"><option value="">Select a move</option>' +
       state.labels.filter(l => ['Moves','Position','Technique','Musicality'].includes(l.type) && (l.dance === 'Both' || l.dance === v.dance)).map(l => '<option value="' + esc(l.id) + '">' + esc(l.name) + '</option>').join('') +
       '</select><button type="button" class="button subtle small" data-add-cue>Mark current time</button></div>' : '');
-    cueHost.querySelectorAll('[data-seek]').forEach(button => button.onclick = () => studioPlayer.seek(Number(button.dataset.seek)));
-    cueHost.querySelectorAll('[data-remove]').forEach(button => button.onclick = () => { patchMeta(v.id, { cues: cues.filter(c => c.id !== button.dataset.remove) }); drawCues(); });
+    cueHost.querySelectorAll('[data-seek]').forEach(button => button.addEventListener('click', () => studioPlayer.seek(Number(button.getAttribute('data-seek')))));
+    cueHost.querySelectorAll('[data-remove]').forEach(button => button.addEventListener('click', () => { patchMeta(v.id, { cues: cues.filter(c => c.id !== button.getAttribute('data-remove')) }); drawCues(); }));
     cueHost.querySelector('[data-add-cue]')?.addEventListener('click', () => {
       const termId = cueHost.querySelector('select').value;
       if (!termId) { toast('Choose a move first.'); return; }
