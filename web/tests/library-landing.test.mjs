@@ -18,14 +18,13 @@ test('Library replaces Discover as public landing page and old links redirect', 
   assert.match(app, /history\.replaceState\(null, '', '#library'\)/);
 });
 
-test('Drive filenames never become public titles, even when numbered or copied as metadata', () => {
-  const without = displayTitle(a, {}, labels);
-  assert.match(without, /^Salsa · Video [A-Z0-9]{5}$/);
-  assert.doesNotMatch(without, /0088|\.mp4/i);
-  const meta = { [a.id]: { moveIds: ['move-copa'], styleTimingIds: ['style-on1'], level: 'Intermediate' } };
-  assert.equal(displayTitle(a, meta, labels), 'Salsa · Copa · On1 · Intermediate');
-  assert.equal(displayTitle(a, { [a.id]: { title: 'Copa combination' } }, labels), 'Copa combination');
-  assert.notEqual(displayTitle(a, { [a.id]: { title: '0088' } }, labels), '0088');
+test('all public video labels are stable opaque identifiers independent of metadata and filenames', () => {
+  const title = displayTitle(a, {}, labels);
+  assert.match(title, /^BC-[A-Z0-9]{10}$/);
+  assert.equal(title, displayTitle(a, { [a.id]: { moveIds: ['move-copa'], styleTimingIds: ['style-on1'], level: 'Intermediate', title: 'Copa combination' } }, labels));
+  assert.equal(title, displayTitle({ ...a, filename: 'different.mp4', title: 'another name', dance: 'Bachata' }, {}, []));
+  assert.notEqual(title, displayTitle(b, {}, labels));
+  assert.doesNotMatch(title, /0088|Salsa|Copa|Intermediate|\.mp4/);
   assert.doesNotMatch(app, /\['Original filename',v\.filename/);
   assert.match(app, /studioPlayer\.open\(\{ \.\.\.v, title: displayTitle\(v, state\.meta, state\.labels\) \}, localUrl, autoPlay\)/);
 });

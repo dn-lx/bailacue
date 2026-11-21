@@ -82,20 +82,12 @@ export function cleanState(input) {
 }
 /** @param {import('./types.js').Video} video @param {Record<string, import('./types.js').Metadata>} meta */
 export function displayTitle(video, meta = {}, labels = []) {
-  const details = meta[video.id] || {};
-  // Deliberately edited titles remain; copies of source filenames do not.
-  const explicit = String(details.title || '').trim();
-  const original = String(video.filename || video.title || '').replace(/\.[^.]+$/, '').trim();
-  if (explicit && (video.provider !== 'drive' || explicit.replace(/\.[^.]+$/, '') !== original)) return explicit;
-  if (video.provider !== 'drive') return video.title || 'YouTube video';
-  const names = (ids, kinds) => [...new Set((ids || []).map(id => labels.find(label => label.id === id && kinds.includes(label.type))?.name).filter(Boolean))];
-  const moves = [...(details.moves || []), ...names([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Position', 'Technique'])];
-  const styles = [...(details.danceStyles || []), ...names([...(details.styleTimingIds || []), ...(details.labelIds || [])], ['Style', 'Style & timing'])];
-  const artists = names(details.artistIds || [], ['Artist', 'Teacher']);
-  const fields = [moves[0], styles[0], details.level, details.event, artists[0]].map(value => String(value || '').trim()).filter(Boolean).slice(0, 3);
-  // Generate a stable opaque clip reference, never exposing the Drive filename.
-  const code = hash(video.id).toString(36).toUpperCase().padStart(5, '0').slice(-5);
-  return [video.dance || 'Dance', ...(fields.length ? fields : ['Video ' + code])].join(' · ');
+  // Opaque, repeatable, filename-independent public label. Do not use dance metadata.
+  // Two salted hashes make collisions between clips exceptionally unlikely.
+  const identity = String(video.id || video.providerId || '');
+  const code = (hash('bailacue-a:' + identity).toString(36).padStart(7, '0') +
+    hash('bailacue-b:' + identity).toString(36).padStart(7, '0')).slice(0, 10).toUpperCase();
+  return 'BC-' + code;
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
