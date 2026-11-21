@@ -95,7 +95,7 @@ function publishKey(key, payload) {
 }
 function publishLabels() { return publishKey('labels', { items: state.labels }); }
 function publicMetadata(value = {}) {
-  const kept = ['title', 'notes', 'labelIds', 'artistIds', 'recordedAt', 'event', 'location', 'rating', 'moves', 'danceStyles', 'moveIds', 'styleTimingIds', 'level'];
+  const kept = ['title', 'notes', 'labelIds', 'artistIds', 'recordedAt', 'event', 'location', 'rating', 'moves', 'danceStyles', 'moveIds', 'styleTimingIds', 'level', 'cues'];
   return Object.fromEntries(kept.filter(key => Object.hasOwn(value, key)).map(key => [key, value[key]]));
 }
 function publishDrive() {
@@ -174,6 +174,29 @@ function mountVideoDetails() { if (!selected) return; const v = selected, m = me
     if (!host) { host = document.createElement('div'); host.id = id; host.className = 'detail-taxonomy'; $('#detail-moves').after(host); }
     labelPicker(host, { title, labels: () => state.labels.filter(item => item.type === type), selected: categoryIds([type]), dance: v.dance, onChange: ids => patchMeta(v.id, { labelIds: [...(meta(v.id).labelIds || []).filter(key => !state.labels.some(item => item.id === key && item.type === type)), ...ids] }) });
   }
+  let cueHost = document.getElementById('detail-cues');
+  if (!cueHost) { cueHost = document.createElement('section'); cueHost.id = 'detail-cues'; cueHost.className = 'detail-cues'; $('#detail-moves').after(cueHost); }
+  const drawCues = () => {
+    const cues = meta(v.id).cues || [];
+    cueHost.innerHTML = '<h3>Timestamped moves</h3><p class="helper-text">Mark a move at the current playback position. Tap a timestamp to jump there.</p>' +
+      '<div class="cue-list">' + cues.map(c => {
+        const term = state.labels.find(l => l.id === c.termId);
+        return '<div class="cue-row"><button type="button" data-seek="' + c.start + '">' + esc(formatTime(c.start)) + ' · ' + esc(term?.name || 'Move') + '</button>' +
+          (admin.isAdmin ? '<button type="button" data-remove="' + esc(c.id) + '" aria-label="Remove timestamp">×</button>' : '') + '</div>';
+      }).join('') + '</div>' + (admin.isAdmin ? '<div class="cue-add"><select aria-label="Move for timestamp"><option value="">Select a move</option>' +
+      state.labels.filter(l => ['Moves','Position','Technique','Musicality'].includes(l.type) && (l.dance === 'Both' || l.dance === v.dance)).map(l => '<option value="' + esc(l.id) + '">' + esc(l.name) + '</option>').join('') +
+      '</select><button type="button" class="button subtle small" data-add-cue>Mark current time</button></div>' : '');
+    cueHost.querySelectorAll('[data-seek]').forEach(button => button.onclick = () => studioPlayer.seek(Number(button.dataset.seek)));
+    cueHost.querySelectorAll('[data-remove]').forEach(button => button.onclick = () => { patchMeta(v.id, { cues: cues.filter(c => c.id !== button.dataset.remove) }); drawCues(); });
+    cueHost.querySelector('[data-add-cue]')?.addEventListener('click', () => {
+      const termId = cueHost.querySelector('select').value;
+      if (!termId) { toast('Choose a move first.'); return; }
+      const start = Math.round(studioPlayer.current() * 100) / 100;
+      patchMeta(v.id, { cues: [...cues, { id: 'cue-' + newId(), termId, start }].slice(0,100).sort((a,b) => a.start-b.start) });
+      drawCues();
+    });
+  };
+  drawCues();
   const level = $('#detail-level'); level.value = m.level || ''; level.onchange = () => patchMeta(v.id, { level: level.value || null });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
