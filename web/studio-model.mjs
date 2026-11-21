@@ -14,7 +14,7 @@ export function cleanLabels(input) {
   const seen = new Set(), ids = new Set();
   return input.slice(0, 2000).flatMap(v => {
     if (!v || typeof v.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(v.id) || ids.has(v.id) || !LABEL_TYPES.includes(v.type)) return [];
-    const name = String(v.name || '').trim().slice(0, 80), key = `${v.type}:${normalizeName(name)}`;
+    const name = String(v.name || '').trim().slice(0, 80), key = `${v.type}:${v.dance}:${normalizeName(name)}`;
     if (!name || seen.has(key)) return [];
     seen.add(key); ids.add(v.id);
     return [{ id: v.id, name, type: v.type, dance: ['Salsa', 'Bachata'].includes(v.dance) ? v.dance : 'Both' }];
@@ -24,7 +24,7 @@ export function createLabel(labels, name, type = 'Style', dance = 'Both') {
   name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80);
   if (!name) throw new Error('Enter a label name.');
   if (!LABEL_TYPES.includes(type)) throw new Error('Choose a label type.');
-  const existing = labels.find(v => v.type === type && normalizeName(v.name) === normalizeName(name));
+  const existing = labels.find(v => v.type === type && v.dance === dance && normalizeName(v.name) === normalizeName(name));
   if (existing) return existing;
   const label = { id: `custom-${newId()}`, name, type, dance: ['Salsa', 'Bachata'].includes(dance) ? dance : 'Both' };
   labels.push(label); return label;
