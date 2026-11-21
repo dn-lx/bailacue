@@ -71,7 +71,7 @@ test('automatic next-video playback is attempted once with a useful blocked-auto
 test('mix queue supports touch and keyboard-friendly ordered editing', () => {
   assert.match(app, /data-action="mix-move-up"/);
   assert.match(app, /data-action="mix-move-down"/);
-  assert.match(app, /aria-label="Move \$\{esc\(displayTitle\(v, state\.meta\)\)\} earlier"/);
+  assert.match(app, /aria-label="Move \$\{esc\(displayTitle\(v, state\.meta, state\.labels\)\)\} earlier"/);
   assert.match(app, /Moved video to position/);
   assert.match(app, /\.focus\(\{ preventScroll: true \}\)/);
   assert.match(css, /\.queue-actions \.icon-button/);
