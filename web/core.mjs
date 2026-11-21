@@ -91,11 +91,12 @@ export function displayTitle(video, meta = {}, labels = []) {
     ...labelNames([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Technique', 'Position'])];
   const artists = labelNames(details.artistIds || [], ['Artist', 'Teacher']);
   const dateValue = video.updatedAt || video.addedAt || '';
-  const date = /^\\d{4}-\\d{2}-\\d{2}/.test(dateValue) ? dateValue.slice(0, 10) : '';
+  const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateValue);
+  const date = match ? match[3] + match[2] + match[1].slice(-2) : '';
   const parts = [date, video.dance || 'Dance', styles[0], moves[0],
     details.level, details.event, artists[0]].map(v => String(v || '').trim()).filter(Boolean);
   // Never expose original Drive filenames, even when no descriptive metadata exists.
-  return parts.join(' · ');
+  return parts.length ? [parts[0], parts.slice(1).join(' · ')].filter(Boolean).join('-') : '';
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
