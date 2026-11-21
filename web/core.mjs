@@ -96,7 +96,7 @@ export function displayTitle(video, meta = {}, labels = []) {
   const parts = [date, video.dance || 'Dance', styles[0], moves[0],
     details.level, details.event, artists[0]].map(v => String(v || '').trim()).filter(Boolean);
   // Never expose original Drive filenames, even when no descriptive metadata exists.
-  return parts.length ? [parts[0], parts.slice(1).join(' · ')].filter(Boolean).join('-') : '';
+  return parts.map(part => part.replace(/\s+/g, '-')).join('-');
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
