@@ -18,13 +18,12 @@ test('Library replaces Discover as public landing page and old links redirect', 
   assert.match(app, /history\.replaceState\(null, '', '#library'\)/);
 });
 
-test('all public video labels are stable opaque identifiers independent of metadata and filenames', () => {
-  const title = displayTitle(a, {}, labels);
-  assert.match(title, /^BC-[A-Z0-9]{10}$/);
-  assert.equal(title, displayTitle(a, { [a.id]: { moveIds: ['move-copa'], styleTimingIds: ['style-on1'], level: 'Intermediate', title: 'Copa combination' } }, labels));
-  assert.equal(title, displayTitle({ ...a, filename: 'different.mp4', title: 'another name', dance: 'Bachata' }, {}, []));
-  assert.notEqual(title, displayTitle(b, {}, labels));
-  assert.doesNotMatch(title, /0088|Salsa|Copa|Intermediate|\.mp4/);
+test('video titles use updated date, dance, sub-style, move and level without filenames', () => {
+  const title = displayTitle(a, { [a.id]: { moveIds: ['move-copa'], styleTimingIds: ['style-on1'], level: 'Intermediate' } }, labels);
+  assert.equal(title, '2026-10-20 · Salsa · On1 · Copa · Intermediate');
+  assert.equal(displayTitle({ ...b, updatedAt: '2026-11-21T12:00:00Z' }, { [b.id]: { danceStyles: ['Sensual'] } }, labels), '2026-11-21 · Bachata · Sensual');
+  assert.equal(displayTitle(a, {}, labels), '2026-10-20 · Salsa');
+  assert.doesNotMatch(title, /0088|\.mp4/);
   assert.doesNotMatch(app, /\['Original filename',v\.filename/);
   assert.match(app, /studioPlayer\.open\(\{ \.\.\.v, title: displayTitle\(v, state\.meta, state\.labels\) \}, localUrl, autoPlay\)/);
 });
