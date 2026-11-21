@@ -35,6 +35,7 @@ export interface Metadata {
   location?: string;
   bpm?: number;
   loops?: { id: string; name: string; start: number; end: number }[];
+  cues?: { id: string; termId: string; start: number; end?: number }[];
 }
 export interface Label { id: string; name: string; type: string; dance: string }
 export interface State {
@@ -65,6 +66,9 @@ export interface Filters {
   level?: string;
   moves?: string[];
   danceStyles?: string[];
+  positions?: string[];
+  techniques?: string[];
+  musicality?: string[];
 }
 
 export {};
