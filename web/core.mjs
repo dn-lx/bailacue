@@ -81,8 +81,21 @@ export function cleanState(input) {
   return out;
 }
 /** @param {import('./types.js').Video} video @param {Record<string, import('./types.js').Metadata>} meta */
-export function displayTitle(video, meta = {}) {
-  return meta[video.id]?.title || (/^\d+$/.test(video.title) ? `${video.dance} · ${video.title.padStart(4, '0')}` : video.title);
+export function displayTitle(video, meta = {}, labels = []) {
+  const details = meta[video.id] || {};
+  // Deliberately edited titles remain; copies of source filenames do not.
+  const explicit = String(details.title || '').trim();
+  const original = String(video.filename || video.title || '').replace(/\.[^.]+$/, '').trim();
+  if (explicit && (video.provider !== 'drive' || explicit.replace(/\.[^.]+$/, '') !== original)) return explicit;
+  if (video.provider !== 'drive') return video.title || 'YouTube video';
+  const names = (ids, kinds) => [...new Set((ids || []).map(id => labels.find(label => label.id === id && kinds.includes(label.type))?.name).filter(Boolean))];
+  const moves = [...(details.moves || []), ...names([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Position', 'Technique'])];
+  const styles = [...(details.danceStyles || []), ...names([...(details.styleTimingIds || []), ...(details.labelIds || [])], ['Style', 'Style & timing'])];
+  const artists = names(details.artistIds || [], ['Artist', 'Teacher']);
+  const fields = [moves[0], styles[0], details.level, details.event, artists[0]].map(value => String(value || '').trim()).filter(Boolean).slice(0, 3);
+  // Generate a stable opaque clip reference, never exposing the Drive filename.
+  const code = hash(video.id).toString(36).toUpperCase().padStart(5, '0').slice(-5);
+  return [video.dance || 'Dance', ...(fields.length ? fields : ['Video ' + code])].join(' · ');
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
@@ -149,11 +162,34 @@ export function filterVideos(videos, meta, filters, labels = []) {
        && (!filters.positions?.length || filters.positions.some(id => m.labelIds?.includes(id)))
        && (!filters.techniques?.length || filters.techniques.some(id => m.labelIds?.includes(id)))
        && (!filters.musicality?.length || filters.musicality.some(id => m.labelIds?.includes(id)))
-      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
+      && (!query || `${displayTitle(v, meta)} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
+  const title = v => displayTitle(v, meta, labels);
+  const byTitle = (a, b) => title(a).localeCompare(title(b), undefined, { numeric: true });
+  const byNumber = (a, b, get, ascending = true) => {
+    const x = Number(get(a)), y = Number(get(b));
+    const hasX = Number.isFinite(x) && x > 0, hasY = Number.isFinite(y) && y > 0;
+    if (!hasX || !hasY) return hasX === hasY ? 0 : hasX ? -1 : 1;
+    return (x - y) * (ascending ? 1 : -1);
+  };
+  const levelRank = v => ({ Basic: 1, Intermediate: 2, Advanced: 3 })[meta[v.id]?.level] || 0;
+  const sort = filters.sort || 'title';
   return out.sort((a, b) => {
-    if (filters.sort === 'recent') return (b.addedAt || '').localeCompare(a.addedAt || '');
-    return displayTitle(a, meta).localeCompare(displayTitle(b, meta), undefined, { numeric: true }) || a.dance.localeCompare(b.dance);
+    let order = 0;
+    if (sort === 'random') order = hash(String(filters.randomSeed ?? 0) + ':' + a.id) - hash(String(filters.randomSeed ?? 0) + ':' + b.id);
+    else if (sort === 'recent') order = (b.addedAt || '').localeCompare(a.addedAt || '');
+    else if (sort === 'oldest') order = (a.addedAt || '').localeCompare(b.addedAt || '');
+    else if (sort === 'updated-new') order = (b.updatedAt || '').localeCompare(a.updatedAt || '');
+    else if (sort === 'title-desc') order = -byTitle(a, b);
+    else if (sort === 'dance-asc') order = a.dance.localeCompare(b.dance);
+    else if (sort === 'dance-desc') order = b.dance.localeCompare(a.dance);
+    else if (sort === 'level-asc' || sort === 'level-desc') order = byNumber(a, b, levelRank, sort === 'level-asc');
+    else if (sort === 'rating-high' || sort === 'rating-low') order = byNumber(a, b, v => rating(meta[v.id]?.rating), sort === 'rating-low');
+    else if (sort === 'duration-short' || sort === 'duration-long') order = byNumber(a, b, v => v.duration, sort === 'duration-short');
+    else if (sort === 'size-small' || sort === 'size-large') order = byNumber(a, b, v => v.size, sort === 'size-small');
+    else if (sort === 'moves-most') order = ((meta[b.id]?.moveIds?.length || 0) + (meta[b.id]?.moves?.length || 0)) - ((meta[a.id]?.moveIds?.length || 0) + (meta[a.id]?.moves?.length || 0));
+    else order = byTitle(a, b);
+    return order || byTitle(a, b) || a.id.localeCompare(b.id);
   });
 }
 /** @param {import('./types.js').Video} video */

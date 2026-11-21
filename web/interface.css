@@ -2477,3 +2477,17 @@ details > summary:hover::after { color: var(--blue); }
 .compress-missing-row span:first-child { font-weight: 600; overflow-wrap: anywhere; }
 .compress-missing-row span:last-child { color: var(--muted); }
 @media(max-width:720px) { .compress-missing-row { display: grid; } }
+
+/* Visible library sort and shuffle controls (including narrow mobile screens). */
+.library-sort { display: inline-flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; color: var(--muted); white-space: nowrap; }
+.library-sort select { max-width: 190px; min-height: 43px; font: inherit; font-weight: 600; }
+.shuffle-videos { min-height: 43px; display: inline-flex; align-items: center; gap: 6px; }
+.library-sort select:focus-visible, .shuffle-videos:focus-visible { outline: 3px solid #739dff; outline-offset: 2px; }
+@media (max-width: 720px) {
+  .library-sort { flex: 1 1 auto; }
+  .library-sort select { flex: 1; max-width: none; min-width: 0; }
+  .shuffle-videos { flex: 0 0 auto; }
+}
+@media (max-width: 390px) {
+  .library-sort { flex-basis: 100%; }
+}
