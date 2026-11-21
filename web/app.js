@@ -381,7 +381,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   selected = v;
   if (v.provider !== 'local') { state.history = recordRecent(state.history, v.id); save(); }
   if (queue) { playbackQueue = queue.filter(x => videoById(x)); playbackIndex = playbackQueue.indexOf(id); } else { playbackQueue = []; playbackIndex = -1; }
-  studioPlayer.open(v, localUrl, autoPlay);
+  studioPlayer.open({ ...v, title: displayTitle(v, state.meta, state.labels) }, localUrl, autoPlay);
   setPlayerViewport(true);
   studioPlayer.updateFullscreen();
   $('#player').scrollTop = 0;
