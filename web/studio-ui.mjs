@@ -50,7 +50,7 @@ export function renderLabelManager(page, ctx) {
       row.querySelector('form').onsubmit = async event => {
         event.preventDefault();
         const name = row.querySelector('input').value.trim();
-        if (!name || ctx.state().labels.some(l => l.id !== label.id && l.type === label.type && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
+        if (!name || ctx.state().labels.some(l => l.id !== label.id && l.type === label.type && l.dance === label.dance && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
         const previousName = label.name;
         label.name = name;
         try {
