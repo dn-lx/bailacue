@@ -519,8 +519,8 @@ document.addEventListener('click', async event => {
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
   if (action === 'go-practice') navigate('practice');
   if (action === 'page-prev' || action === 'page-next') { currentPage += action === 'page-next' ? 1 : -1; renderResults(); $('.library-toolbar').scrollIntoView({ block: 'start' }); }
-  if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', level: '', moves: [], danceStyles: [], sort: 'title', query: '' }; currentPage = 1; renderLibrary(); $('#search')?.focus({ preventScroll: true }); }
-   if (action === 'clear-filter') { const field = button.dataset.filter; if (!['dance', 'query', 'provider', 'level', 'sort', 'moves', 'danceStyles', 'artistIds'].includes(field)) return; filters[field] = { dance: 'All', query: '', provider: 'all', level: '', sort: 'title', moves: [], danceStyles: [], artistIds: [] }[field]; currentPage = 1; renderLibrary(); if (field === 'query') $('#search')?.focus({ preventScroll: true }); }
+  if (action === 'reset-filters') { filters = { dance: 'All', provider: 'all', level: '', moves: [], positions: [], techniques: [], musicality: [], danceStyles: [], sort: 'title', query: '' }; currentPage = 1; renderLibrary(); $('#search')?.focus({ preventScroll: true }); }
+   if (action === 'clear-filter') { const field = button.dataset.filter; if (!['dance', 'query', 'provider', 'level', 'sort', 'moves', 'positions', 'techniques', 'musicality', 'danceStyles', 'artistIds'].includes(field)) return; filters[field] = { dance: 'All', query: '', provider: 'all', level: '', sort: 'title', moves: [], positions: [], techniques: [], musicality: [], danceStyles: [], artistIds: [] }[field]; currentPage = 1; renderLibrary(); if (field === 'query') $('#search')?.focus({ preventScroll: true }); }
   if (action === 'mix') {
     const dance = button.dataset.dance || 'Both';
     const requested = clampMixCount($('#mix-count')?.value ?? state.mixSize, videos().length);
@@ -574,7 +574,7 @@ document.addEventListener('click', async event => {
   if (action === 'retry-video-save' && selected) queueMetaPublish(selected.id);
   if (action === 'next' || action === 'previous') { const next = playbackIndex + (action === 'next' ? 1 : -1); if (next >= 0 && next < playbackQueue.length) openPlayer(playbackQueue[next], playbackQueue, null, '', true); }
   if (action === 'add-youtube') openYoutube();
-  if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', level: '', moves: [], danceStyles: [], sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
+  if (action === 'show-youtube') { filters = { dance: 'All', provider: 'youtube', level: '', moves: [], positions: [], techniques: [], musicality: [], danceStyles: [], sort: 'title', query: '' }; currentPage = 1; navigate('library'); }
   if (action === 'export' && admin.isAdmin) downloadJson(state, `BailaCue-backup-${localDay()}.json`);
   if (action === 'export-legacy' && admin.isAdmin) downloadJson(localStorage.getItem(LEGACY_BACKUP_KEY) || '{}', `BailaCue-before-public-${localDay()}.json`);
   if (action === 'import') $('#backup-file').click();
@@ -599,7 +599,7 @@ $('#youtube-form').addEventListener('submit', async event => {
     await admin.put('youtube:' + video.id, video);
     state.youtube.push(video); save();
     $('#youtube-dialog').close(); $('#youtube-form').reset(); $('#nav-count').textContent = String(videos().length);
-    filters = { dance: 'All', provider: 'youtube', level: '', moves: [], danceStyles: [], sort: 'recent', query: '' }; currentPage = 1; navigate('library'); toast('New inspiration added to your library.');
+    filters = { dance: 'All', provider: 'youtube', level: '', moves: [], positions: [], techniques: [], musicality: [], danceStyles: [], sort: 'recent', query: '' }; currentPage = 1; navigate('library'); toast('New inspiration added to your library.');
   } catch (error) { $('#youtube-error').textContent = error.message; }
 });
 $('#theme-toggle').addEventListener('click', () => { state.theme = state.theme === 'dark' ? 'light' : 'dark'; save(); applyTheme(); });
