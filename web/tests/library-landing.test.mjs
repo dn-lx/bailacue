@@ -27,6 +27,7 @@ test('Drive filenames never become public titles, even when numbered or copied a
   assert.equal(displayTitle(a, { [a.id]: { title: 'Copa combination' } }, labels), 'Copa combination');
   assert.notEqual(displayTitle(a, { [a.id]: { title: '0088' } }, labels), '0088');
   assert.doesNotMatch(app, /\['Original filename',v\.filename/);
+  assert.match(app, /studioPlayer\.open\(\{ \.\.\.v, title: displayTitle\(v, state\.meta, state\.labels\) \}, localUrl, autoPlay\)/);
 });
 
 test('random sort is stable for pagination and filters, and changes with the seed', () => {
