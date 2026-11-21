@@ -146,7 +146,10 @@ export function filterVideos(videos, meta, filters, labels = []) {
       && (!filters.level || (filters.level === '__unset__' ? !m.level : m.level === filters.level))
       && (!filters.moves?.length || filters.moves.some(id => m.moveIds?.includes(id) || m.labelIds?.includes(id)))
       && (!filters.danceStyles?.length || filters.danceStyles.some(id => m.styleTimingIds?.includes(id) || m.labelIds?.includes(id)))
-      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
+       && (!filters.positions?.length || filters.positions.some(id => m.labelIds?.includes(id)))
+       && (!filters.techniques?.length || filters.techniques.some(id => m.labelIds?.includes(id)))
+       && (!filters.musicality?.length || filters.musicality.some(id => m.labelIds?.includes(id)))
+      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   return out.sort((a, b) => {
     if (filters.sort === 'recent') return (b.addedAt || '').localeCompare(a.addedAt || '');

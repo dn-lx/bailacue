@@ -11,3 +11,7 @@ dialog{padding:28px;border:1px solid var(--line);border-radius:19px;background:v
 .brand .brand-logo{width:180px;height:45px;max-width:100%}[data-theme=dark] .brand-logo path[data-tone=ink],[data-theme=dark] .brand-logo>svg:last-child path[fill="#080D18"]{fill:#e3e9f3}.mobile-brand{display:none}.header-actions{flex-shrink:0}.header-actions .button{white-space:nowrap}.card-labels .rating-pill span{display:inline}
 @media(max-width:720px){.topbar>.breadcrumb{display:none}.mobile-brand{display:flex;gap:5px;align-items:center;font-family:'Nunito',system-ui,sans-serif;font-size:18px;font-weight:600;white-space:nowrap}.mobile-brand>svg{width:26px;height:28px}[data-theme=dark] .mobile-brand [data-tone=ink]{fill:#e3e9f3}.header-actions .button span:last-child{font-size:11px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+
+/* BailaCue brand identity — Nunito, deep navy and magenta */
+.brand-text,.mobile-brand{font-family:'Nunito',system-ui,sans-serif!important;font-weight:900!important;display:flex;align-items:center;gap:9px}
+.brand-text{flex-wrap:wrap}.brand-text>span{flex-basis:100%}.brand-mark{flex:none;object-fit:contain}.mobile-brand .brand-mark{width:28px;height:28px}
