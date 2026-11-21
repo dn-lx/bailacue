@@ -23,7 +23,7 @@ test('video titles use updated date, dance, sub-style, move and level without fi
   assert.equal(title, '2026-10-20 · Salsa · On1 · Copa · Intermediate');
   assert.equal(displayTitle({ ...b, updatedAt: '2026-11-21T12:00:00Z' }, { [b.id]: { danceStyles: ['Sensual'] } }, labels), '2026-11-21 · Bachata · Sensual');
   assert.equal(displayTitle(a, {}, labels), '2026-10-20 · Salsa');
-  assert.doesNotMatch(title, /0088|Salsa|Copa|Intermediate|\.mp4/);
+  assert.doesNotMatch(title, /0088|\.mp4/);
   assert.doesNotMatch(app, /\['Original filename',v\.filename/);
   assert.match(app, /studioPlayer\.open\(\{ \.\.\.v, title: displayTitle\(v, state\.meta, state\.labels\) \}, localUrl, autoPlay\)/);
 });
