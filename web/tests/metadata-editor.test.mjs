@@ -114,7 +114,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
       artistIds:['qa-artist',addedArtist.id],recordedAt:'2026-11-06',
       event:'Evening class',location:'Valencia',
     });
-    assert.match($('#player-title').textContent,/^BC-[A-Z0-9]{10}$/);
+    assert.match($('#player-title').textContent,/Bachata|Salsa/);
     assert.equal($('#video-details-editor').hidden,false);
     h.fail(true); fill('#notes','Retry this public change.');
     await until(()=>!$('#retry-video-save').hidden);
