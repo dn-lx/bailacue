@@ -61,6 +61,7 @@ export interface Filters {
   favorite?: boolean;
   rating?: string;
   sort?: string;
+  randomSeed?: number;
   labelIds?: string[];
   artistIds?: string[];
   level?: string;
