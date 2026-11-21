@@ -51,7 +51,7 @@ try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) state = cleanState
 let catalogue = [];
 let activeView = 'today';
 /** @type {import('./types.js').Filters} */
-let filters = { dance: 'All', provider: 'all', level: '', moves: [], danceStyles: [], sort: 'title', query: '' };
+let filters = { dance: 'All', provider: 'all', level: '', moves: [], positions: [], techniques: [], musicality: [], danceStyles: [], sort: 'title', query: '' };
 let currentPage = 1;
 const pageSize = 20;
 /** @type {import('./types.js').Video | null} */
@@ -168,7 +168,12 @@ function mountVideoDetails() { if (!selected) return; const v = selected, m = me
   for (const [selector, key] of [['#detail-recorded','recordedAt'],['#detail-event','event'],['#detail-location','location']]) $(selector).value = m[key] || '';
   const categoryIds = types => (m.labelIds || []).filter(id => state.labels.some(item => item.id === id && types.includes(item.type)));
   labelPicker($('#detail-dance-styles'), { title: 'Styles', labels: () => state.labels.filter(item => ['Style & timing', 'Style'].includes(item.type)), selected: [...new Set([...(m.styleTimingIds || []), ...categoryIds(['Style & timing', 'Style'])])], dance: v.dance, onChange: styleTimingIds => patchMeta(v.id, { styleTimingIds, labelIds: (meta(v.id).labelIds || []).filter(id => !state.labels.some(item => item.id === id && ['Style & timing', 'Style'].includes(item.type))) }) });
-  labelPicker($('#detail-moves'), { title: 'Moves/Technique', labels: () => state.labels.filter(item => ['Moves', 'Technique'].includes(item.type)), selected: [...new Set([...(m.moveIds || []), ...categoryIds(['Moves', 'Technique'])])], dance: v.dance, onChange: moveIds => patchMeta(v.id, { moveIds, labelIds: (meta(v.id).labelIds || []).filter(id => !state.labels.some(item => item.id === id && ['Moves', 'Technique'].includes(item.type))) }) });
+  labelPicker($('#detail-moves'), { title: 'Moves', labels: () => state.labels.filter(item => item.type === 'Moves'), selected: [...new Set([...(m.moveIds || []), ...categoryIds(['Moves'])])], dance: v.dance, onChange: moveIds => patchMeta(v.id, { moveIds, labelIds: (meta(v.id).labelIds || []).filter(id => !state.labels.some(item => item.id === id && item.type === 'Moves')) }) });
+  for (const [id, title, type] of [['detail-positions','Positions','Position'],['detail-techniques','Techniques','Technique'],['detail-musicality','Musicality','Musicality']]) {
+    let host = document.getElementById(id);
+    if (!host) { host = document.createElement('div'); host.id = id; host.className = 'detail-taxonomy'; $('#detail-moves').after(host); }
+    labelPicker(host, { title, labels: () => state.labels.filter(item => item.type === type), selected: categoryIds([type]), dance: v.dance, onChange: ids => patchMeta(v.id, { labelIds: [...(meta(v.id).labelIds || []).filter(key => !state.labels.some(item => item.id === key && item.type === type)), ...ids] }) });
+  }
   const level = $('#detail-level'); level.value = m.level || ''; level.onchange = () => patchMeta(v.id, { level: level.value || null });
   labelPicker($('#detail-artists'), { title: 'Artists & teachers', labels: () => state.labels, selected: m.artistIds || [], dance: v.dance, artists: true, allowCreate: true, onChange: ids => { patchMeta(v.id, { artistIds: ids }); }, onCreate: addLabel });
   const facts = [['Original filename',v.filename || 'YouTube source'],['Created in Drive',v.provider === 'drive' ? readableDate(v.addedAt) : 'Not a Drive file'],['Modified',readableDate(v.updatedAt)],['Duration',v.duration ? formatTime(v.duration) : 'Available during playback'],['File size',v.size ? `${(v.size / 1048576).toFixed(1)} MB` : 'Not available'],['Resolution',v.width && v.height ? `${v.width} × ${v.height}` : 'Not available']];
@@ -233,13 +238,16 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label><label>Sort <select id="sort-filter"><option value="title">Video number / title</option><option value="recent">Recently added</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-positions"></div><div id="filter-techniques"></div><div id="filter-musicality"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#level-filter').value = filters.level; $('#sort-filter').value = filters.sort;
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.level || filters.sort !== 'title' || filters.moves?.length || filters.danceStyles?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
   for (const [id, key] of [['provider-filter', 'provider'], ['level-filter', 'level'], ['sort-filter', 'sort']]) $(`#${id}`).addEventListener('change', e => { filters[key] = e.target.value; currentPage = 1; renderResults(); });
-  labelPicker($('#filter-moves'), { title: 'Filter Moves/Technique', labels: () => state.labels.filter(item => ['Moves', 'Technique'].includes(item.type)), selected: filters.moves || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.moves = ids; currentPage = 1; renderResults(); } });
+  labelPicker($('#filter-moves'), { title: 'Filter Moves', labels: () => state.labels.filter(item => item.type === 'Moves'), selected: filters.moves || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.moves = ids; currentPage = 1; renderResults(); } });
   labelPicker($('#filter-dance-styles'), { title: 'Filter Styles', labels: () => state.labels.filter(item => ['Style & timing', 'Style'].includes(item.type)), selected: filters.danceStyles || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters.danceStyles = ids; currentPage = 1; renderResults(); } });
+  for (const [key, type] of [['positions','Position'],['techniques','Technique'],['musicality','Musicality']]) {
+    labelPicker($('#filter-' + key), { title: 'Filter ' + (key === 'musicality' ? 'Musicality' : key[0].toUpperCase() + key.slice(1)), labels: () => state.labels.filter(item => item.type === type), selected: filters[key] || [], dance: filters.dance === 'All' ? 'Both' : filters.dance, onChange: ids => { filters[key] = ids; currentPage = 1; renderResults(); } });
+  }
   labelPicker($('#filter-artists'), { title: 'Filter artists', labels: () => state.labels, selected: filters.artistIds || [], artists: true, onChange: ids => { filters.artistIds = ids; currentPage = 1; renderResults(); } });
   renderResults();
 }
@@ -250,10 +258,10 @@ function renderFilterChips() {
   if (filters.provider !== 'all') chips.push({ key: 'provider', label: filters.provider === 'drive' ? 'Google Drive' : 'YouTube' });
   if (filters.level) chips.push({ key: 'level', label: filters.level === '__unset__' ? 'Level: Not set' : 'Level: ' + filters.level });
   if (filters.sort !== 'title') chips.push({ key: 'sort', label: 'Sort: Recently added' });
-  for (const field of ['moves', 'danceStyles', 'artistIds']) {
+  for (const field of ['moves', 'positions', 'techniques', 'musicality', 'danceStyles', 'artistIds']) {
     const ids = filters[field] || [];
     if (!ids.length) continue;
-    const title = field === 'moves' ? 'Moves/Technique' : field === 'danceStyles' ? 'Styles' : 'Artists';
+    const title = field === 'moves' ? 'Moves/Technique' : field === 'danceStyles' ? 'Styles' : field === 'positions' ? 'Positions' : field === 'techniques' ? 'Techniques' : field === 'musicality' ? 'Musicality' : 'Artists';
     const names = ids.map(id => state.labels.find(item => item.id === id)?.name).filter(Boolean);
     const shown = names.slice(0, 2).join(', ');
     const more = ids.length > 2 ? ` +${ids.length - 2}` : '';
@@ -275,7 +283,7 @@ function renderFilterChips() {
     clear.dataset.action = 'reset-filters'; clear.textContent = 'Clear all';
     target.append(clear);
   }
-  const advanced = ['provider', 'level', 'sort', 'moves', 'danceStyles', 'artistIds'].filter(key => {
+  const advanced = ['provider', 'level', 'sort', 'moves', 'positions', 'techniques', 'musicality', 'danceStyles', 'artistIds'].filter(key => {
     if (key === 'provider') return filters.provider !== 'all';
     if (key === 'level') return Boolean(filters.level);
     if (key === 'sort') return filters.sort !== 'title';
