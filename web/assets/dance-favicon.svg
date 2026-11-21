@@ -1,11 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="BailaCue rhythm and play icon">
-  <defs>
-    <linearGradient id="rhythm" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#FFB048"/><stop offset=".48" stop-color="#FF5F68"/><stop offset="1" stop-color="#8C38BA"/></linearGradient>
-    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#4AE7F5"/><stop offset=".52" stop-color="#0EC8FA"/><stop offset="1" stop-color="#1465FF"/></linearGradient>
-  </defs>
-  <rect width="64" height="64" rx="14" fill="#0B1932"/>
-  <path d="M8 23C20 10 39 8 49 12C56 15 58 22 52 29C48 33 43 35 36 36C45 30 48 26 47 22C45 14 27 16 8 23Z" fill="url(#rhythm)"/>
-  <path d="M28 19C19 24 11 32 11 41C10 47 14 52 22 54C17 46 18 35 28 19Z" fill="url(#rhythm)"/>
-  <path d="M36 28C47 27 55 31 55 37C55 46 41 49 33 52C28 54 24 57 21 59C26 50 32 45 42 41C48 39 49 36 47 33C45 30 41 29 36 28Z" fill="url(#flow)"/>
-  <path d="M28 27C28 25.6 29.6 24.8 30.8 25.6L42 32.2C43.3 33 43.3 34.9 42 35.7L30.8 42.4C29.6 43.1 28 42.3 28 40.9Z" fill="#FFFFFF"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BailaCue app icon"><rect width="512" height="512" rx="110" fill="#201747"/><g transform="translate(24 24) scale(1.8125)"><path d="M18 67Q18 32 60 25L204 10Q236 8 246 40L244 69Q226 38 189 42L70 54Q34 59 18 92Z" fill="#D80D87"/><path d="M78 59H128Q184 59 184 107Q184 129 166 143Q198 157 198 187Q198 223 140 223H78Q64 223 64 208V75Q64 59 78 59ZM106 89V126H126Q148 126 148 108Q148 89 126 89ZM106 153V193H135Q157 193 157 173Q157 153 135 153Z" fill="#FFFFFF"/><path d="M152 141L217 177Q229 184 217 192L152 229Q141 235 141 221V149Q141 136 152 141Z" fill="#D80D87"/><path d="M166 159L202 182L166 204Z" fill="#FFFFFF"/></g></svg>
