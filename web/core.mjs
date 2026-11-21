@@ -149,7 +149,7 @@ export function filterVideos(videos, meta, filters, labels = []) {
        && (!filters.positions?.length || filters.positions.some(id => m.labelIds?.includes(id)))
        && (!filters.techniques?.length || filters.techniques.some(id => m.labelIds?.includes(id)))
        && (!filters.musicality?.length || filters.musicality.some(id => m.labelIds?.includes(id)))
-      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
+      && (!query || `${displayTitle(v, meta)} ${v.filename || ''} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   return out.sort((a, b) => {
     if (filters.sort === 'recent') return (b.addedAt || '').localeCompare(a.addedAt || '');
