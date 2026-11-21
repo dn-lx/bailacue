@@ -20,8 +20,8 @@ test('Library replaces Discover as public landing page and old links redirect', 
 
 test('video titles use updated date, dance, sub-style, move and level without filenames', () => {
   const title = displayTitle(a, { [a.id]: { moveIds: ['move-copa'], styleTimingIds: ['style-on1'], level: 'Intermediate' } }, labels);
-  assert.equal(title, '201026-Salsa · On1 · Copa · Intermediate');
-  assert.equal(displayTitle({ ...b, updatedAt: '2026-11-21T12:00:00Z' }, { [b.id]: { danceStyles: ['Sensual'] } }, labels), '211126-Bachata · Sensual');
+  assert.equal(title, '201026-Salsa-On1-Copa-Intermediate');
+  assert.equal(displayTitle({ ...b, updatedAt: '2026-11-21T12:00:00Z' }, { [b.id]: { danceStyles: ['Sensual'] } }, labels), '211126-Bachata-Sensual');
   assert.equal(displayTitle(a, {}, labels), '201026-Salsa');
   assert.doesNotMatch(title, /0088|\.mp4/);
   assert.doesNotMatch(app, /\['Original filename',v\.filename/);
