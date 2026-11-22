@@ -33,6 +33,14 @@ test('Settings is keyboard reachable on mobile and production never shows a deve
   assert.match(css, /\.header-actions #add-youtube, \.header-actions a\[href="#upload"\] \{ display: none/);
 });
 
+test('BailaCue wordmark is visible in the mobile header without crowding actions', () => {
+  assert.match(html, /<header class="topbar"><a class="mobile-brand" href="#library" aria-label="BailaCue — go to dance library">BailaCue<\/a>/);
+  assert.match(css, /@media \(max-width: 720px\) \{[\s\S]*?\.topbar > \.mobile-brand \{[\s\S]*?display: inline-flex !important;/);
+  assert.match(css, /\.topbar > \.mobile-brand \{[\s\S]*?min-width: 0;/);
+  assert.match(css, /\.header-actions \{ flex: 0 0 auto; \}/);
+  assert.match(css, /@media \(max-width: 380px\) \{/);
+});
+
 test('browser video mix actions and accessible result counts remain consistent', () => {
   assert.match(app, /aria-live="polite" aria-atomic="true"/);
   assert.match(app, /Showing \$\{\(currentPage - 1\) \* (?:displayedPageSize|pageSize) \+ 1\}/);
