@@ -2492,7 +2492,33 @@ details > summary:hover::after { color: var(--blue); }
   .library-sort { flex-basis: 100%; }
 }
 
-/* Header has only actions; retain hidden breadcrumb as a JS routing hook. */
-.topbar{justify-content:flex-end}
-.topbar>.breadcrumb[hidden]{display:none!important}
-.topbar>.mobile-brand{display:none!important}
+/* Desktop keeps the action-first header; mobile gets a real BailaCue wordmark.
+   Retain the hidden breadcrumb as a JS routing hook. */
+.topbar { justify-content: flex-end; }
+.topbar > .breadcrumb[hidden] { display: none !important; }
+.topbar > .mobile-brand { display: none !important; }
+@media (max-width: 720px) {
+  .topbar { justify-content: space-between; gap: 6px; }
+  .topbar > .mobile-brand {
+    display: inline-flex !important;
+    align-items: center;
+    flex: 1 1 auto;
+    min-width: 0;
+    margin-right: auto;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--text);
+    font-family: 'Nunito', system-ui, sans-serif;
+    font-weight: 900;
+    font-size: clamp(16px, 4.3vw, 22px);
+    letter-spacing: -0.55px;
+    text-decoration: none;
+  }
+  .topbar > .mobile-brand:focus-visible { outline: 3px solid var(--blue); outline-offset: 3px; }
+  .header-actions { flex: 0 0 auto; }
+}
+@media (max-width: 380px) {
+  .topbar { gap: 3px; }
+  .topbar > .mobile-brand { font-size: 16px; letter-spacing: -.65px; }
+}
