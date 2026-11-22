@@ -113,7 +113,7 @@ test('mix play button has explicit text contrast in both themes and responsive t
 });
 
 test('browser tab renders the new compact BailaCue B/play icon', () => {
-  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/dance-favicon\.svg\?v=3">/);
+  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/bailacue-favicon\.svg\?v=6">/);
   assert.match(favicon, /viewBox="0 0 512 512"/);
   assert.match(favicon, /aria-label="BailaCue app icon"/);
   assert.match(favicon, /fill="#201747"/);

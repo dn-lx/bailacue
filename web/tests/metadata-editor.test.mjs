@@ -128,7 +128,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
   } finally { h.close(); }
   h=await visitor(rows);
   try {
-    h.fill('#search','Editable partnerwork');
+    h.fill('#search','Partnerwork');
     await until(()=>h.$(`#page [data-action="open"][data-id="${videoId}"]`));
     h.$(`#page [data-action="open"][data-id="${videoId}"]`).click();
     assert.equal(h.$('#video-details-editor').hidden,false);

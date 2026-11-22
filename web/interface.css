@@ -2491,3 +2491,8 @@ details > summary:hover::after { color: var(--blue); }
 @media (max-width: 390px) {
   .library-sort { flex-basis: 100%; }
 }
+
+/* Header has only actions; retain hidden breadcrumb as a JS routing hook. */
+.topbar{justify-content:flex-end}
+.topbar>.breadcrumb[hidden]{display:none!important}
+.topbar>.mobile-brand{display:none!important}

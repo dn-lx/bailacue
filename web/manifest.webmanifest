@@ -2,16 +2,40 @@
   "name": "BailaCue",
   "short_name": "BailaCue",
   "description": "Watch. Practise. Repeat. Your Salsa and Bachata dance space.",
-  "start_url": "/",
+  "start_url": "/#library",
   "display": "standalone",
   "background_color": "#f6f8fc",
   "theme_color": "#201747",
   "icons": [
     {
-      "src": "/assets/bailacue-icon.svg",
+      "src": "/assets/bailacue-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/bailacue-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/bailacue-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/bailacue-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/bailacue-maskable.svg",
       "sizes": "any",
       "type": "image/svg+xml",
-      "purpose": "any maskable"
+      "purpose": "maskable"
     }
   ]
 }
