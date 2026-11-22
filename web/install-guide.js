@@ -77,42 +77,11 @@
       '<circle cx="'+(x+23)+'" cy="28" r="4" fill="#8db0de"/>' +
       '<text x="'+(x+34)+'" y="31" font-size="10" fill="#526b8d">website</text>' + mark + '</svg>';
   }
-  const styles = [
-    ".ig-dialog{border:0;padding:0;background:transparent;color:#17283d;max-width:min(920px,calc(100vw - 18px));width:920px;max-height:calc(100dvh - 18px);overflow:visible}",
-    ".ig-dialog::backdrop{background:#091525bc}",
-    ".ig-shell{font:15px/1.5 system-ui,-apple-system,sans-serif;background:#f6f9fe;border-radius:18px;overflow:hidden;box-shadow:0 24px 80px #09152580;max-height:calc(100dvh - 18px);display:flex;flex-direction:column}",
-    ".ig-head{display:flex;justify-content:space-between;gap:14px;padding:20px 22px;background:white;border-bottom:1px solid #dce4f0}",
-    ".ig-head h2{font:700 clamp(21px,3vw,27px)/1.2 system-ui,sans-serif;margin:3px 0;color:#17283d}",
-    ".ig-head p{margin:4px 0 0;color:#4d627d;font-size:13px}",
-    ".ig-eyebrow{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#2663a5}",
-    ".ig-close{width:44px;height:44px;flex:none;font-size:26px;border:1px solid #cfdaeb;background:#fff;color:#263e5e;border-radius:10px;cursor:pointer}",
-    ".ig-scroll{padding:19px 22px 24px;overflow:auto;overscroll-behavior:contain}",
-    ".ig-choices{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}",
-    ".ig-choice{flex:1 1 125px;min-height:48px;border:1px solid #cbd9e9;background:#fff;border-radius:11px;padding:8px 11px;color:#243b58;text-align:left;display:grid;gap:1px;cursor:pointer;font:inherit}",
-    ".ig-choice strong{font-size:13px}.ig-choice small{font-size:11px;color:#566a83}",
-    ".ig-choice[aria-pressed=true]{background:#e2efff;outline:2px solid #3978bf;outline-offset:-2px}",
-    ".ig-intro{background:#e9f2fd;border:1px solid #d3e1f1;border-radius:12px;padding:12px 15px;margin-bottom:16px;color:#243b58}",
-    ".ig-intro strong{display:block}.ig-intro p{font-size:13px;line-height:1.5;margin:3px 0}",
-    ".ig-install-now{min-height:44px;border:0;border-radius:9px;background:#2868ae;color:#fff;padding:10px 15px;cursor:pointer;font-weight:700;margin-top:8px}",
-    ".ig-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}",
-    ".ig-step{background:white;border:1px solid #dce4f0;border-radius:13px;padding:14px;min-width:0}",
-    ".ig-step-head{display:flex;align-items:center;gap:9px}.ig-step-head span{width:28px;height:28px;display:grid;place-items:center;flex:none;border-radius:50%;background:#2868ae;color:white;font-size:13px;font-weight:800}",
-    ".ig-step h3{font:700 15px/1.4 system-ui,sans-serif;color:#182a43;margin:0}",
-    ".ig-art{border-radius:10px;background:#edf3fb;overflow:hidden;margin:10px 0;padding:3px}",
-    ".ig-image{display:block;width:100%;max-width:300px;height:auto;margin:auto}",
-    ".ig-step p{font-size:13px;line-height:1.55;color:#4b5c72;margin:0}",
-    ".ig-note{font-size:12px;color:#4e617d;line-height:1.6;margin:15px 0 0}",
-    ".ig-note a{color:#185ca3;text-decoration:underline}",
-    ".ig-dialog button:focus-visible,.ig-dialog a:focus-visible,[data-install-guide-open]:focus-visible{outline:3px solid #4f9afd;outline-offset:3px}",
-    ".ig-shortcut{display:inline-flex;align-items:center;justify-content:center;gap:7px;border:1px solid #bed2e9;border-radius:9px;background:#e8f2ff;color:#19558d;font:700 13px system-ui,sans-serif;padding:9px 12px;min-height:44px;cursor:pointer}",
-    ".ig-shortcut-mobile{border:1px solid #bed2e9;border-radius:9px;background:transparent;color:inherit;font:700 12px system-ui,sans-serif;padding:8px;min-height:44px;cursor:pointer}",
-    "@media(max-width:600px){.ig-head{padding:15px}.ig-scroll{padding:13px}.ig-steps{grid-template-columns:1fr}.ig-choice{flex-basis:calc(50% - 6px)}}",
-    "@media(prefers-reduced-motion:reduce){.ig-dialog *{scroll-behavior:auto!important}}"
-  ].join("\n");
+  // Styles load from /install-guide.css, including under strict CSP.
 
   function init() {
     if (document.getElementById("ig-dialog")) return;
-    const style=document.createElement("style");style.textContent=styles;document.head.appendChild(style);
+    // External stylesheet avoids CSP-blocked inline CSS and flashes of unstyled content.
     const dlg=document.createElement("dialog");dlg.id="ig-dialog";dlg.className="ig-dialog";dlg.setAttribute("aria-labelledby","ig-title");
     dlg.innerHTML='<div class="ig-shell"><div class="ig-head"><div><div class="ig-eyebrow">Install as an app</div><h2 id="ig-title">Put this app on your device</h2><p>Choose a device to see illustrated steps.</p></div><button type="button" class="ig-close" aria-label="Close install guide" data-ig-close>×</button></div><div class="ig-scroll"><div class="ig-choices" role="group" aria-label="Choose device or browser"></div><div class="ig-content" aria-live="polite"></div></div></div>';
     document.body.appendChild(dlg);
