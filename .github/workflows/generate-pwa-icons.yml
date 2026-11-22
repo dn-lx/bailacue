@@ -1,0 +1,41 @@
+name: Generate iPad and PWA icons
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'web/assets/bailacue-icon.svg'
+      - '.github/workflows/generate-pwa-icons.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: develop
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Render actual BailaCue artwork into Apple-compatible PNGs
+        run: |
+          python -m pip install --disable-pip-version-check cairosvg
+          python - <<'PY'
+          import cairosvg
+          from pathlib import Path
+          source = Path('web/assets/bailacue-icon.svg').read_bytes()
+          for size, filename in [(180, 'apple-touch-icon.png'), (192, 'bailacue-192.png'), (512, 'bailacue-512.png')]:
+              cairosvg.svg2png(bytestring=source, write_to='web/assets/' + filename, output_width=size, output_height=size)
+          PY
+          file web/assets/*.png
+      - name: Commit generated icons to develop
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add web/assets/apple-touch-icon.png web/assets/bailacue-192.png web/assets/bailacue-512.png
+          if ! git diff --cached --quiet; then
+            git commit -m "Add PNG Apple touch icon and installable PWA icons"
+            git push origin HEAD:develop
+          fi
