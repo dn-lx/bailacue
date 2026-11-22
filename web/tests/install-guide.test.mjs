@@ -8,16 +8,16 @@ const html = await readFile(new URL('../index.html', import.meta.url), 'utf8');
 const build = await readFile(new URL('../scripts/build.mjs', import.meta.url), 'utf8');
 const css = await readFile(new URL('../install-guide.css', import.meta.url), 'utf8');
 
-test('install guide is included in the published web build with CSP-compatible styles', () => {
-  assert.match(build, /'install-guide\\.js', 'install-guide\\.css'/);
-  assert.match(html, /href="\\/install-guide\\.css\\?v=2"/);
-  assert.match(html, /src="\\/install-guide\\.js\\?v=2"/);
-  assert.match(html, /class="ig-shortcut-mobile" data-install-guide-open/);
-  assert.match(css, /\\.ig-dialog/);
-  assert.doesNotMatch(source, /document\\.createElement\\("style"\\)/);
+test('install guide is bundled with CSP-compatible external styles', () => {
+  assert.ok(build.includes("'install-guide.js', 'install-guide.css'"));
+  assert.ok(html.includes('href="/install-guide.css?v=2"'));
+  assert.ok(html.includes('src="/install-guide.js?v=2"'));
+  assert.ok(html.includes('class="ig-shortcut-mobile" data-install-guide-open'));
+  assert.ok(css.includes('.ig-dialog'));
+  assert.ok(!source.includes('document.createElement("style")'));
 });
 
-test('clicking Install opens a working, illustrated, device-selectable guide', () => {
+test('install button opens illustrated steps and supports choosing device', () => {
   const dom = new JSDOM('<!doctype html><html><body><button data-install-guide-open>Install</button></body></html>', {
     url: 'https://develop--bailacue.netlify.app/', runScripts: 'outside-only'
   });
@@ -29,15 +29,15 @@ test('clicking Install opens a working, illustrated, device-selectable guide', (
   window.document.dispatchEvent(new window.Event('DOMContentLoaded'));
   window.document.querySelector('[data-install-guide-open]').click();
   const dialog = window.document.querySelector('#ig-dialog');
-  assert.ok(dialog, 'dialog must exist');
-  assert.equal(dialog.open, true, 'install trigger opens the dialog');
-  assert.equal(dialog.querySelectorAll('[data-ig-choice]').length, 7, 'all device choices exist');
-  assert.equal(dialog.querySelectorAll('.ig-step').length, 4, 'selected device has four steps');
-  assert.equal(dialog.querySelectorAll('.ig-image').length, 4, 'illustrations render for every step');
+  assert.ok(dialog);
+  assert.equal(dialog.open, true, 'button opens the guide');
+  assert.equal(dialog.querySelectorAll('[data-ig-choice]').length, 7);
+  assert.equal(dialog.querySelectorAll('.ig-step').length, 4);
+  assert.equal(dialog.querySelectorAll('.ig-image').length, 4);
   dialog.querySelector('[data-ig-choice="iphone"]').click();
   assert.equal(dialog.querySelector('[data-ig-choice="iphone"]').getAttribute('aria-pressed'), 'true');
-  assert.match(dialog.textContent, /Add to Home Screen/);
+  assert.ok(dialog.textContent.includes('Add to Home Screen'));
   dialog.querySelector('[data-ig-close]').click();
-  assert.equal(dialog.open, false, 'close action works');
+  assert.equal(dialog.open, false);
   dom.window.close();
 });
