@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem, appendFilteredToMix } from './core.mjs';
 import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -262,7 +262,7 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label><label class="library-sort">Sort by <select id="sort-filter" aria-label="Sort videos"><option value="random">Random</option><option value="recent">Newest added</option><option value="oldest">Oldest added</option><option value="updated-new">Recently updated</option><option value="title">Title A–Z</option><option value="title-desc">Title Z–A</option><option value="dance-asc">Dance A–Z</option><option value="dance-desc">Dance Z–A</option><option value="level-asc">Level: basic first</option><option value="level-desc">Level: advanced first</option><option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="duration-short">Shortest first</option><option value="duration-long">Longest first</option><option value="size-small">Smallest file</option><option value="size-large">Largest file</option><option value="moves-most">Most moves tagged</option></select></label><button type="button" class="button subtle small shuffle-videos" data-action="shuffle-videos" aria-label="Shuffle library videos">Shuffle</button></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-positions"></div><div id="filter-techniques"></div><div id="filter-musicality"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label><label class="library-sort">Sort by <select id="sort-filter" aria-label="Sort videos"><option value="random">Random</option><option value="recent">Newest added</option><option value="oldest">Oldest added</option><option value="updated-new">Recently updated</option><option value="title">Title A–Z</option><option value="title-desc">Title Z–A</option><option value="dance-asc">Dance A–Z</option><option value="dance-desc">Dance Z–A</option><option value="level-asc">Level: basic first</option><option value="level-desc">Level: advanced first</option><option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="duration-short">Shortest first</option><option value="duration-long">Longest first</option><option value="size-small">Smallest file</option><option value="size-large">Largest file</option><option value="moves-most">Most moves tagged</option></select></label><button type="button" class="button subtle small shuffle-videos" data-action="shuffle-videos" aria-label="Shuffle library videos">Shuffle</button></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-positions"></div><div id="filter-techniques"></div><div id="filter-musicality"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="button subtle small add-filtered-to-mix" id="add-all-filtered" data-action="queue-all-filtered" disabled aria-label="Add all matching videos to mix">${icon('plus')} Add all to mix <span id="add-all-count" class="mix-add-count" hidden></span></button><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#level-filter').value = filters.level; $('#sort-filter').value = filters.sort;
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.level || filters.moves?.length || filters.danceStyles?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
@@ -321,6 +321,16 @@ function renderResults() {
   const displayedPageSize = window.matchMedia('(max-width: 480px)').matches ? 12 : pageSize;
   const totalPages = Math.max(1, Math.ceil(matches.length / displayedPageSize)); currentPage = Math.min(currentPage, totalPages);
   $('#result-count').textContent = matches.length ? `Showing ${(currentPage - 1) * displayedPageSize + 1}–${Math.min(currentPage * displayedPageSize, matches.length)} of ${matches.length} videos` : 'No matching videos';
+  const pending = matches.filter(video => !state.queue.includes(video.id)).length;
+  const addAllButton = $('#add-all-filtered');
+  const addAllCount = $('#add-all-count');
+  addAllButton.disabled = pending === 0;
+  addAllButton.title = pending
+    ? `Add ${pending} matching ${pending === 1 ? 'video' : 'videos'} not yet in your mix`
+    : (matches.length ? 'All matching videos are already in your mix' : 'No matching videos to add');
+  addAllButton.setAttribute('aria-label', addAllButton.title);
+  addAllCount.hidden = pending === 0;
+  addAllCount.textContent = pending ? `+${pending}` : '';
   $('#library-results').innerHTML = matches.length ? `<div class="video-grid">${matches.slice((currentPage - 1) * displayedPageSize, currentPage * displayedPageSize).map(card).join('')}</div>${totalPages > 1 ? `<div class="pagination"><button class="button subtle small" data-action="page-prev" ${currentPage === 1 ? 'disabled' : ''}>${icon('back')} Previous</button><span>Page ${currentPage} of ${totalPages}</span><button class="button subtle small" data-action="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next ${icon('arrow')}</button></div>` : ''}` : `<div class="empty-state">${icon('search')}<h3>No videos match your filters.</h3><p>Try a different dance, artist, label or search term.</p><button class="button primary" data-action="reset-filters">Clear filters</button></div>`;
   renderFilterChips();
   handleImages($('#library-results'));
@@ -341,9 +351,7 @@ function renderSettings() {
   page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${driveVideos().filter(v => v.dance === source.dance).length} in library</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<p class="helper-text">Counts show videos currently loaded in the BailaCue library. Reloading updates the deployed catalogue snapshot; it does not scan Google Drive.</p><button class="text-button" data-action="reload-catalogue">${icon('refresh')} Reload library catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
-function render() {
-  if (uploadRunning() && activeView === 'upload') return;
-  const titles = { library: 'Library', practice: 'Mixes', settings: 'Settings', labels: 'Labels', upload: 'Add videos' };
+function updateMixCounter() {
   const mixCounter = $('#nav-mix-count');
   if (mixCounter) {
     const mixSize = state.queue.filter(id => !!videoById(id)).length;
@@ -351,6 +359,11 @@ function render() {
     mixCounter.textContent = String(mixSize);
     mixCounter.setAttribute('aria-label', `${mixSize} ${mixSize === 1 ? 'video' : 'videos'} in mix`);
   }
+}
+function render() {
+  if (uploadRunning() && activeView === 'upload') return;
+  const titles = { library: 'Library', practice: 'Mixes', settings: 'Settings', labels: 'Labels', upload: 'Add videos' };
+  updateMixCounter();
   $('#breadcrumb').textContent = titles[activeView];
   $('#mobile-settings').setAttribute('aria-current', activeView === 'settings' ? 'page' : 'false');
   document.title = `${titles[activeView]} · BailaCue`;
@@ -515,6 +528,19 @@ document.addEventListener('click', async event => {
   const action = button.dataset.action, id = button.dataset.id;
   if (action === 'open') openPlayer(id, null, null, '', button.dataset.autoplay === 'true');
   if (action === 'queue') toggleQueue(id);
+  if (action === 'queue-all-filtered' && activeView === 'library') {
+    const matches = filterVideos(videos(), state.meta, { ...filters, randomSeed }, state.labels);
+    const result = appendFilteredToMix(state.queue, matches);
+    if (!result.added) {
+      toast(matches.length ? 'All matching videos are already in your mix.' : 'No matching videos to add.');
+    } else {
+      state.queue = result.queue;
+      save();
+      updateMixCounter();
+      renderResults();
+      toast(`Added ${result.added} filtered ${result.added === 1 ? 'video' : 'videos'} to your mix.`);
+    }
+  }
   if (action === 'shuffle-videos') { filters.sort = 'random'; randomSeed = Math.floor(Math.random() * 0x100000000); currentPage = 1; $('#sort-filter').value = 'random'; renderResults(); }
   if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); page.querySelector('.segmented [data-dance="' + filters.dance + '"]')?.focus({ preventScroll: true }); }
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
