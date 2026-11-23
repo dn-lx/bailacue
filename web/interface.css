@@ -2522,3 +2522,22 @@ details > summary:hover::after { color: var(--blue); }
   .topbar { gap: 3px; }
   .topbar > .mobile-brand { font-size: 16px; letter-spacing: -.65px; }
 }
+
+
+/* Approved circular dancers logo — shared by desktop sidebar and mobile header. */
+.sidebar .brand-text { column-gap: 9px; }
+.sidebar .brand-text > .brand-mark {
+  width: 38px; height: 38px; flex: 0 0 38px;
+  object-fit: contain; display: block;
+}
+.topbar > .mobile-brand > .brand-mark {
+  width: 26px; height: 26px; flex: 0 0 26px;
+  object-fit: contain; display: block;
+}
+@media (max-width: 380px) {
+  .topbar > .mobile-brand { gap: 4px; font-size: 15px; }
+  .topbar > .mobile-brand > .brand-mark { width: 20px; height: 20px; flex-basis: 20px; }
+}
+@media (max-width: 340px) {
+  .topbar > .mobile-brand > .brand-mark { display: none; }
+}

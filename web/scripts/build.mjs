@@ -1,5 +1,6 @@
 import { cp, mkdir, readFile, rm } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
+import { installBailaCueLogoAssets } from './logo-assets.mjs';
 import { resolve, dirname } from 'node:path';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -16,6 +17,7 @@ const dist = resolve(root, 'dist');
 await rm(dist, { recursive: true, force: true });
 await mkdir(dist, { recursive: true });
 for (const name of ['index.html', 'app.js', 'install-guide.js', 'install-guide.css', 'admin.mjs', 'stream-admin.mjs', 'stream-delivery.mjs', 'optimized-delivery.mjs', 'core.mjs', 'studio-model.mjs', 'studio-ui.mjs', 'browser-compressor.mjs', 'photos-picker.mjs', 'drive.mjs', 'player.mjs', 'media-worker.js', 'styles.css', 'studio.css', 'interface.css', 'manifest.webmanifest', 'catalogue.json', 'assets']) await cp(resolve(root, name), resolve(dist, name), { recursive: true });
+await installBailaCueLogoAssets(resolve(root, 'assets/bailacue-approved-icon-bundle.base64'), resolve(dist, 'assets'));
 await mkdir(resolve(dist, 'vendor'), { recursive: true });
 await cp(resolve(root, 'node_modules/mediabunny/dist/bundles/mediabunny.min.mjs'), resolve(dist, 'vendor/mediabunny.min.mjs'));
 await cp(resolve(root, 'node_modules/mediabunny/LICENSE'), resolve(dist, 'vendor/mediabunny-LICENSE.txt'));

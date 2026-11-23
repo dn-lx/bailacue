@@ -8,7 +8,6 @@ const app = readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const playerSource = readFileSync(new URL('../player.mjs', import.meta.url), 'utf8');
 const css = readFileSync(new URL('../interface.css', import.meta.url), 'utf8');
 const studioUi = readFileSync(new URL('../studio-ui.mjs', import.meta.url), 'utf8');
-const favicon = readFileSync(new URL('../assets/dance-favicon.svg', import.meta.url), 'utf8');
 
 test('public authentication uses Sign in without exposing administrator controls', () => {
   assert.match(html, /id="admin-login"[^>]*>Sign in<\/button>/);
@@ -34,7 +33,8 @@ test('Settings is keyboard reachable on mobile and production never shows a deve
 });
 
 test('BailaCue wordmark is visible in the mobile header without crowding actions', () => {
-  assert.match(html, /<header class="topbar"><a class="mobile-brand" href="#library" aria-label="BailaCue — go to dance library">BailaCue<\/a>/);
+  assert.ok(html.includes('class="mobile-brand" href="#library" aria-label="BailaCue — go to dance library"><img class="brand-mark"'));
+  assert.ok(html.includes('src="/assets/bailacue-logo-64.png?v=9"'));
   assert.match(css, /@media \(max-width: 720px\) \{[\s\S]*?\.topbar > \.mobile-brand \{[\s\S]*?display: inline-flex !important;/);
   assert.match(css, /\.topbar > \.mobile-brand \{[\s\S]*?min-width: 0;/);
   assert.match(css, /\.header-actions \{ flex: 0 0 auto; \}/);
@@ -120,14 +120,11 @@ test('mix play button has explicit text contrast in both themes and responsive t
   assert.match(css, /\.practice-start \.mix-options \.button \{[^}]*min-height: 52px/);
 });
 
-test('browser tab renders the new compact BailaCue B/play icon', () => {
-  assert.match(html, /<link rel="icon" type="image\/svg\+xml" sizes="any" href="\/assets\/bailacue-favicon\.svg\?v=6">/);
-  assert.match(favicon, /viewBox="0 0 512 512"/);
-  assert.match(favicon, /aria-label="BailaCue app icon"/);
-  assert.match(favicon, /fill="#201747"/);
-  assert.match(favicon, /fill="#D80D87"/);
-  assert.match(favicon, /fill="#FFFFFF"/);
-  assert.doesNotMatch(favicon, /<script|<foreignObject|<image|onload\s*=|href\s*=/i);
+test('browser tab displays the approved dancers mark, not the old B/play favicon', () => {
+  assert.ok(html.includes('/assets/bailacue-favicon.svg?v=9'));
+  assert.ok(html.includes('/assets/bailacue-favicon-32.png?v=9'));
+  assert.ok(html.includes('/assets/apple-touch-icon.png?v=9'));
+  assert.ok(!html.includes('/assets/bailacue-favicon.svg?v=6'));
 });
 
 test('native dropdowns share one styled arrow, readable sizing and accessible states', () => {
