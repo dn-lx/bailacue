@@ -121,10 +121,10 @@ test('mix play button has explicit text contrast in both themes and responsive t
 });
 
 test('browser tab displays the approved dancers mark, not the old B/play favicon', () => {
-  assert.match(html, /bailacue-favicon\\.svg\\?v=9/);
-  assert.match(html, /bailacue-favicon-32\\.png\\?v=9/);
-  assert.match(html, /apple-touch-icon\\.png\\?v=9/);
-  assert.doesNotMatch(html, /bailacue-favicon\\.svg\\?v=6/);
+  assert.ok(html.includes('/assets/bailacue-favicon.svg?v=9'));
+  assert.ok(html.includes('/assets/bailacue-favicon-32.png?v=9'));
+  assert.ok(html.includes('/assets/apple-touch-icon.png?v=9'));
+  assert.ok(!html.includes('/assets/bailacue-favicon.svg?v=6'));
 });
 
 test('native dropdowns share one styled arrow, readable sizing and accessible states', () => {
