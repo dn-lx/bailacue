@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, clampPlayerWidth, recordRecent, recentOpenings, moveQueueItem } from '../core.mjs';
+import { parseYoutube, cleanState, emptyState, dailyPicks, practiceQueue, filterVideos, rating, embedUrl, localDay, clampMixCount, clampPlayerHeight, clampPlayerWidth, recordRecent, recentOpenings, moveQueueItem, appendFilteredToMix } from '../core.mjs';
 
 const data = JSON.parse(await readFile(new URL('../catalogue.json', import.meta.url), 'utf8'));
 test('the real catalogue contains exactly the two locked sources and unique Drive identities', () => {
@@ -150,4 +150,30 @@ test('custom player widths stay bounded and survive browser-state restoration', 
   assert.equal(cleanState({ ...emptyState(), playerSize: 1107 }).playerSize, 1107);
   assert.equal(cleanState({ ...emptyState(), playerSize: 9000 }).playerSize, 1440);
   assert.equal(cleanState({ ...emptyState(), playerSize: undefined }).playerSize, 960);
+});
+
+
+test('add all to mix appends the complete filtered collection, not only the first 12 mobile videos', () => {
+  const salsa = filterVideos(data.videos, {}, { dance: 'Salsa', sort: 'title' });
+  const bachataId = data.videos.find(v => v.dance === 'Bachata').id;
+  assert.equal(salsa.length, 114);
+  const existing = [bachataId, salsa[0].id];
+  const added = appendFilteredToMix(existing, salsa);
+  assert.equal(added.added, 113);
+  assert.equal(added.queue.length, 115);
+  assert.deepEqual(added.queue.slice(0, 2), existing, 'existing mix order preserved');
+  assert.deepEqual(added.queue.slice(2), salsa.slice(1).map(v => v.id), 'all remaining filtered videos added in filter order');
+  assert.deepEqual(existing, [bachataId, salsa[0].id], 'input mix unchanged');
+  const again = appendFilteredToMix(added.queue, salsa);
+  assert.equal(again.added, 0, 'repeat click is idempotent');
+  assert.deepEqual(again.queue, added.queue);
+});
+
+test('bulk add handles empty matches, duplicates and the entire catalogue', () => {
+  const videos = data.videos;
+  const empty = appendFilteredToMix([videos[0].id], []);
+  assert.deepEqual(empty, { queue: [videos[0].id], added: 0 });
+  const all = appendFilteredToMix([], [...videos, videos[0], videos[5]]);
+  assert.equal(all.added, 266);
+  assert.deepEqual(all.queue, videos.map(v => v.id));
 });
