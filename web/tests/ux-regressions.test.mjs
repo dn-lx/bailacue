@@ -34,7 +34,8 @@ test('Settings is keyboard reachable on mobile and production never shows a deve
 });
 
 test('BailaCue wordmark is visible in the mobile header without crowding actions', () => {
-  assert.match(html, /<header class="topbar"><a class="mobile-brand" href="#library" aria-label="BailaCue — go to dance library">BailaCue<\/a>/);
+  assert.ok(html.includes('class="mobile-brand" href="#library" aria-label="BailaCue — go to dance library"><img class="brand-mark"'));
+  assert.ok(html.includes('src="/assets/bailacue-logo-64.png?v=9"'));
   assert.match(css, /@media \(max-width: 720px\) \{[\s\S]*?\.topbar > \.mobile-brand \{[\s\S]*?display: inline-flex !important;/);
   assert.match(css, /\.topbar > \.mobile-brand \{[\s\S]*?min-width: 0;/);
   assert.match(css, /\.header-actions \{ flex: 0 0 auto; \}/);
