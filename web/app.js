@@ -62,6 +62,8 @@ let playbackIndex = -1;
 let recentlyClearedQueue = [];
 let queueUndoTimeout;
 let toastTimeout;
+let metadataIslandTimeout;
+let metadataIslandHideTimeout;
 let removing = null;
 let localPreviewUrl = '';
 const connection = new DriveConnection();
@@ -389,6 +391,41 @@ function updatePlayer() {
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
 }
+function hideMetadataIsland(immediate = false) {
+  clearTimeout(metadataIslandTimeout);
+  clearTimeout(metadataIslandHideTimeout);
+  const island = $('#metadata-island');
+  if (!island) return;
+  island.classList.remove('island-visible');
+  if (immediate) island.hidden = true;
+  else metadataIslandHideTimeout = setTimeout(() => { island.hidden = true; }, 220);
+}
+function showMetadataIsland(video) {
+  clearTimeout(metadataIslandTimeout);
+  clearTimeout(metadataIslandHideTimeout);
+  const island = $('#metadata-island');
+  if (!island) return;
+  island.classList.remove('island-visible');
+  const m = meta(video.id);
+  const labels = (Array.isArray(m.labelIds) ? m.labelIds : [])
+    .map(id => state.labels.find(label => label.id === id))
+    .filter(Boolean);
+  const hasStyle = (Array.isArray(m.styleTimingIds) && m.styleTimingIds.length > 0)
+    || (Array.isArray(m.danceStyles) && m.danceStyles.length > 0)
+    || labels.some(label => ['Style', 'Style & timing'].includes(label.type));
+  const hasMove = (Array.isArray(m.moveIds) && m.moveIds.length > 0)
+    || (Array.isArray(m.moves) && m.moves.length > 0)
+    || labels.some(label => ['Moves', 'Position', 'Technique', 'Musicality'].includes(label.type));
+  if (video.provider === 'local' || (m.level && hasStyle && hasMove)) {
+    island.hidden = true;
+    return;
+  }
+  island.hidden = false;
+  requestAnimationFrame(() => {
+    if (selected?.id === video.id && $('#player').open) island.classList.add('island-visible');
+  });
+  metadataIslandTimeout = setTimeout(() => hideMetadataIsland(), 6500);
+}
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
   selected = v;
@@ -403,6 +440,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
+  showMetadataIsland(v);
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
 
@@ -612,7 +650,13 @@ document.addEventListener('click', async event => {
   if (action === 'retry-load') start();
 });
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
-$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#player').addEventListener('close', () => { hideMetadataIsland(true); cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#metadata-island-dismiss').addEventListener('click', () => hideMetadataIsland());
+$('#metadata-island-add').addEventListener('click', () => {
+  hideMetadataIsland();
+  const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  $('#public-video-details').scrollIntoView({ behavior, block: 'start' });
+});
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
 for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta, state.labels); });
 $('#personal-title').addEventListener('change', refreshView);
