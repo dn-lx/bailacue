@@ -79,6 +79,7 @@ const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
   optimizedFor: video => optimizedMap.get(video.id),
+  onPlaybackStarted: video => showMetadataIsland(video),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
     const following = playbackQueue[playbackIndex + 1];
@@ -440,7 +441,7 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
-  showMetadataIsland(v);
+  hideMetadataIsland(true);
   requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
 }
 
