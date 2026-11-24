@@ -157,7 +157,7 @@ export function dailyPicks(videos, meta, day, previous = []) {
     return pool[0] ? [pool[0].id] : [];
   });
 }
-/** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta */
+/** @param {import('./types.js').Metadata} value */
 function metadataCoverage(value = {}) {
   const hasText = key => typeof value[key] === 'string' && value[key].trim().length > 0;
   const hasItems = key => Array.isArray(value[key]) && value[key].length > 0;
@@ -175,7 +175,7 @@ function metadataCoverage(value = {}) {
     hasItems('cues'),
   ].filter(Boolean).length;
 }
-/** Place videos with fewer details first, randomizing within each metadata-coverage group. */
+/** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta */
 export function practiceQueue(videos, meta, random = Math.random) {
   const groups = new Map();
   for (const video of videos) {
