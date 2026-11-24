@@ -29,8 +29,8 @@ function loadYoutube() {
   return youtubePromise;
 }
 export class StudioPlayer {
-  constructor({ token, allowedFile, optimizedFor = _video => null, onEnded = _video => {}, onPlaybackStarted = _video => {}, toast }) {
-    this.token = token; this.allowedFile = allowedFile; this.optimizedFor = optimizedFor; this.onEnded = onEnded; this.onPlaybackStarted = onPlaybackStarted; this.startedGeneration = -1; this.toast = toast;
+  constructor({ token, allowedFile, optimizedFor = _video => null, onEnded = _video => {}, toast }) {
+    this.token = token; this.allowedFile = allowedFile; this.optimizedFor = optimizedFor; this.onEnded = onEnded; this.toast = toast;
     this.frame = /** @type {HTMLElement} */ (document.querySelector('#video-frame')); this.videoShell = /** @type {HTMLElement} */ (document.querySelector('#video-only-shell')); this.controls = document.querySelector('#media-controls'); this.stage = document.querySelector('#full-stage');
     this.media = null; this.video = null; this.youtube = null; this.generation = 0; this.timer = null; this.kind = 'preview';
     this.lastLocalUrl = ''; this.lastAutoPlay = false; this.slowTimer = null;
@@ -125,11 +125,6 @@ export class StudioPlayer {
       event.ports[0].postMessage({ token: this.allowedFile(event.data.fileId) ? this.token() : '' });
     });
   }
-  announcePlaybackStarted(video, generation) {
-    if (generation !== this.generation || this.startedGeneration === generation) return;
-    this.startedGeneration = generation;
-    this.onPlaybackStarted(video);
-  }
   /** @returns {any} */
   $(selector) { return this.controls.querySelector(selector); }
   posterFor(video) {
@@ -211,7 +206,7 @@ export class StudioPlayer {
         });
         media.addEventListener('canplay', () => { if (generation === this.generation && media === this.media && media.videoWidth) this.readyToPlay(media, localUrl); });
         media.addEventListener('waiting', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); this.scheduleSlowNotice(generation); } });
-        media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); this.announcePlaybackStarted(video, generation); } });
+        media.addEventListener('playing', () => { if (generation === this.generation && media === this.media) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); this.status('Playing · BailaCue player'); } });
         media.addEventListener('error', () => {
           if (generation !== this.generation || media !== this.media) return;
           const sourceSegments = (media.getAttribute('src') || '').split('/');
@@ -257,7 +252,7 @@ export class StudioPlayer {
           onStateChange: event => {
             if (generation !== this.generation) return;
             if (event.data === 3) { this.frame.setAttribute('aria-busy', 'true'); this.status('Buffering video…'); this.scheduleSlowNotice(generation); }
-            else if ([0, 1, 2, 5].includes(event.data)) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); if (event.data === 1) { this.status('Playing · YouTube player'); this.announcePlaybackStarted(video, generation); } }
+            else if ([0, 1, 2, 5].includes(event.data)) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); if (event.data === 1) this.status('Playing · YouTube player'); }
             if (video.kind !== 'playlist' && event.data === 0) this.onEnded(video);
           },
           onError: () => { if (generation !== this.generation) return; this.frame.setAttribute('aria-busy', 'false'); this.setAvailable(false); clearTimeout(this.slowTimer); this.frame.dataset.starting = 'false'; this.retryButton.hidden = false; this.status('YouTube playback failed. Try Retry video.'); },
@@ -270,7 +265,7 @@ export class StudioPlayer {
     const generation = this.generation;
     this.frame.setAttribute('aria-busy', 'true');
     const isDrive = video.provider === 'drive';
-    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.allowFullscreen = false; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.addEventListener('focus', () => { if (generation === this.generation && frame.parentElement === this.frame) this.announcePlaybackStarted(video, generation); }, { once: true }); frame.onload = () => { if (generation === this.generation && frame.parentElement === this.frame) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); } }; this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
+    const frame = document.createElement('iframe'); frame.src = embedUrl(video); frame.title = `${video.title} preview`; frame.allow = 'autoplay; encrypted-media; picture-in-picture'; frame.allowFullscreen = false; frame.referrerPolicy = 'strict-origin-when-cross-origin'; frame.onload = () => { if (generation === this.generation && frame.parentElement === this.frame) { this.frame.setAttribute('aria-busy', 'false'); this.dismissLoading(); } }; this.frame.replaceChildren(frame); this.kind = 'preview'; this.setAvailable(false); this.controls.classList.add('preview-mode'); this.controls.setAttribute('data-preview-label', isDrive ? 'Google Drive preview' : 'Provider preview');
     this.status(isDrive ? 'Drive preview · playback managed by Google; BailaCue fullscreen unavailable for this source.' : 'Embedded preview · fullscreen controls unavailable for this source.');
   }
   status(text) { const el = document.querySelector('#playback-status'); if (el) el.textContent = text; }

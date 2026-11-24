@@ -79,7 +79,6 @@ const studioPlayer = new StudioPlayer({
   token: () => connection.token(),
   allowedFile: id => videos().some(v => v.provider === 'drive' && v.providerId === id),
   optimizedFor: video => optimizedMap.get(video.id),
-  onPlaybackStarted: video => showMetadataIsland(video),
   onEnded: video => {
     if (selected?.id !== video.id || !$('#player').open || playbackIndex < 0) return;
     const following = playbackQueue[playbackIndex + 1];
@@ -401,6 +400,16 @@ function hideMetadataIsland(immediate = false) {
   if (immediate) island.hidden = true;
   else metadataIslandHideTimeout = setTimeout(() => { island.hidden = true; }, 220);
 }
+function positionMetadataIsland() {
+  const island = $('#metadata-island');
+  if (!island || island.hidden) return;
+  const shell = $('#video-only-shell').getBoundingClientRect();
+  const frame = $('#video-frame').getBoundingClientRect();
+  const height = island.getBoundingClientRect().height;
+  const lowerEdge = frame.bottom - shell.top;
+  const inset = Math.max(14, Math.round(frame.height * 0.06));
+  island.style.top = `${Math.max(12, Math.round(lowerEdge - height - inset))}px`;
+}
 function showMetadataIsland(video) {
   clearTimeout(metadataIslandTimeout);
   clearTimeout(metadataIslandHideTimeout);
@@ -422,9 +431,6 @@ function showMetadataIsland(video) {
     return;
   }
   island.hidden = false;
-  requestAnimationFrame(() => {
-    if (selected?.id === video.id && $('#player').open) island.classList.add('island-visible');
-  });
   metadataIslandTimeout = setTimeout(() => hideMetadataIsland(), 6500);
 }
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
@@ -441,8 +447,15 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
-  hideMetadataIsland(true);
-  requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
+  showMetadataIsland(v);
+  requestAnimationFrame(() => {
+    if (!$('#player').open) return;
+    applyVideoHeight(state.playerHeight);
+    positionMetadataIsland();
+    requestAnimationFrame(() => {
+      if ($('#player').open && !$('#metadata-island').hidden) $('#metadata-island').classList.add('island-visible');
+    });
+  });
 }
 
 function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from mix' : 'Added to mix'); if (selected?.id === id) updatePlayer(); refreshView(); }
@@ -653,6 +666,8 @@ document.addEventListener('click', async event => {
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
 $('#player').addEventListener('close', () => { hideMetadataIsland(true); cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
 $('#metadata-island-dismiss').addEventListener('click', () => hideMetadataIsland());
+$('#video-frame').addEventListener('videoaspectchange', () => { if (!$('#metadata-island').hidden) positionMetadataIsland(); });
+window.addEventListener('resize', () => { if (!$('#metadata-island').hidden) requestAnimationFrame(positionMetadataIsland); });
 $('#metadata-island-add').addEventListener('click', () => {
   hideMetadataIsland();
   const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
