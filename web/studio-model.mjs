@@ -6,6 +6,7 @@ const suggestions = [
   ['Class', 'Video type', 'Both'], ['Tutorial', 'Video type', 'Both'], ['Social dance', 'Video type', 'Both'], ['Demo', 'Video type', 'Both'], ['Performance', 'Video type', 'Both'],
   ['Beginner', 'Level', 'Both'], ['Intermediate', 'Level', 'Both'], ['Advanced', 'Level', 'Both'],
 ];
+export function isArtistType(type) { return type === 'Artist' || type === 'Teacher'; }
 export function normalizeName(value) { return String(value || '').normalize('NFKC').trim().replace(/\s+/g, ' ').toLocaleLowerCase(); }
 export function newId() { return typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : [...crypto.getRandomValues(new Uint8Array(16))].map(n => n.toString(16).padStart(2, '0')).join(''); }
 export function seedLabels() { return suggestions.map(([name, type, dance], i) => ({ id: `label-${i + 1}`, name, type, dance })); }
@@ -13,7 +14,7 @@ export function cleanLabels(input) {
   if (!Array.isArray(input)) return seedLabels();
   const seen = new Set(), ids = new Set();
   return input.slice(0, 2000).flatMap(v => {
-    if (!v || typeof v.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(v.id) || ids.has(v.id) || !LABEL_TYPES.includes(v.type)) return [];
+    if (!v || typeof v.id !== 'string' || !/^[a-zA-Z0-9_-]{1,100}$/.test(v.id) || ids.has(v.id) || (!LABEL_TYPES.includes(v.type) && !isArtistType(v.type))) return [];
     const name = String(v.name || '').trim().slice(0, 80), key = `${v.type}:${v.dance}:${normalizeName(name)}`;
     if (!name || seen.has(key)) return [];
     seen.add(key); ids.add(v.id);
@@ -24,7 +25,8 @@ export function createLabel(labels, name, type = 'Style', dance = 'Both') {
   name = String(name || '').trim().replace(/\s+/g, ' ').slice(0, 80);
   if (!name) throw new Error('Enter a label name.');
   if (!LABEL_TYPES.includes(type)) throw new Error('Choose a label type.');
-  const existing = labels.find(v => v.type === type && v.dance === dance && normalizeName(v.name) === normalizeName(name));
+  const artist = isArtistType(type);
+  const existing = labels.find(v => (artist ? isArtistType(v.type) : v.type === type) && (artist || v.dance === dance) && normalizeName(v.name) === normalizeName(name));
   if (existing) return existing;
   const label = { id: `custom-${newId()}`, name, type, dance: ['Salsa', 'Bachata'].includes(dance) ? dance : 'Both' };
   labels.push(label); return label;

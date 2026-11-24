@@ -1,16 +1,16 @@
 import { createPhotosSession, selectedPhotosVideos, endPhotosSession } from './photos-picker.mjs';
 import { renderBrowserCompressor } from './browser-compressor.mjs';
-import { LABEL_TYPES, createLabel, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
+import { LABEL_TYPES, createLabel, isArtistType, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 const esc = escapeHtml;
-const labelTypeName = type => type === 'Style & timing' || type === 'Style' ? 'Styles' : type === 'Moves' ? 'Moves' : type === 'Technique' ? 'Techniques' : type;
+const labelTypeName = type => type === 'Style & timing' || type === 'Style' ? 'Styles' : type === 'Moves' ? 'Moves' : type === 'Technique' ? 'Techniques' : type === 'Teacher' ? 'Artist' : type;
 let pickerSequence = 0;
 /** Searchable, multi-select dropdown with keyboard navigation and explicit creation. */
 export function labelPicker(container, { labels, selected = [], title, artists = false, allowCreate = false, dance = 'Both', createType = 'Technique', onChange, onCreate = (name, type, dance) => null }) {
   const id = `picker-${++pickerSequence}`, chosen = new Set(selected); let active = -1;
   container.innerHTML = `<details class="label-picker"><summary>${esc(title)} <span class="picker-count">${chosen.size || ''}</span></summary><div class="picker-panel"><input type="search" class="picker-search" role="combobox" aria-expanded="false" aria-controls="${id}" aria-autocomplete="list" placeholder="Search ${esc(title.toLocaleLowerCase())}…" aria-label="${esc(title)}"><div class="picker-options" role="listbox" aria-label="${esc(title)}" aria-multiselectable="true" id="${id}"></div><div class="picker-create"></div></div></details><div class="selected-tags"></div>`;
   const details = container.querySelector('details'), search = container.querySelector('input'), list = container.querySelector('.picker-options'), create = container.querySelector('.picker-create'), tags = container.querySelector('.selected-tags');
-  const available = () => labels().filter(l => (artists ? l.type === 'Artist' : l.type !== 'Artist') && (!dance || dance === 'Both' || l.dance === 'Both' || l.dance === dance));
+  const available = () => labels().filter(l => (artists ? isArtistType(l.type) : !isArtistType(l.type)) && (artists || !dance || dance === 'Both' || l.dance === 'Both' || l.dance === dance));
   function refresh() {
     const query = normalizeName(search.value), matches = available().filter(l => normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query)); active = -1; search.removeAttribute('aria-activedescendant');
     list.innerHTML = matches.length ? matches.map((l, i) => `<button type="button" role="option" id="${id}-${i}" data-id="${esc(l.id)}" aria-selected="${chosen.has(l.id)}" class="picker-option"><span>${esc(l.name)}<small>${l.dance !== 'Both' ? esc(l.dance) : 'Available for both dances'}</small></span><span aria-hidden="true">${chosen.has(l.id) ? '✓' : '+'}</span></button>`).join('') : `<p class="picker-empty">No matching ${esc(title.toLocaleLowerCase())}.</p>`;
@@ -40,9 +40,9 @@ export function renderLabelManager(page, ctx) {
   page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">YOUR DANCE VOCABULARY</span><h1>Make it easy to find.</h1><p>Set each video’s Level on its detail form; organize Styles, Moves, Positions, Techniques and Musicality here.</p></div></div><div class="label-workspace"><section class="editor-panel"><h2>Create a label</h2><form id="label-form"><label class="field"><span class="field-label">Name</span><input id="new-label-name" maxlength="80" required placeholder="e.g. Salsa Romántica"></label><div class="form-columns"><label class="field"><span class="field-label">Type</span><select id="new-label-type">${LABEL_TYPES.filter(t => !['Level', 'Style'].includes(t)).map(t => `<option value="${esc(t)}">${esc(labelTypeName(t))}</option>`).join('')}</select></label><label class="field"><span class="field-label">Dance</span><select id="new-label-dance"><option>Both</option><option>Salsa</option><option>Bachata</option></select></label></div><p class="form-error" id="label-error" role="alert"></p><button class="button primary" type="submit">Create label</button></form><p class="helper-text">Choose a specific category for new dance vocabulary. Choose Artist for teachers or performers.</p></section><section class="label-directory"><div class="directory-toolbar"><label class="search-box"><input id="manage-label-search" type="search" placeholder="Search labels and artists" aria-label="Search labels and artists"></label><select id="manage-label-type" aria-label="Filter label type"><option value="">All types</option>${LABEL_TYPES.filter(t => !['Level', 'Style'].includes(t)).map(t => `<option value="${esc(t)}">${esc(labelTypeName(t))}</option>`).join('')}</select></div><div id="label-list"></div></section></div>`;
   const render = () => {
     const query = normalizeName(page.querySelector('#manage-label-search').value), type = page.querySelector('#manage-label-type').value;
-    const labels = ctx.state().labels.filter(l => (!type || l.type === type || (type === 'Style & timing' && l.type === 'Style') || (type === 'Moves' && l.type === 'Technique')) && normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query));
+    const labels = ctx.state().labels.filter(l => (!type || l.type === type || (type === 'Artist' && isArtistType(l.type)) || (type === 'Style & timing' && l.type === 'Style') || (type === 'Moves' && l.type === 'Technique')) && normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query));
     const list = page.querySelector('#label-list');
-    list.innerHTML = labels.length ? labels.map(l => `<article class="label-row"><span class="label-symbol" aria-hidden="true">${l.type === 'Artist' ? 'A' : '#'}</span><div class="label-row-main"><strong>${esc(l.name)}</strong><span>${esc(labelTypeName(l.type))} · ${esc(l.dance)} · ${Object.values(ctx.state().meta).filter(m => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.labelIds || []), ...(m.artistIds || [])].includes(l.id)).length} videos</span></div><button class="text-button" data-edit="${esc(l.id)}" aria-label="Edit ${esc(l.name)}">Edit</button><button class="icon-button" data-delete="${esc(l.id)}" aria-label="Delete ${esc(l.name)}">×</button></article>`).join('') : '<div class="empty-state"><h3>No matching labels.</h3><p>Create one or try another search.</p></div>';
+    list.innerHTML = labels.length ? labels.map(l => `<article class="label-row"><span class="label-symbol" aria-hidden="true">${isArtistType(l.type) ? 'A' : '#'}</span><div class="label-row-main"><strong>${esc(l.name)}</strong><span>${esc(labelTypeName(l.type))} · ${esc(l.dance)} · ${Object.values(ctx.state().meta).filter(m => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.labelIds || []), ...(m.artistIds || [])].includes(l.id)).length} videos</span></div><button class="text-button" data-edit="${esc(l.id)}" aria-label="Edit ${esc(l.name)}">Edit</button><button class="icon-button" data-delete="${esc(l.id)}" aria-label="Delete ${esc(l.name)}">×</button></article>`).join('') : '<div class="empty-state"><h3>No matching labels.</h3><p>Create one or try another search.</p></div>';
     list.querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', () => {
       const label = ctx.state().labels.find(l => l.id === button.dataset.edit);
       const row = button.closest('article'); row.innerHTML = `<form class="inline-label-editor"><input aria-label="Label name" value="${esc(label.name)}" required maxlength="80"><button class="button primary small">Save</button><button type="button" class="button subtle small">Cancel</button></form>`;
@@ -50,7 +50,7 @@ export function renderLabelManager(page, ctx) {
       row.querySelector('form').onsubmit = async event => {
         event.preventDefault();
         const name = row.querySelector('input').value.trim();
-        if (!name || ctx.state().labels.some(l => l.id !== label.id && l.type === label.type && l.dance === label.dance && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
+        if (!name || ctx.state().labels.some(l => l.id !== label.id && (isArtistType(label.type) ? isArtistType(l.type) : l.type === label.type) && (isArtistType(label.type) || l.dance === label.dance) && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
         const previousName = label.name;
         label.name = name;
         try {
@@ -157,7 +157,7 @@ export function renderUpload(page, ctx) {
       uploadSession.moveIds = items.filter(label => label.type === 'Moves').map(label => label.id);
       uploadSession.techniqueIds = items.filter(label => label.type === 'Technique').map(label => label.id);
     } });
-    mount('#upload-artists', 'Artists & teachers', ['Artist'], 'artistIds', 'Artist');
+    labelPicker(page.querySelector('#upload-artists'), { title: 'Artists & teachers', labels: () => ctx.state().labels, selected: uploadSession.artistIds, allowCreate: true, artists: true, dance: danceInput.value, onChange: ids => uploadSession.artistIds = ids, onCreate: makeLabel });
     mount('#upload-positions', 'Positions', ['Position'], 'positionIds');
     mount('#upload-musicality', 'Musicality', ['Musicality'], 'musicalityIds');
     mount('#upload-video-types', 'Video type', ['Video type'], 'videoTypeIds');
