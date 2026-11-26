@@ -20,6 +20,18 @@ The unchanged native suite passes 187/189 tests; two native-upload tests fail
 because the mocked file has no `digest` method. Native source/tests/dependencies
 are unchanged from the starting commit. No private-account or production writes.
 
+Hosted verification of application commit `9f6079d21a8e9be986d5b441d44df4ae1cb7fb62`:
+[BailaCue web passed](https://github.com/dn-lx/bailacue/actions/runs/45876524725),
+including the existing Python/iPad checks. The
+[mobile visual run](https://github.com/dn-lx/bailacue/actions/runs/45876524662)
+passed 15/18 cases; all three failures concern the mute control extending 8.5px
+past the left edge at 320px. The
+[earlier develop run](https://github.com/dn-lx/bailacue/actions/runs/45869410123)
+has the same failures and measurements. The earlier
+[main checks](https://github.com/dn-lx/bailacue/actions/runs/45869883586)
+also confirm the same two native-upload mock failures. These unrelated issues
+remain for separate work; title tests pass and `main` is unchanged.
+
 ## Earlier published release · 0.3.0/build27
 
 [Direct Android download](https://github.com/dn-lx/BailaCue/releases/download/v0.3.0-preview.27/BailaCue-v0.3.0-build27-preview.apk) · [Requirements](LOCAL-FIRST-REQUIREMENTS.md) · [Usage](LOCAL-STORAGE.md) · [Verification](VERIFICATION.md).
