@@ -1,23 +1,23 @@
 import { createPhotosSession, selectedPhotosVideos, endPhotosSession } from './photos-picker.mjs';
 import { renderBrowserCompressor } from './browser-compressor.mjs';
-import { LABEL_TYPES, createLabel, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
+import { LABEL_TYPES, createLabel, isArtistType, normalizeName, nextNumber, numberedName } from './studio-model.mjs';
 export function escapeHtml(value) { return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]); }
 const esc = escapeHtml;
-const labelTypeName = type => type === 'Style & timing' || type === 'Style' ? 'Styles' : type === 'Moves' ? 'Moves' : type === 'Technique' ? 'Techniques' : type;
+const labelTypeName = type => type === 'Style & timing' || type === 'Style' ? 'Styles' : type === 'Moves' ? 'Moves' : type === 'Technique' ? 'Techniques' : type === 'Teacher' ? 'Artist' : type;
 let pickerSequence = 0;
 /** Searchable, multi-select dropdown with keyboard navigation and explicit creation. */
-export function labelPicker(container, { labels, selected = [], title, artists = false, allowCreate = false, dance = 'Both', onChange, onCreate = (name, type, dance) => null }) {
+export function labelPicker(container, { labels, selected = [], title, artists = false, allowCreate = false, dance = 'Both', createType = 'Technique', onChange, onCreate = (name, type, dance) => null }) {
   const id = `picker-${++pickerSequence}`, chosen = new Set(selected); let active = -1;
   container.innerHTML = `<details class="label-picker"><summary>${esc(title)} <span class="picker-count">${chosen.size || ''}</span></summary><div class="picker-panel"><input type="search" class="picker-search" role="combobox" aria-expanded="false" aria-controls="${id}" aria-autocomplete="list" placeholder="Search ${esc(title.toLocaleLowerCase())}…" aria-label="${esc(title)}"><div class="picker-options" role="listbox" aria-label="${esc(title)}" aria-multiselectable="true" id="${id}"></div><div class="picker-create"></div></div></details><div class="selected-tags"></div>`;
   const details = container.querySelector('details'), search = container.querySelector('input'), list = container.querySelector('.picker-options'), create = container.querySelector('.picker-create'), tags = container.querySelector('.selected-tags');
-  const available = () => labels().filter(l => (artists ? l.type === 'Artist' : l.type !== 'Artist') && (!dance || dance === 'Both' || l.dance === 'Both' || l.dance === dance));
+  const available = () => labels().filter(l => (artists ? isArtistType(l.type) : !isArtistType(l.type)) && (artists || !dance || dance === 'Both' || l.dance === 'Both' || l.dance === dance));
   function refresh() {
     const query = normalizeName(search.value), matches = available().filter(l => normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query)); active = -1; search.removeAttribute('aria-activedescendant');
     list.innerHTML = matches.length ? matches.map((l, i) => `<button type="button" role="option" id="${id}-${i}" data-id="${esc(l.id)}" aria-selected="${chosen.has(l.id)}" class="picker-option"><span>${esc(l.name)}<small>${l.dance !== 'Both' ? esc(l.dance) : 'Available for both dances'}</small></span><span aria-hidden="true">${chosen.has(l.id) ? '✓' : '+'}</span></button>`).join('') : `<p class="picker-empty">No matching ${esc(title.toLocaleLowerCase())}.</p>`;
     create.innerHTML = allowCreate && query && !available().some(l => normalizeName(l.name) === query) ? `<button type="button" class="text-button">+ Create ${esc(artists ? 'artist' : 'label')} “${esc(search.value.trim())}”</button>` : '';
     create.querySelector('button')?.addEventListener('click', async event => {
       const button = event.currentTarget; button.disabled = true;
-      try { const label = await onCreate(search.value.trim(), artists ? 'Artist' : 'Technique', dance); if (label) { chosen.add(label.id); search.value = ''; commit(); } }
+      try { const label = await onCreate(search.value.trim(), artists ? 'Artist' : createType, dance); if (label) { chosen.add(label.id); search.value = ''; commit(); } }
       finally { if (button.isConnected) button.disabled = false; }
     });
     list.querySelectorAll('button').forEach(button => button.addEventListener('click', () => { const id = button.dataset.id; chosen.has(id) ? chosen.delete(id) : chosen.add(id); commit(); search.focus(); }));
@@ -40,9 +40,9 @@ export function renderLabelManager(page, ctx) {
   page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">YOUR DANCE VOCABULARY</span><h1>Make it easy to find.</h1><p>Set each video’s Level on its detail form; organize Styles, Moves, Positions, Techniques and Musicality here.</p></div></div><div class="label-workspace"><section class="editor-panel"><h2>Create a label</h2><form id="label-form"><label class="field"><span class="field-label">Name</span><input id="new-label-name" maxlength="80" required placeholder="e.g. Salsa Romántica"></label><div class="form-columns"><label class="field"><span class="field-label">Type</span><select id="new-label-type">${LABEL_TYPES.filter(t => !['Level', 'Style'].includes(t)).map(t => `<option value="${esc(t)}">${esc(labelTypeName(t))}</option>`).join('')}</select></label><label class="field"><span class="field-label">Dance</span><select id="new-label-dance"><option>Both</option><option>Salsa</option><option>Bachata</option></select></label></div><p class="form-error" id="label-error" role="alert"></p><button class="button primary" type="submit">Create label</button></form><p class="helper-text">Choose a specific category for new dance vocabulary. Choose Artist for teachers or performers.</p></section><section class="label-directory"><div class="directory-toolbar"><label class="search-box"><input id="manage-label-search" type="search" placeholder="Search labels and artists" aria-label="Search labels and artists"></label><select id="manage-label-type" aria-label="Filter label type"><option value="">All types</option>${LABEL_TYPES.filter(t => !['Level', 'Style'].includes(t)).map(t => `<option value="${esc(t)}">${esc(labelTypeName(t))}</option>`).join('')}</select></div><div id="label-list"></div></section></div>`;
   const render = () => {
     const query = normalizeName(page.querySelector('#manage-label-search').value), type = page.querySelector('#manage-label-type').value;
-    const labels = ctx.state().labels.filter(l => (!type || l.type === type || (type === 'Style & timing' && l.type === 'Style') || (type === 'Moves' && l.type === 'Technique')) && normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query));
+    const labels = ctx.state().labels.filter(l => (!type || l.type === type || (type === 'Artist' && isArtistType(l.type)) || (type === 'Style & timing' && l.type === 'Style') || (type === 'Moves' && l.type === 'Technique')) && normalizeName(`${l.name} ${l.type} ${l.dance}`).includes(query));
     const list = page.querySelector('#label-list');
-    list.innerHTML = labels.length ? labels.map(l => `<article class="label-row"><span class="label-symbol" aria-hidden="true">${l.type === 'Artist' ? 'A' : '#'}</span><div class="label-row-main"><strong>${esc(l.name)}</strong><span>${esc(labelTypeName(l.type))} · ${esc(l.dance)} · ${Object.values(ctx.state().meta).filter(m => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.labelIds || []), ...(m.artistIds || [])].includes(l.id)).length} videos</span></div><button class="text-button" data-edit="${esc(l.id)}" aria-label="Edit ${esc(l.name)}">Edit</button><button class="icon-button" data-delete="${esc(l.id)}" aria-label="Delete ${esc(l.name)}">×</button></article>`).join('') : '<div class="empty-state"><h3>No matching labels.</h3><p>Create one or try another search.</p></div>';
+    list.innerHTML = labels.length ? labels.map(l => `<article class="label-row"><span class="label-symbol" aria-hidden="true">${isArtistType(l.type) ? 'A' : '#'}</span><div class="label-row-main"><strong>${esc(l.name)}</strong><span>${esc(labelTypeName(l.type))} · ${esc(l.dance)} · ${Object.values(ctx.state().meta).filter(m => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.labelIds || []), ...(m.artistIds || [])].includes(l.id)).length} videos</span></div><button class="text-button" data-edit="${esc(l.id)}" aria-label="Edit ${esc(l.name)}">Edit</button><button class="icon-button" data-delete="${esc(l.id)}" aria-label="Delete ${esc(l.name)}">×</button></article>`).join('') : '<div class="empty-state"><h3>No matching labels.</h3><p>Create one or try another search.</p></div>';
     list.querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', () => {
       const label = ctx.state().labels.find(l => l.id === button.dataset.edit);
       const row = button.closest('article'); row.innerHTML = `<form class="inline-label-editor"><input aria-label="Label name" value="${esc(label.name)}" required maxlength="80"><button class="button primary small">Save</button><button type="button" class="button subtle small">Cancel</button></form>`;
@@ -50,7 +50,7 @@ export function renderLabelManager(page, ctx) {
       row.querySelector('form').onsubmit = async event => {
         event.preventDefault();
         const name = row.querySelector('input').value.trim();
-        if (!name || ctx.state().labels.some(l => l.id !== label.id && l.type === label.type && l.dance === label.dance && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
+        if (!name || ctx.state().labels.some(l => l.id !== label.id && (isArtistType(label.type) ? isArtistType(l.type) : l.type === label.type) && (isArtistType(label.type) || l.dance === label.dance) && normalizeName(l.name) === normalizeName(name))) { ctx.toast('A label with that name and type already exists.'); return; }
         const previousName = label.name;
         label.name = name;
         try {
@@ -107,11 +107,11 @@ export function renderLabelManager(page, ctx) {
 
 let photosSession;
 let photosImporting = false;
-const uploadSession = { files: [], jobs: new Map(), running: false, controller: null, labelIds: [], artistIds: [], dance: 'Salsa', recordedAt: '', notes: '' };
+const uploadSession = { files: [], jobs: new Map(), running: false, controller: null, styleTimingIds: [], moveIds: [], techniqueIds: [], positionIds: [], musicalityIds: [], videoTypeIds: [], artistIds: [], titles: new Map(), level: '', dance: 'Salsa', recordedAt: '', event: '', location: '', notes: '' };
 export function uploadRunning() { return uploadSession.running; }
 export function renderUpload(page, ctx) {
   const connection = ctx.connection;
-  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section class="upload-connect-section" aria-label="Google Drive connection"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Reconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload. Connection saved securely.' : (connection.connectionError || 'Connect Google Drive to upload.')}</p></section></section><h2 class="upload-section-heading">Upload videos</h2><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details"><h2>Video details</h2><p class="helper-text">Applies to selected videos.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field"><span class="field-label">Recorded on <span class="field-optional">(optional)</span></span><input type="date" id="upload-recorded"></label></div><div class="form-columns"><div id="upload-labels"></div><div id="upload-artists"></div></div><label class="field"><span class="field-label">Notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="Class, move, or something to remember…"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section>`;
+  page.innerHTML = `<div class="page-heading"><div><h1>Add videos</h1></div></div><section class="upload-connect-section" aria-label="Google Drive connection"><section class="connection-card"><span class="eyebrow">GOOGLE DRIVE</span><h2>${connection.connected ? 'Connected' : 'Not connected'}</h2><button class="button ${connection.connected ? 'subtle' : 'primary'}" id="connect-google">${connection.connected ? 'Reconnect Google' : 'Connect Google'}</button><p id="connection-status" role="status" class="helper-text">${connection.connected ? 'Ready to upload. Connection saved securely.' : (connection.connectionError || 'Connect Google Drive to upload.')}</p></section></section><h2 class="upload-section-heading">Upload videos</h2><div class="upload-layout"><section class="upload-main"><label class="drop-zone" id="drop-zone"><span class="upload-mark" aria-hidden="true">↑</span><strong>Choose videos</strong><span>Photos or Files · select multiple</span><input id="upload-files" type="file" accept="video/*,.mkv,.avi,.m4v" multiple></label><div class="upload-actions"><button class="button subtle" type="button" id="google-photos-start">Choose from Google Photos</button></div><p class="helper-text" id="google-photos-status" role="status"></p><div class="upload-list" id="upload-list"></div><section class="editor-panel upload-details" aria-labelledby="upload-details-heading"><h2 id="upload-details-heading">Video details</h2><p class="helper-text">These details apply to every selected video. Add a different title in each video row.</p><div class="form-columns"><label class="field"><span class="field-label">Destination</span><select id="upload-dance"><option>Salsa</option><option>Bachata</option></select></label><label class="field level-field"><span class="field-label">Level</span><select id="upload-level"><option value="">Choose a level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option></select></label></div><div class="form-columns"><div id="upload-styles"></div><div id="upload-moves"></div></div><div class="form-columns"><div id="upload-artists"></div><div id="upload-positions"></div></div><div class="form-columns"><div id="upload-musicality"></div><div id="upload-video-types"></div></div><div class="form-columns"><label class="field"><span class="field-label">Recorded on</span><input type="date" id="upload-recorded"></label><label class="field"><span class="field-label">Event / class</span><input id="upload-event" maxlength="160" placeholder="e.g. Thursday partnerwork"></label></div><div class="form-columns"><label class="field"><span class="field-label">Location</span><input id="upload-location" maxlength="160" placeholder="Studio or city"></label></div><label class="field"><span class="field-label">Practice notes</span><textarea id="upload-notes" rows="3" maxlength="10000" placeholder="What clicked? What will you try next?"></textarea></label></section><p class="form-error" id="upload-error" role="alert"></p><div class="upload-actions"><button class="button primary" id="upload-start">Upload to Drive</button><button class="button subtle" id="upload-pause" disabled>Pause upload</button></div><progress id="upload-progress" value="0" max="100" aria-label="Upload progress"></progress><p id="upload-status" class="helper-text" role="status">Choose videos to get started. Nothing uploads until you press Upload.</p></section></div><section id="browser-compression" aria-labelledby="browser-compress-title" hidden></section>`;
   async function connectGoogle() {
     try {
       await connection.connect();
@@ -124,15 +124,45 @@ export function renderUpload(page, ctx) {
   renderBrowserCompressor(page.querySelector('#browser-compression'), ctx);
   const fileInput = page.querySelector('#upload-files'), danceInput = page.querySelector('#upload-dance'), status = page.querySelector('#upload-status');
   danceInput.value = uploadSession.dance;
-  page.querySelector('#upload-recorded').value = uploadSession.recordedAt;
-  page.querySelector('#upload-notes').value = uploadSession.notes;
-  page.querySelector('#upload-recorded').oninput = event => uploadSession.recordedAt = event.target.value;
-  page.querySelector('#upload-notes').oninput = event => uploadSession.notes = event.target.value;
-  uploadSession.labelIds = uploadSession.labelIds.filter(id => ctx.state().labels.some(label => label.id === id));
-  uploadSession.artistIds = uploadSession.artistIds.filter(id => ctx.state().labels.some(label => label.id === id));
-  const makeLabel = (name, type, dance) => { try { const label = createLabel(ctx.state().labels, name, type, dance); ctx.save(); return label; } catch (error) { ctx.toast(error.message); } };
-  labelPicker(page.querySelector('#upload-labels'), { title: 'Labels', labels: () => ctx.state().labels, selected: uploadSession.labelIds, allowCreate: true, onChange: ids => uploadSession.labelIds = ids, onCreate: makeLabel });
-  labelPicker(page.querySelector('#upload-artists'), { title: 'Artists & teachers', labels: () => ctx.state().labels, selected: uploadSession.artistIds, artists: true, allowCreate: true, onChange: ids => uploadSession.artistIds = ids, onCreate: makeLabel });
+  const levelInput = page.querySelector('#upload-level');
+  levelInput.value = uploadSession.level;
+  for (const [selector, key] of [['#upload-recorded','recordedAt'],['#upload-event','event'],['#upload-location','location'],['#upload-notes','notes']]) {
+    const input = page.querySelector(selector);
+    input.value = uploadSession[key];
+    input.oninput = () => uploadSession[key] = input.value;
+  }
+  levelInput.onchange = () => uploadSession.level = levelInput.value;
+  for (const key of ['styleTimingIds','moveIds','techniqueIds','positionIds','musicalityIds','videoTypeIds','artistIds']) {
+    uploadSession[key] = (uploadSession[key] || []).filter(id => ctx.state().labels.some(label => label.id === id));
+  }
+  const makeLabel = (name, type, dance) => {
+    const previous = ctx.state().labels.length;
+    try {
+      const label = createLabel(ctx.state().labels, name, type, dance);
+      if (ctx.save() === false) throw new Error('The label could not be saved.');
+      return label;
+    } catch (error) {
+      if (ctx.state().labels.length > previous) ctx.state().labels.splice(previous);
+      ctx.toast(error.message);
+      return null;
+    }
+  };
+  function mountUploadPickers() {
+    const mount = (selector, title, types, key, createType = types[0], onChange = ids => uploadSession[key] = ids) => labelPicker(page.querySelector(selector), {
+      title, labels: () => ctx.state().labels.filter(label => types.includes(label.type)), selected: uploadSession[key], allowCreate: true, createType, dance: danceInput.value, onChange, onCreate: makeLabel
+    });
+    mount('#upload-styles', 'Styles', ['Style & timing', 'Style'], 'styleTimingIds', 'Style');
+    labelPicker(page.querySelector('#upload-moves'), { title: 'Moves/Technique', labels: () => ctx.state().labels.filter(label => ['Moves','Technique'].includes(label.type)), selected: [...uploadSession.moveIds, ...uploadSession.techniqueIds], allowCreate: true, createType: 'Moves', dance: danceInput.value, onCreate: makeLabel, onChange: ids => {
+      const selected = new Set(ids), items = ctx.state().labels.filter(label => selected.has(label.id));
+      uploadSession.moveIds = items.filter(label => label.type === 'Moves').map(label => label.id);
+      uploadSession.techniqueIds = items.filter(label => label.type === 'Technique').map(label => label.id);
+    } });
+    labelPicker(page.querySelector('#upload-artists'), { title: 'Artists & teachers', labels: () => ctx.state().labels, selected: uploadSession.artistIds, allowCreate: true, artists: true, dance: danceInput.value, onChange: ids => uploadSession.artistIds = ids, onCreate: makeLabel });
+    mount('#upload-positions', 'Positions', ['Position'], 'positionIds');
+    mount('#upload-musicality', 'Musicality', ['Musicality'], 'musicalityIds');
+    mount('#upload-video-types', 'Video type', ['Video type'], 'videoTypeIds');
+  }
+  mountUploadPickers();
   let liveNumberDance = null, liveNextNumber = null;
   async function verifyDriveNumber() {
     if (!connection.connected) { liveNumberDance = null; liveNextNumber = null; renderFiles(); return; }
@@ -152,12 +182,17 @@ export function renderUpload(page, ctx) {
       const job = uploadSession.jobs.get(file), proposed = job?.name || (next == null ? 'Number assigned on upload' : numberedName(next++, file.name));
       const state = job?.completed ? 'Uploaded to Drive' : job?.error ? `Needs retry: ${job.error}` : job?.status === 'uploading' ? 'Uploading…' : job?.session ? 'Paused; ready to resume' : 'Ready to upload';
       const canRemove = !job?.completed && !job?.session;
-      return `<article class="upload-file${job?.error ? ' has-error' : ''}"><span class="file-number">${esc(proposed)}</span><div><strong>${esc(file.name)}</strong><small>${(file.size / 1048576).toFixed(1)} MB · ${esc(state)}</small></div><div class="upload-file-actions"><button type="button" class="text-button" data-preview="${index}">Preview</button>${job?.error ? `<button type="button" class="text-button" data-retry-file="${index}">Retry</button>` : ''}${canRemove ? `<button type="button" class="text-button" data-remove-file="${index}">Remove</button>` : ''}</div></article>`;
+      const customTitle = uploadSession.titles.get(file) || '';
+      return `<article class="upload-file${job?.error ? ' has-error' : ''}"><span class="file-number">${esc(proposed)}</span><div class="upload-file-main"><strong>${esc(file.name)}</strong><small>${(file.size / 1048576).toFixed(1)} MB · ${esc(state)}</small><label class="upload-title-field"><span>Video title <small>(optional)</small></span><input type="text" maxlength="160" data-upload-title="${index}" aria-label="Video title for ${esc(file.name)}" placeholder="Give this move a name" value="${esc(customTitle)}" ${uploadSession.running || job?.completed ? 'disabled' : ''}></label></div><div class="upload-file-actions"><button type="button" class="text-button" data-preview="${index}">Preview</button>${job?.error ? `<button type="button" class="text-button" data-retry-file="${index}">Retry</button>` : ''}${canRemove ? `<button type="button" class="text-button" data-remove-file="${index}">Remove</button>` : ''}</div></article>`;
     }).join('');
+    page.querySelectorAll('[data-upload-title]').forEach(input => input.addEventListener('input', () => {
+      const file = uploadSession.files[Number(input.dataset.uploadTitle)];
+      if (file) uploadSession.titles.set(file, input.value);
+    }));
     page.querySelectorAll('[data-preview]').forEach(button => button.addEventListener('click', () => ctx.preview(uploadSession.files[Number(button.dataset.preview)])));
     page.querySelectorAll('[data-remove-file]').forEach(button => button.addEventListener('click', () => {
       const index = Number(button.dataset.removeFile), [file] = uploadSession.files.splice(index, 1);
-      if (file) uploadSession.jobs.delete(file);
+      if (file) { uploadSession.jobs.delete(file); uploadSession.titles.delete(file); }
       renderFiles();
     }));
     page.querySelectorAll('[data-retry-file]').forEach(button => button.addEventListener('click', () => {
@@ -169,7 +204,7 @@ export function renderUpload(page, ctx) {
     start.disabled = uploadSession.running || photosImporting || pending === 0;
     start.textContent = uploadSession.running ? 'Uploading…' : pending === 0 && uploadSession.files.length ? 'All selected videos uploaded' : failed ? 'Retry remaining uploads' : 'Upload to Drive';
     page.querySelector('#upload-pause').disabled = !uploadSession.running;
-    for (const selector of ['#connect-google', '#google-photos-start', '#refresh-drive', '#upload-replan', '[data-preview]', '[data-remove-file]', '[data-retry-file]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
+    for (const selector of ['#connect-google', '#google-photos-start', '#refresh-drive', '#upload-replan', '[data-preview]', '[data-upload-title]', '[data-remove-file]', '[data-retry-file]']) page.querySelectorAll(selector).forEach(button => button.disabled = uploadSession.running || photosImporting);
     danceInput.disabled = uploadSession.running || [...uploadSession.jobs.values()].some(job => job.session || job.completed);
   }
   function addQueueFiles(files) {
@@ -264,7 +299,7 @@ export function renderUpload(page, ctx) {
       photosStart.disabled = uploadSession.running;
     }
   };
-  danceInput.onchange = () => { uploadSession.dance = danceInput.value; liveNumberDance = null; liveNextNumber = null; renderFiles(); void verifyDriveNumber().catch(error => { status.textContent = `Could not check Drive numbering: ${error.message}`; }); };
+  danceInput.onchange = () => { uploadSession.dance = danceInput.value; liveNumberDance = null; liveNextNumber = null; mountUploadPickers(); renderFiles(); void verifyDriveNumber().catch(error => { status.textContent = `Could not check Drive numbering: ${error.message}`; }); };
   page.querySelector('#connect-google').onclick = async () => {
     try { await connectGoogle(); } catch { /* Connection status already shows the reason. */ }
   };
@@ -275,7 +310,7 @@ export function renderUpload(page, ctx) {
     const targets = targetFiles.filter(file => uploadSession.files.includes(file) && !uploadSession.jobs.get(file)?.completed);
     if (!targets.length) return;
     const dance = danceInput.value;
-    const details = { labelIds: [...uploadSession.labelIds], artistIds: [...uploadSession.artistIds], recordedAt: page.querySelector('#upload-recorded').value, notes: page.querySelector('#upload-notes').value };
+    const details = { level: uploadSession.level || null, styleTimingIds: [...uploadSession.styleTimingIds], moveIds: [...uploadSession.moveIds], labelIds: [...uploadSession.techniqueIds, ...uploadSession.positionIds, ...uploadSession.musicalityIds, ...uploadSession.videoTypeIds], artistIds: [...uploadSession.artistIds], recordedAt: uploadSession.recordedAt, event: uploadSession.event, location: uploadSession.location, notes: uploadSession.notes };
     uploadSession.running = true; uploadSession.controller = new AbortController(); fileInput.disabled = true; page.querySelector('#upload-error').textContent = '';
     page.querySelector('#upload-progress').value = 0; renderFiles();
     const uploaded = [], failures = [];
@@ -300,7 +335,7 @@ export function renderUpload(page, ctx) {
           }, uploadSession.controller.signal);
           job.completed = result; job.status = 'uploaded'; job.error = '';
           ctx.state().drive = [...ctx.state().drive.filter(video => video.id !== result.id), result];
-          ctx.patchMeta(result.id, details); ctx.save(); uploaded.push(result);
+          const title = uploadSession.titles.get(file)?.trim(); ctx.patchMeta(result.id, { ...details, ...(title ? { title } : {}) }); ctx.save(); uploaded.push(result);
           renderFiles(); processedBytes += file.size;
         } catch (error) {
           if (error.name === 'AbortError') {

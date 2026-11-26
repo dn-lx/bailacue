@@ -1,4 +1,4 @@
-import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem } from './core.mjs';
+import { STORAGE_KEY, SOURCES, emptyState, cleanState, parseYoutube, displayTitle, localDay, dailyPicks, practiceQueue, filterVideos, embedUrl, clampPlayerHeight, clampMixCount, recordRecent, recentOpenings, moveQueueItem, appendFilteredToMix } from './core.mjs';
 import { cleanLabels, formatTime, normalizeName, newId } from './studio-model.mjs';
 import { BailaCueAdmin } from './admin.mjs';
 import { parseStreamDelivery, streamThumbnailUrl } from './stream-delivery.mjs';
@@ -62,6 +62,8 @@ let playbackIndex = -1;
 let recentlyClearedQueue = [];
 let queueUndoTimeout;
 let toastTimeout;
+let metadataIslandTimeout;
+let metadataIslandHideTimeout;
 let removing = null;
 let localPreviewUrl = '';
 const connection = new DriveConnection();
@@ -262,7 +264,7 @@ function renderToday() {
     <div class="video-grid">${preview.map(card).join('')}</div>`;
 }
 function renderLibrary() {
-  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label><label class="library-sort">Sort by <select id="sort-filter" aria-label="Sort videos"><option value="random">Random</option><option value="recent">Newest added</option><option value="oldest">Oldest added</option><option value="updated-new">Recently updated</option><option value="title">Title A–Z</option><option value="title-desc">Title Z–A</option><option value="dance-asc">Dance A–Z</option><option value="dance-desc">Dance Z–A</option><option value="level-asc">Level: basic first</option><option value="level-desc">Level: advanced first</option><option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="duration-short">Shortest first</option><option value="duration-long">Longest first</option><option value="size-small">Smallest file</option><option value="size-large">Largest file</option><option value="moves-most">Most moves tagged</option></select></label><button type="button" class="button subtle small shuffle-videos" data-action="shuffle-videos" aria-label="Shuffle library videos">Shuffle</button></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-positions"></div><div id="filter-techniques"></div><div id="filter-musicality"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
+  page.innerHTML = `${heading('EXPLORE DANCE', 'Your dance library.', 'Browse Salsa and Bachata, search by level, styles and moves, and make your own mix.')}<div class="library-toolbar"><div class="segmented" role="group" aria-label="Filter dance">${['All', 'Salsa', 'Bachata'].map(d => `<button data-action="filter-dance" data-dance="${d}" class="${filters.dance === d ? 'active' : ''}" aria-pressed="${filters.dance === d}">${d === 'All' ? 'All dances' : d}</button>`).join('')}</div><label class="search-box">${icon('search')}<input id="search" type="search" placeholder="Search videos, moves or styles" aria-label="Search videos, moves or styles" value="${esc(filters.query)}"></label><label class="library-sort">Sort by <select id="sort-filter" aria-label="Sort videos"><option value="random">Random</option><option value="recent">Newest added</option><option value="oldest">Oldest added</option><option value="updated-new">Recently updated</option><option value="title">Title A–Z</option><option value="title-desc">Title Z–A</option><option value="dance-asc">Dance A–Z</option><option value="dance-desc">Dance Z–A</option><option value="level-asc">Level: basic first</option><option value="level-desc">Level: advanced first</option><option value="rating-high">Highest rated</option><option value="rating-low">Lowest rated</option><option value="duration-short">Shortest first</option><option value="duration-long">Longest first</option><option value="size-small">Smallest file</option><option value="size-large">Largest file</option><option value="moves-most">Most moves tagged</option></select></label><button type="button" class="button subtle small shuffle-videos" data-action="shuffle-videos" aria-label="Shuffle library videos">Shuffle</button></div><details id="more-filters" class="filter-panel"><summary class="filter-summary">More filters <span class="filter-summary-count" id="advanced-count" hidden></span></summary><div class="filter-panel-body"><div class="filters"><label>Source <select id="provider-filter"><option value="all">All sources</option><option value="drive">Google Drive</option><option value="youtube">YouTube</option></select></label><label>Level <select id="level-filter"><option value="">Any level</option><option>Basic</option><option>Intermediate</option><option>Advanced</option><option value="__unset__">Not set</option></select></label></div><div class="advanced-filters"><div id="filter-dance-styles"></div><div id="filter-moves"></div><div id="filter-positions"></div><div id="filter-techniques"></div><div id="filter-musicality"></div><div id="filter-artists"></div><button class="text-button" data-action="reset-filters">Clear filters</button></div></div></details><div class="library-feedback"><span class="result-count" id="result-count" role="status" aria-live="polite" aria-atomic="true"></span><button type="button" class="button subtle small add-filtered-to-mix" id="add-all-filtered" data-action="queue-all-filtered" disabled aria-label="Add all matching videos to mix">${icon('plus')} Add all to mix <span id="add-all-count" class="mix-add-count" hidden></span></button><div id="active-filter-chips" class="active-filter-chips" aria-label="Active library filters"></div></div><div id="library-results"></div>`;
   $('#provider-filter').value = filters.provider; $('#level-filter').value = filters.level; $('#sort-filter').value = filters.sort;
   $('#more-filters').open = window.matchMedia('(min-width: 721px)').matches || Boolean(filters.provider !== 'all' || filters.level || filters.moves?.length || filters.danceStyles?.length || filters.artistIds?.length);
   $('#search').addEventListener('input', e => { filters.query = e.target.value; currentPage = 1; renderResults(); });
@@ -321,6 +323,16 @@ function renderResults() {
   const displayedPageSize = window.matchMedia('(max-width: 480px)').matches ? 12 : pageSize;
   const totalPages = Math.max(1, Math.ceil(matches.length / displayedPageSize)); currentPage = Math.min(currentPage, totalPages);
   $('#result-count').textContent = matches.length ? `Showing ${(currentPage - 1) * displayedPageSize + 1}–${Math.min(currentPage * displayedPageSize, matches.length)} of ${matches.length} videos` : 'No matching videos';
+  const pending = matches.filter(video => !state.queue.includes(video.id)).length;
+  const addAllButton = $('#add-all-filtered');
+  const addAllCount = $('#add-all-count');
+  addAllButton.disabled = pending === 0;
+  addAllButton.title = pending
+    ? `Add ${pending} matching ${pending === 1 ? 'video' : 'videos'} not yet in your mix`
+    : (matches.length ? 'All matching videos are already in your mix' : 'No matching videos to add');
+  addAllButton.setAttribute('aria-label', addAllButton.title);
+  addAllCount.hidden = pending === 0;
+  addAllCount.textContent = pending ? `+${pending}` : '';
   $('#library-results').innerHTML = matches.length ? `<div class="video-grid">${matches.slice((currentPage - 1) * displayedPageSize, currentPage * displayedPageSize).map(card).join('')}</div>${totalPages > 1 ? `<div class="pagination"><button class="button subtle small" data-action="page-prev" ${currentPage === 1 ? 'disabled' : ''}>${icon('back')} Previous</button><span>Page ${currentPage} of ${totalPages}</span><button class="button subtle small" data-action="page-next" ${currentPage === totalPages ? 'disabled' : ''}>Next ${icon('arrow')}</button></div>` : ''}` : `<div class="empty-state">${icon('search')}<h3>No videos match your filters.</h3><p>Try a different dance, artist, label or search term.</p><button class="button primary" data-action="reset-filters">Clear filters</button></div>`;
   renderFilterChips();
   handleImages($('#library-results'));
@@ -329,7 +341,7 @@ function renderPractice() {
   const queue = state.queue.map(videoById).filter(Boolean);
   const available = videos().length;
   const requested = clampMixCount(state.mixSize, available);
-  page.innerHTML = `${heading('CREATE YOUR MIX', 'Pick a dance. Press play.', 'Choose Salsa, Bachata or both, and decide how many videos to include.')}<div class="practice-layout"><section class="practice-start" aria-labelledby="mix-heading"><span class="eyebrow">CREATE YOUR VIDEO MIX</span><h2 id="mix-heading">What are we dancing today?</h2><p>Select the number of videos, then choose a mix. Videos play in the order shown below.</p><div class="mix-count-setting"><label for="mix-count">Number of videos</label><div class="mix-count-field"><input id="mix-count" type="number" min="1" max="${available}" step="1" inputmode="numeric" value="${requested}" aria-describedby="mix-count-help"><span>videos</span></div><p id="mix-count-help">Choose 1–${available}. A dance-only mix uses as many videos as are available for that dance, up to this number.</p></div><div class="mix-options" role="group" aria-label="Create a video mix"><button type="button" class="button primary" data-action="mix" data-dance="Salsa">Salsa mix</button><button type="button" class="button primary" data-action="mix" data-dance="Bachata">Bachata mix</button><button type="button" class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata mix</button></div>${queue.length ? `<button type="button" class="button subtle mix-play-button" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</section></div><div class="section-heading"><div><h2>Your current mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : recentlyClearedQueue.length ? '<button class="text-button" data-action="undo-clear">Undo clear</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta, state.labels))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta, state.labels))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta, state.labels))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta, state.labels))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta, state.labels))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix starts here.</h3><p>Choose Salsa, Bachata or both above, or add individual videos from the library.</p><a href="#library" class="button subtle">Explore the library ${icon('arrow')}</a></div>`}`;
+  page.innerHTML = `${heading('MIXES', 'Create a mix', 'Create a random mix here or choose videos in the Library. Press Play to start.')}<div class="practice-layout"><section class="practice-start" aria-labelledby="mix-heading"><h2 id="mix-heading">Random mix</h2><p class="helper-text">Videos needing details come first.</p><div class="mix-count-setting"><label for="mix-count">Number of videos</label><div class="mix-count-field"><input id="mix-count" type="number" min="1" max="${available}" step="1" inputmode="numeric" value="${requested}" aria-label="Number of videos in the random mix"><span>videos</span></div></div><div class="mix-options" role="group" aria-label="Create a random mix for"><button type="button" class="button primary" data-action="mix" data-dance="Salsa">Salsa</button><button type="button" class="button primary" data-action="mix" data-dance="Bachata">Bachata</button><button type="button" class="button primary" data-action="mix" data-dance="Both">Salsa + Bachata</button></div>${queue.length ? `<button type="button" class="button subtle mix-play-button" data-action="start-queue">${icon('play')} Play this mix</button>` : ''}</section></div><div class="section-heading"><div><h2>Your mix</h2><span class="count-chip">${queue.length} VIDEOS</span></div>${queue.length ? '<button class="text-button" data-action="clear-queue">Clear mix</button>' : recentlyClearedQueue.length ? '<button class="text-button" data-action="undo-clear">Undo clear</button>' : ''}</div>${queue.length ? `<div class="queue-list">${queue.map((v, i) => `<article class="queue-item"><span class="index">${String(i + 1).padStart(2, '0')}</span><div class="queue-info"><h4>${esc(displayTitle(v, state.meta, state.labels))}</h4><div class="muted">${esc(v.dance)} · ${v.provider === 'drive' ? 'Google Drive' : 'YouTube'}</div></div><div class="queue-actions"><button type="button" class="icon-button mix-move" data-action="mix-move-up" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta, state.labels))} earlier" title="Move up" ${i === 0 ? 'disabled' : ''}>${icon('up')}</button><button type="button" class="icon-button mix-move" data-action="mix-move-down" data-id="${esc(v.id)}" aria-label="Move ${esc(displayTitle(v, state.meta, state.labels))} later" title="Move down" ${i === queue.length - 1 ? 'disabled' : ''}>${icon('down')}</button><button class="icon-button" data-action="open-queue" data-id="${esc(v.id)}" aria-label="Play ${esc(displayTitle(v, state.meta, state.labels))}">${icon('play')}</button><button class="icon-button" data-action="queue" data-id="${esc(v.id)}" aria-label="Remove ${esc(displayTitle(v, state.meta, state.labels))} from mix">${icon('close')}</button></div></article>`).join('')}</div>` : `<div class="empty-state">${icon('queue')}<h3>Your mix is empty.</h3><p>Add videos from the Library or create a random mix above.</p><a href="#library" class="button subtle">Open Library ${icon('arrow')}</a></div>`}`;
   $('#mix-count')?.addEventListener('change', event => {
     const count = clampMixCount(event.target.value, videos().length);
     state.mixSize = count;
@@ -341,9 +353,7 @@ function renderSettings() {
   page.innerHTML = `${heading('BAILACUE', 'Open to everyone.', 'Watch Salsa and Bachata from the shared collection. Anyone can edit video details. The administrator manages video sources.')}<div class="settings-grid"><section class="settings-card"><h3>Watch and create mixes.</h3><p>Browse the library without an account. Create Salsa-only, Bachata-only or combined video mixes. Shared Drive originals use BailaCue’s player where available, with a Drive preview fallback.</p><a href="#practice" class="button primary small">Create a mix</a></section><section class="settings-card"><h3>Two fixed dance collections.</h3>${SOURCES.map(source => `<div class="source-row"><i class="dance-dot ${source.id}"></i><span>${source.dance}<small>${driveVideos().filter(v => v.dance === source.dance).length} in library</small></span><a class="icon-button" href="https://drive.google.com/drive/folders/${source.folderId}" target="_blank" rel="noopener noreferrer" aria-label="View ${source.dance} videos">${icon('external')}</a></div>`).join('')}<p class="helper-text">Counts show videos currently loaded in the BailaCue library. Reloading updates the deployed catalogue snapshot; it does not scan Google Drive.</p><button class="text-button" data-action="reload-catalogue">${icon('refresh')} Reload library catalogue</button></section><section class="settings-card"><h3>YouTube videos</h3><p>The administrator can publish YouTube videos to the shared library.</p><div class="source-row"><span>${icon('youtube')}</span><span>YouTube<small>${state.youtube.length} public sources</small></span></div>${admin.isAdmin ? `<button class="button primary small" data-action="add-youtube">${icon('plus')} Add YouTube</button>` : ''}<button class="button subtle small" data-action="show-youtube">View sources</button></section>${admin.isAdmin ? `<section class="settings-card"><h3>Administrator tools</h3><p>You can add Google Drive videos, publish YouTube links and manage shared labels. Everyone can edit video metadata. Your sign-in is preserved until you sign out.</p><a href="#upload" class="button primary small">Manage uploads</a><a href="#labels" class="button subtle small">Manage labels</a><button class="button subtle small" data-action="export">Export backup</button>${localStorage.getItem(LEGACY_BACKUP_KEY) ? '<button class="button subtle small" data-action="export-legacy">Export previous browser collection</button>' : ''}<button class="button subtle small" data-action="import">Import backup</button><input class="local-backup" id="backup-file" type="file" accept="application/json,.json"></section>` : ''}</div>`;
   $('#backup-file')?.addEventListener('change', importBackup);
 }
-function render() {
-  if (uploadRunning() && activeView === 'upload') return;
-  const titles = { library: 'Library', practice: 'Mixes', settings: 'Settings', labels: 'Labels', upload: 'Add videos' };
+function updateMixCounter() {
   const mixCounter = $('#nav-mix-count');
   if (mixCounter) {
     const mixSize = state.queue.filter(id => !!videoById(id)).length;
@@ -351,6 +361,11 @@ function render() {
     mixCounter.textContent = String(mixSize);
     mixCounter.setAttribute('aria-label', `${mixSize} ${mixSize === 1 ? 'video' : 'videos'} in mix`);
   }
+}
+function render() {
+  if (uploadRunning() && activeView === 'upload') return;
+  const titles = { library: 'Library', practice: 'Mixes', settings: 'Settings', labels: 'Labels', upload: 'Add videos' };
+  updateMixCounter();
   $('#breadcrumb').textContent = titles[activeView];
   $('#mobile-settings').setAttribute('aria-current', activeView === 'settings' ? 'page' : 'false');
   document.title = `${titles[activeView]} · BailaCue`;
@@ -376,6 +391,48 @@ function updatePlayer() {
   $('#queue-nav').innerHTML = playbackIndex >= 0 ? `<button class="button subtle small" data-action="previous" ${playbackIndex === 0 ? 'disabled' : ''}>${icon('back')} Previous</button><span>${playbackIndex + 1} / ${playbackQueue.length}</span><button class="button primary small" data-action="next" ${playbackIndex >= playbackQueue.length - 1 ? 'disabled' : ''}>Next cue ${icon('arrow')}</button>` : '';
   $('#remove-row').innerHTML = admin.isAdmin && selected.provider === 'youtube' ? '<button class="text-button" data-action="remove-youtube">Remove this YouTube source</button>' : '';
 }
+function hideMetadataIsland(immediate = false) {
+  clearTimeout(metadataIslandTimeout);
+  clearTimeout(metadataIslandHideTimeout);
+  const island = $('#metadata-island');
+  if (!island) return;
+  island.classList.remove('island-visible');
+  if (immediate) island.hidden = true;
+  else metadataIslandHideTimeout = setTimeout(() => { island.hidden = true; }, 220);
+}
+function positionMetadataIsland() {
+  const island = $('#metadata-island');
+  if (!island || island.hidden) return;
+  const shell = $('#video-only-shell').getBoundingClientRect();
+  const frame = $('#video-frame').getBoundingClientRect();
+  const height = island.getBoundingClientRect().height;
+  const lowerEdge = frame.bottom - shell.top;
+  const inset = Math.max(14, Math.round(frame.height * 0.06));
+  island.style.top = `${Math.max(12, Math.round(lowerEdge - height - inset))}px`;
+}
+function showMetadataIsland(video) {
+  clearTimeout(metadataIslandTimeout);
+  clearTimeout(metadataIslandHideTimeout);
+  const island = $('#metadata-island');
+  if (!island) return;
+  island.classList.remove('island-visible');
+  const m = meta(video.id);
+  const labels = (Array.isArray(m.labelIds) ? m.labelIds : [])
+    .map(id => state.labels.find(label => label.id === id))
+    .filter(Boolean);
+  const hasStyle = (Array.isArray(m.styleTimingIds) && m.styleTimingIds.length > 0)
+    || (Array.isArray(m.danceStyles) && m.danceStyles.length > 0)
+    || labels.some(label => ['Style', 'Style & timing'].includes(label.type));
+  const hasMove = (Array.isArray(m.moveIds) && m.moveIds.length > 0)
+    || (Array.isArray(m.moves) && m.moves.length > 0)
+    || labels.some(label => ['Moves', 'Position', 'Technique', 'Musicality'].includes(label.type));
+  if (video.provider === 'local' || (m.level && hasStyle && hasMove)) {
+    island.hidden = true;
+    return;
+  }
+  island.hidden = false;
+  metadataIslandTimeout = setTimeout(() => hideMetadataIsland(), 6500);
+}
 function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay = false) {
   const v = override || videoById(id); if (!v) return;
   selected = v;
@@ -390,7 +447,15 @@ function openPlayer(id, queue = null, override = null, localUrl = '', autoPlay =
   $('#personal-title').value = meta(id).title || ''; $('#notes').value = meta(id).notes || ''; setMetadataStatus(id);
 
   updatePlayer(); mountVideoDetails(); if (!$('#player').open) $('#player').showModal();
-  requestAnimationFrame(() => { if ($('#player').open) applyVideoHeight(state.playerHeight); });
+  showMetadataIsland(v);
+  requestAnimationFrame(() => {
+    if (!$('#player').open) return;
+    applyVideoHeight(state.playerHeight);
+    positionMetadataIsland();
+    requestAnimationFrame(() => {
+      if ($('#player').open && !$('#metadata-island').hidden) $('#metadata-island').classList.add('island-visible');
+    });
+  });
 }
 
 function toggleQueue(id) { const queued = state.queue.includes(id); state.queue = queued ? state.queue.filter(x => x !== id) : [...state.queue, id]; save(); toast(queued ? 'Removed from mix' : 'Added to mix'); if (selected?.id === id) updatePlayer(); refreshView(); }
@@ -515,6 +580,19 @@ document.addEventListener('click', async event => {
   const action = button.dataset.action, id = button.dataset.id;
   if (action === 'open') openPlayer(id, null, null, '', button.dataset.autoplay === 'true');
   if (action === 'queue') toggleQueue(id);
+  if (action === 'queue-all-filtered' && activeView === 'library') {
+    const matches = filterVideos(videos(), state.meta, { ...filters, randomSeed }, state.labels);
+    const result = appendFilteredToMix(state.queue, matches);
+    if (!result.added) {
+      toast(matches.length ? 'All matching videos are already in your mix.' : 'No matching videos to add.');
+    } else {
+      state.queue = result.queue;
+      save();
+      updateMixCounter();
+      renderResults();
+      toast(`Added ${result.added} filtered ${result.added === 1 ? 'video' : 'videos'} to your mix.`);
+    }
+  }
   if (action === 'shuffle-videos') { filters.sort = 'random'; randomSeed = Math.floor(Math.random() * 0x100000000); currentPage = 1; $('#sort-filter').value = 'random'; renderResults(); }
   if (action === 'filter-dance') { filters.dance = button.dataset.dance; currentPage = 1; render(); page.querySelector('.segmented [data-dance="' + filters.dance + '"]')?.focus({ preventScroll: true }); }
   if (action === 'refresh-picks') { ensurePicks(true); render(); toast('Two fresh cues. Let’s dance.'); }
@@ -531,7 +609,7 @@ document.addEventListener('click', async event => {
       const count = clampMixCount(requested, pool.length);
       state.queue = practiceQueue(pool, state.meta).slice(0, count);
       save(); render();
-      toast(`${dance === 'Both' ? 'Salsa & Bachata' : dance} mix ready — ${state.queue.length} videos.${count < requested ? ' That is every available video for this dance.' : ''}`);
+      toast(`${dance === 'Both' ? 'Salsa + Bachata' : dance} mix ready: ${state.queue.length} videos${count < requested ? ' (all available)' : ''}.`);
     };
     if (state.queue.length) {
       const dialog = document.createElement('dialog');
@@ -586,7 +664,15 @@ document.addEventListener('click', async event => {
   if (action === 'retry-load') start();
 });
 $('#confirm-remove').addEventListener('click', async () => { if (!removing || !requireAdmin()) return; try { await admin.remove('youtube:' + removing); } catch (error) { toast('Removal failed: ' + error.message); return; } state.youtube = state.youtube.filter(v => v.id !== removing); state.queue = state.queue.filter(id => id !== removing); state.history = state.history.filter(h => h.id !== removing); delete state.meta[removing]; save(); removing = null; $('#confirm-dialog').close(); $('#player').close(); render(); $('#nav-count').textContent = String(videos().length); toast('YouTube source removed'); });
-$('#player').addEventListener('close', () => { cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#player').addEventListener('close', () => { hideMetadataIsland(true); cancelStreamUpload(); studioPlayer.stop(); $('#player').classList.remove('browser-wide'); selected = null; if (localPreviewUrl) { URL.revokeObjectURL(localPreviewUrl); localPreviewUrl = ''; } if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); refreshView(); });
+$('#metadata-island-dismiss').addEventListener('click', () => hideMetadataIsland());
+$('#video-frame').addEventListener('videoaspectchange', () => { if (!$('#metadata-island').hidden) positionMetadataIsland(); });
+window.addEventListener('resize', () => { if (!$('#metadata-island').hidden) requestAnimationFrame(positionMetadataIsland); });
+$('#metadata-island-add').addEventListener('click', () => {
+  hideMetadataIsland();
+  const behavior = matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth';
+  $('#public-video-details').scrollIntoView({ behavior, block: 'start' });
+});
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
 for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta, state.labels); });
 $('#personal-title').addEventListener('change', refreshView);

@@ -20,3 +20,102 @@ html:has(dialog[open]){overflow:hidden}#player.fullscreen-mode{width:100%!import
 
 /* Structured dance vocabulary and timestamped practice cues */
 .detail-taxonomy,.detail-cues{min-width:0;margin-block:10px}.detail-cues{padding:14px;border:1px solid var(--border,#d6d9d7);border-radius:12px}.detail-cues h3{margin:0 0 6px}.cue-row,.cue-add{display:flex;align-items:center;gap:8px;margin:7px 0}.cue-row button:first-child{flex:1;text-align:left}.cue-add select{flex:1;min-width:0}.cue-list{max-height:220px;overflow:auto}
+
+
+/* Short-lived community contribution prompt inside the video stage. */
+#video-only-shell { position: relative; }
+#player .metadata-island {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: min(520px, calc(100% - 24px));
+  padding: 10px 12px;
+  border: 1px solid #d9e1ed;
+  border-radius: 18px;
+  background: rgb(250 252 255 / 96%);
+  color: #182438;
+  box-shadow: 0 12px 32px rgb(7 17 34 / 32%);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  transform: translate(-50%, -8px) scale(.98);
+  pointer-events: none;
+  transition: opacity 220ms ease, transform 220ms ease;
+}
+#player .metadata-island[hidden] { display: none !important; }
+#player .metadata-island.island-visible {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  pointer-events: auto;
+}
+.metadata-island-mark {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
+  border-radius: 11px;
+  background: #e8efff;
+  color: #315dcc;
+  font-size: 19px;
+  font-weight: 800;
+}
+.metadata-island-copy {
+  display: grid;
+  flex: 1 1 auto;
+  min-width: 0;
+  gap: 2px;
+  line-height: 1.35;
+}
+.metadata-island-copy strong { font-size: 12px; font-weight: 750; }
+.metadata-island-copy span { font-size: 11px; color: #526078; }
+.metadata-island-action {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 10px;
+  background: #315dcc;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.metadata-island-action:hover { background: #244db7; }
+.metadata-island-dismiss {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 30px;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #526078;
+  font-size: 21px;
+  line-height: 1;
+}
+.metadata-island-dismiss:hover { background: #e8edf5; color: #182438; }
+@media (max-width: 520px) {
+  #player .metadata-island {
+    display: grid;
+    grid-template-columns: 32px minmax(0, 1fr) 30px;
+    gap: 7px 9px;
+    padding: 10px;
+    border-radius: 16px;
+  }
+  .metadata-island-mark { grid-column: 1; grid-row: 1; }
+  .metadata-island-copy { grid-column: 2; grid-row: 1; }
+  .metadata-island-action { grid-column: 2; grid-row: 2; justify-self: start; }
+  .metadata-island-dismiss { grid-column: 3; grid-row: 1; align-self: start; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #player .metadata-island { transition: none; }
+}
+
+/* Complete metadata entry in the upload queue. */
+.upload-file>.upload-file-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(190px,.72fr);align-items:center;gap:7px 14px;flex:1;min-width:0}.upload-file-main>strong,.upload-file-main>small{grid-column:1}.upload-file-main>small{margin-top:0}.upload-title-field{grid-column:2;grid-row:1 / span 2;display:grid;gap:5px;min-width:0}.upload-title-field>span{font-size:9px;color:var(--muted)}.upload-title-field>span small{font-size:inherit;color:inherit}.upload-title-field input{box-sizing:border-box;width:100%;min-width:0;min-height:36px;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:var(--surface);color:var(--text);font:inherit;font-size:11px}.upload-title-field input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}.upload-title-field input:disabled{opacity:.65}.upload-file>.upload-file-actions{flex:0 0 auto}.upload-details .form-columns{margin-block:13px}.upload-details .form-columns>.field,.upload-details .form-columns>div{min-width:0}.upload-details .field textarea{width:100%;box-sizing:border-box}@media(max-width:720px){.upload-file{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:start}.upload-file>.upload-file-main{grid-column:2;grid-template-columns:minmax(0,1fr);gap:5px}.upload-title-field{grid-column:1;grid-row:auto;margin-top:6px}.upload-file>.upload-file-actions{grid-column:2;justify-content:flex-start;padding-left:0}.upload-details .form-columns{grid-template-columns:1fr;gap:13px}}

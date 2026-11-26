@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { cleanState, emptyState, filterVideos, SOURCES } from '../core.mjs';
 import { cleanLabels, cleanDetails, createLabel, seedLabels, nextNumber, numberedName, mapDriveFile } from '../studio-model.mjs';
 import { DriveConnection, acknowledgedOffset } from '../drive.mjs';
+import { JSDOM } from 'jsdom';
+import { labelPicker } from '../studio-ui.mjs';
 
 test('labels distinguish their type, deduplicate Unicode/case/spacing and keep deleted suggestions deleted', () => {
   const labels = seedLabels();
@@ -11,6 +13,35 @@ test('labels distinguish their type, deduplicate Unicode/case/spacing and keep d
   assert.notEqual(createLabel(labels, 'José y María', 'Style').id, first.id);
   assert.deepEqual(cleanLabels([]), []);
   assert.equal(cleanLabels([{ id: '__proto__', name: 'Bad type', type: 'HTML' }]).length, 0);
+});
+test('artist pickers show saved artists and legacy teachers across dances', () => {
+  const labels = cleanLabels([
+    { id: 'artist-salsa', name: 'Salsa artist', type: 'Artist', dance: 'Salsa' },
+    { id: 'artist-bachata', name: 'Bachata artist', type: 'Artist', dance: 'Bachata' },
+    { id: 'legacy-teacher', name: 'Legacy teacher', type: 'Teacher', dance: 'Bachata' },
+    { id: 'move-salsa', name: 'Copa', type: 'Moves', dance: 'Salsa' },
+  ]);
+  assert(labels.some(label => label.id === 'legacy-teacher'), 'legacy teacher names must survive label cleanup');
+  assert.equal(createLabel(labels, 'Legacy Teacher', 'Artist', 'Salsa').id, 'legacy-teacher');
+  const dom = new JSDOM('<div id="artists"></div><div id="moves"></div>');
+  try {
+    labelPicker(dom.window.document.querySelector('#artists'), {
+      title: 'Artists & teachers', labels: () => labels, artists: true, dance: 'Salsa',
+    });
+    assert.deepEqual(
+      [...dom.window.document.querySelectorAll('#artists [role="option"]')].map(option => option.dataset.id),
+      ['artist-salsa', 'artist-bachata', 'legacy-teacher'],
+    );
+    labelPicker(dom.window.document.querySelector('#moves'), {
+      title: 'Moves/Technique', labels: () => labels.filter(label => label.type === 'Moves'), dance: 'Salsa',
+    });
+    assert.deepEqual(
+      [...dom.window.document.querySelectorAll('#moves [role="option"]')].map(option => option.dataset.id),
+      ['move-salsa'],
+    );
+  } finally {
+    dom.window.close();
+  }
 });
 test('old web backups migrate without losing ratings or inventing artists and recording dates', () => {
   const old = { version: 1, meta: { 'drive:abcdefghijk': { rating: 9, notes: 'Keep shoulders relaxed' } }, youtube: [] };

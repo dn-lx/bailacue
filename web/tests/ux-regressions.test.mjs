@@ -41,6 +41,20 @@ test('BailaCue wordmark is visible in the mobile header without crowding actions
   assert.match(css, /@media \(max-width: 380px\) \{/);
 });
 
+test('bulk Add all to mix action follows the full filtered result set and adapts to mobile', () => {
+  assert.ok(app.includes('id="add-all-filtered" data-action="queue-all-filtered"'));
+  assert.ok(app.includes('Add all to mix'));
+  assert.ok(app.includes('const pending = matches.filter(video => !state.queue.includes(video.id)).length;'));
+  assert.ok(app.includes("if (action === 'queue-all-filtered' && activeView === 'library')"));
+  assert.ok(app.includes('appendFilteredToMix(state.queue, matches)'));
+  assert.ok(app.includes('state.queue = result.queue'));
+  assert.ok(app.includes('updateMixCounter();'));
+  assert.ok(app.includes('renderResults();'));
+  assert.ok(css.includes('.library-feedback .add-filtered-to-mix'));
+  assert.ok(css.includes('.library-feedback .add-filtered-to-mix:disabled'));
+  assert.ok(css.includes('.library-feedback #result-count { flex: 1 1 100%; }'));
+});
+
 test('browser video mix actions and accessible result counts remain consistent', () => {
   assert.match(app, /aria-live="polite" aria-atomic="true"/);
   assert.match(app, /Showing \$\{\(currentPage - 1\) \* (?:displayedPageSize|pageSize) \+ 1\}/);

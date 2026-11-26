@@ -9,6 +9,24 @@ export const SOURCES = Object.freeze([
 export function emptyState() {
   return { version: 1, meta: {}, youtube: [], drive: [], labels: seedLabels(), numbering: { Salsa: 0, Bachata: 0 }, googleClientId: '', playerSize: 960, playerHeight: 0, queue: [], mixSize: 10, history: [], daily: null, theme: 'light' };
 }
+/** Append every matching library video to the current mix, preserving order and avoiding duplicates.
+ * This intentionally takes the full filtered result set, not the visible pagination slice.
+ * @param {string[]} queue Current mix video ids
+ * @param {Array<{id:string}>} matches Full filtered video results
+ * @returns {{queue:string[], added:number}}
+ */
+export function appendFilteredToMix(queue, matches) {
+  const result = [...queue];
+  const seen = new Set(result);
+  let added = 0;
+  for (const video of matches) {
+    if (!video?.id || seen.has(video.id)) continue;
+    seen.add(video.id);
+    result.push(video.id);
+    added++;
+  }
+  return { queue: result, added };
+}
 /** Clamp the selected number of videos to the available catalogue without rounding up. */
 export function clampMixCount(value, available, fallback = 10) {
   const maximum = Math.max(0, Math.floor(Number(available) || 0));
@@ -139,11 +157,44 @@ export function dailyPicks(videos, meta, day, previous = []) {
     return pool[0] ? [pool[0].id] : [];
   });
 }
+/** @param {import('./types.js').Metadata} value */
+function metadataCoverage(value = {}) {
+  const hasText = key => typeof value[key] === 'string' && value[key].trim().length > 0;
+  const hasItems = key => Array.isArray(value[key]) && value[key].length > 0;
+  return [
+    hasText('title'),
+    hasText('level'),
+    hasItems('styleTimingIds') || hasItems('danceStyles'),
+    hasItems('moveIds') || hasItems('moves'),
+    hasItems('artistIds'),
+    hasItems('labelIds'),
+    hasText('recordedAt'),
+    hasText('event'),
+    hasText('location'),
+    hasText('notes'),
+    hasItems('cues'),
+  ].filter(Boolean).length;
+}
 /** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta */
 export function practiceQueue(videos, meta, random = Math.random) {
-  const byDance = ['Salsa', 'Bachata'].map(dance => videos.filter(v => v.dance === dance).map(v => ({ id: v.id, key: -Math.log(Math.max(0.000001, random())) })).sort((a, b) => a.key - b.key));
+  const groups = new Map();
+  for (const video of videos) {
+    const coverage = metadataCoverage(meta?.[video.id] || {});
+    if (!groups.has(coverage)) groups.set(coverage, { Salsa: [], Bachata: [] });
+    const pool = groups.get(coverage)[video.dance];
+    if (pool) pool.push({ id: video.id, key: -Math.log(Math.max(0.000001, random())) });
+  }
   const out = [];
-  while (byDance.some(x => x.length)) for (const pool of byDance) if (pool.length) out.push(pool.shift().id);
+  let nextDance = 'Salsa';
+  for (const coverage of [...groups.keys()].sort((a, b) => a - b)) {
+    const group = groups.get(coverage);
+    for (const pool of Object.values(group)) pool.sort((a, b) => a.key - b.key);
+    while (group.Salsa.length || group.Bachata.length) {
+      const dance = group[nextDance].length ? nextDance : nextDance === 'Salsa' ? 'Bachata' : 'Salsa';
+      out.push(group[dance].shift().id);
+      nextDance = dance === 'Salsa' ? 'Bachata' : 'Salsa';
+    }
+  }
   return out;
 }
 /** @param {import('./types.js').Video[]} videos @param {Record<string, import('./types.js').Metadata>} meta @param {import('./types.js').Filters} filters @param {import('./types.js').Label[]} labels */
