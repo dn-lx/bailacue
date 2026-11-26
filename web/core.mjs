@@ -1,5 +1,5 @@
 /** BailaCue web domain logic. No BailaCue account dependency. */
-import { seedLabels, cleanLabels, cleanDetails } from './studio-model.mjs';
+import { seedLabels, cleanLabels, cleanDetails, normalizeName } from './studio-model.mjs';
 export const STORAGE_KEY = 'bailacue:web:v1';
 export const SOURCES = Object.freeze([
   Object.freeze({ id: 'salsa', dance: 'Salsa', folderId: '1lVR5Pc-6SupJOfLIhcRE-oo69FUDM5Sm' }),
@@ -101,20 +101,24 @@ export function cleanState(input) {
 /** @param {import('./types.js').Video} video @param {Record<string, import('./types.js').Metadata>} meta */
 export function displayTitle(video, meta = {}, labels = []) {
   const details = meta[video.id] || {};
-  const labelNames = (ids, kinds) => [...new Set((ids || []).map(id =>
-    labels.find(label => label.id === id && kinds.includes(label.type))?.name).filter(Boolean))];
+  const cleanText = value => String(value || '').trim().replace(/\s+/g, ' ');
+  const seen = new Set();
   const styles = [...(details.danceStyles || []),
-    ...labelNames([...(details.styleTimingIds || []), ...(details.labelIds || [])], ['Style', 'Style & timing'])];
-  const moves = [...(details.moves || []),
-    ...labelNames([...(details.moveIds || []), ...(details.labelIds || [])], ['Moves', 'Technique', 'Position'])];
-  const artists = labelNames(details.artistIds || [], ['Artist', 'Teacher']);
+    ...[...(details.styleTimingIds || []), ...(details.labelIds || [])].map(id =>
+      labels.find(label => label.id === id && ['Style', 'Style & timing'].includes(label.type))?.name)]
+    .map(cleanText).filter(name => {
+      const key = normalizeName(name);
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
   const dateValue = video.updatedAt || video.addedAt || '';
   const match = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateValue);
   const date = match ? match[3] + match[2] + match[1].slice(-2) : '';
-  const parts = [date, video.dance || 'Dance', styles[0], moves[0],
-    details.level, details.event, artists[0]].map(v => String(v || '').trim()).filter(Boolean);
+  // Styles already have human-readable names; the dance category is not a title section.
+  const parts = [date, styles.join(', '), details.level].map(cleanText).filter(Boolean);
   // Never expose original Drive filenames, even when no descriptive metadata exists.
-  return parts.map(part => part.replace(/\s+/g, '-')).join('-');
+  return parts.join(' - ') || 'Video';
 }
 /** Recently opened videos are browser-local, never added to shared metadata. */
 export function recordRecent(history, id, at = new Date().toISOString()) {
@@ -214,7 +218,7 @@ export function filterVideos(videos, meta, filters, labels = []) {
        && (!filters.positions?.length || filters.positions.some(id => m.labelIds?.includes(id)))
        && (!filters.techniques?.length || filters.techniques.some(id => m.labelIds?.includes(id)))
        && (!filters.musicality?.length || filters.musicality.some(id => m.labelIds?.includes(id)))
-      && (!query || `${displayTitle(v, meta)} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
+      && (!query || `${displayTitle(v, meta, labels)} ${m.notes || ''} ${m.event || ''} ${m.location || ''} ${[...(m.moves || []), ...(m.danceStyles || []), ...labels.filter(l => [...(m.moveIds || []), ...(m.styleTimingIds || []), ...(m.artistIds || []), ...(m.labelIds || [])].includes(l.id)).map(l => l.name)].join(' ')}`.toLocaleLowerCase().includes(query));
   });
   const title = v => displayTitle(v, meta, labels);
   const byTitle = (a, b) => title(a).localeCompare(title(b), undefined, { numeric: true });

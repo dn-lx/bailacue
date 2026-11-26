@@ -77,6 +77,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
   const rows=new Map([['labels',{items:[
     {id:'qa-move',name:'Partnerwork',type:'Moves',dance:'Both'},
     {id:'qa-style',name:'Sensual',type:'Style & timing',dance:'Both'},
+    {id:'qa-style-2',name:'Fusion',type:'Style',dance:'Both'},
     {id:'qa-artist',name:'Test teacher',type:'Artist',dance:'Both'},
   ]}]]);
   let h=await visitor(rows), videoId;
@@ -100,6 +101,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     fill('#detail-recorded','2026-11-06','change');
     $('#detail-moves [data-id="qa-move"]').click();
     $('#detail-dance-styles [data-id="qa-style"]').click();
+    $('#detail-dance-styles [data-id="qa-style-2"]').click();
     fill('#detail-level','Intermediate','change');
     $('#detail-artists [data-id="qa-artist"]').click();
     fill('#detail-artists .picker-search','New public teacher');
@@ -110,11 +112,11 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     const addedArtist=rows.get('labels').items.find(l=>l.name==='New public teacher');
     assert.deepEqual(rows.get('meta:'+videoId),{
       title:'Editable partnerwork',notes:'Keep the weight transfer smooth.',
-      labelIds:[],moveIds:['qa-move'],styleTimingIds:['qa-style'],level:'Intermediate',
+      labelIds:[],moveIds:['qa-move'],styleTimingIds:['qa-style','qa-style-2'],level:'Intermediate',
       artistIds:['qa-artist',addedArtist.id],recordedAt:'2026-11-06',
       event:'Evening class',location:'Valencia',
     });
-    assert.match($('#player-title').textContent,/Bachata|Salsa/);
+    assert.match($('#player-title').textContent,/^\d{6} - Sensual, Fusion - Intermediate$/);
     assert.equal($('#video-details-editor').hidden,false);
     h.fail(true); fill('#notes','Retry this public change.');
     await until(()=>!$('#retry-video-save').hidden);
@@ -136,6 +138,7 @@ test('guests edit, create labels and artists, save, retry and share metadata acr
     assert.equal(h.$('#notes').value,'Retry this public change.');
     assert.equal(h.$('#detail-recorded').value,'2026-11-06');
     assert.equal(h.$('#detail-level').value,'Intermediate');
+    assert.match(h.$('#player-title').textContent,/^\d{6} - Sensual, Fusion - Intermediate$/);
     assert.match(h.$('#detail-artists .selected-tags').textContent,/New public teacher/);
     assert.equal(h.authenticationRequests,0);
   } finally { h.close(); }

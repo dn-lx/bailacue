@@ -1,4 +1,26 @@
-# Current handoff · published 0.3.0/build27
+# Current handoff
+
+## 2026-11-26 · compact web video titles
+
+GitHub had deleted `develop` after PR #20 merged. Restored integration from
+`bb2192d69cc498122ea3afb46208a6e47bcb519d`; this task does not update or merge `main`.
+
+Web display titles now use `DDMMYY - Style one, Style two - Level`, skipping empty
+sections and deduplicating style names across legacy text and typed label IDs.
+Per the owner's clarification, omit the dance category entirely. Keep readable
+label names, accents and punctuation; omit moves, techniques, events and teachers.
+Preserve the existing modified-date/added-date fallback, filenames, IDs and all
+stored metadata. A completely undescribed video displays `Video`.
+The open player's title updates when styles or level change; search and sorting
+use the same resolved display titles.
+
+Local verification: 129/129 web tests, web lint/typecheck/build, native typecheck
+and native lint pass (one existing array-type warning in uploadEngine.ts).
+The unchanged native suite passes 187/189 tests; two native-upload tests fail
+because the mocked file has no `digest` method. Native source/tests/dependencies
+are unchanged from the starting commit. No private-account or production writes.
+
+## Earlier published release · 0.3.0/build27
 
 [Direct Android download](https://github.com/dn-lx/BailaCue/releases/download/v0.3.0-preview.27/BailaCue-v0.3.0-build27-preview.apk) · [Requirements](LOCAL-FIRST-REQUIREMENTS.md) · [Usage](LOCAL-STORAGE.md) · [Verification](VERIFICATION.md).
 

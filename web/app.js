@@ -221,6 +221,7 @@ function patchMeta(id, patch) {
   const change = publicMetadata(patch);
   state.meta[id] = { ...meta(id), ...change };
   const saved = save();
+  if (selected?.id === id) updatePlayer();
   if (!id.startsWith('local:')) {
     pendingMetadata.set(id, { ...pendingMetadata.get(id), ...change });
     queueMetaPublish(id);
@@ -674,7 +675,7 @@ $('#metadata-island-add').addEventListener('click', () => {
   $('#public-video-details').scrollIntoView({ behavior, block: 'start' });
 });
 $('#player-queue').addEventListener('click', () => selected && toggleQueue(selected.id));
-for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); if (key === 'title') $('#player-title').textContent = displayTitle(selected, state.meta, state.labels); });
+for (const [selector, key] of [['#notes', 'notes'], ['#personal-title', 'title']]) $(selector).addEventListener('input', event => { if (!selected) return; patchMeta(selected.id, { [key]: event.target.value }); });
 $('#personal-title').addEventListener('change', refreshView);
 $('#youtube-form').addEventListener('submit', async event => {
   event.preventDefault(); if (!requireAdmin()) return;
