@@ -86,18 +86,52 @@
     dlg.innerHTML='<div class="ig-shell"><div class="ig-head"><div><div class="ig-eyebrow">Install as an app</div><h2 id="ig-title">Put this app on your device</h2><p>Choose a device to see illustrated steps.</p></div><button type="button" class="ig-close" aria-label="Close install guide" data-ig-close>×</button></div><div class="ig-scroll"><div class="ig-choices" role="group" aria-label="Choose device or browser"></div><div class="ig-content" aria-live="polite"></div></div></div>';
     document.body.appendChild(dlg);
     let selected=device(),installEvent=null,returnFocus=null;
+    const standalone=matchMedia("(display-mode: standalone)");
+    const installedKey="bailacue.webAppInstalled";
+    function readInstalled() {
+      try { return localStorage.getItem(installedKey)==="1"; } catch { return false; }
+    }
+    let installedHere=readInstalled();
+    function rememberInstalled(value) {
+      installedHere=value;
+      try {
+        if(value)localStorage.setItem(installedKey,"1");
+        else localStorage.removeItem(installedKey);
+      } catch { /* Installation detection still works in this session. */ }
+    }
+    function isInstalled() {
+      return standalone.matches||navigator.standalone===true||installedHere;
+    }
+    function syncInstallControls() {
+      if(standalone.matches||navigator.standalone===true)rememberInstalled(true);
+      const installed=isInstalled();
+      document.querySelectorAll("[data-install-guide-open]").forEach(trigger=>{trigger.hidden=installed;});
+      if(installed&&dlg.open)dlg.close();
+    }
+    if(standalone.addEventListener)standalone.addEventListener("change",syncInstallControls);
+    else if(standalone.addListener)standalone.addListener(syncInstallControls);
+    addEventListener("pageshow",syncInstallControls);
+    addEventListener("storage",e=>{
+      if(e.key===installedKey||e.key===null){installedHere=readInstalled();syncInstallControls();}
+    });
+    syncInstallControls();
     function draw() {
       const g=guides.find(x=>x.id===selected)||guides[0];
       dlg.querySelector(".ig-choices").innerHTML=guides.map(x=>'<button type="button" class="ig-choice" data-ig-choice="'+x.id+'" aria-pressed="'+(x.id===selected)+'"><strong>'+escapeHtml(x.name)+'</strong><small>'+escapeHtml(x.browser)+'</small></button>').join("");
-      const installed=matchMedia("(display-mode: standalone)").matches||navigator.standalone===true;
+      const installed=isInstalled();
       const intro='<div class="ig-intro"><strong>'+escapeHtml(g.name+' · '+g.browser)+'</strong><p>'+(installed?'You are already viewing an installed web app. You can still review the steps.':'No app-store download is required. This places the web version on your Home screen or app launcher; it may still require an internet connection.')+'</p>'+
         (installEvent&&!installed&&["android","chrome","edge"].includes(selected)?'<button type="button" class="ig-install-now" data-ig-prompt>Install now</button>':'')+'</div>';
       const wide=["chrome","edge","mac"].includes(g.id);
       dlg.querySelector(".ig-content").innerHTML=intro+'<ol class="ig-steps">'+g.steps.map((s,i)=>'<li class="ig-step"><div class="ig-step-head"><span>'+(i+1)+'</span><h3>'+escapeHtml(s[0])+'</h3></div><div class="ig-art">'+illustration(s[2],s[3],wide)+'</div><p>'+escapeHtml(s[1])+'</p></li>').join("")+'</ol>'+
       '<p class="ig-note">These are illustrations, not exact browser screenshots. Menus differ by browser version. If the option is missing, open the site in the recommended browser and update it. <a href="'+escapeHtml(g.help)+'" target="_blank" rel="noopener noreferrer">Official browser help</a>. This is the web version, not a native app-store download.</p>';
     }
-    addEventListener("beforeinstallprompt", e=>{e.preventDefault();installEvent=e;if(dlg.open)draw();});
-    addEventListener("appinstalled",()=>{installEvent=null;if(dlg.open)draw();});
+    addEventListener("beforeinstallprompt", e=>{
+      e.preventDefault();installEvent=e;
+      // A fresh install prompt means the browser permits installation again.
+      if(!standalone.matches&&navigator.standalone!==true)rememberInstalled(false);
+      syncInstallControls();if(dlg.open)draw();
+    });
+    addEventListener("appinstalled",()=>{installEvent=null;rememberInstalled(true);syncInstallControls();});
     dlg.addEventListener("click",e=>{
       const el=e.target instanceof Element?e.target:null;
       if(!el)return;
@@ -107,10 +141,10 @@
       if(el.closest("[data-ig-prompt]")&&installEvent){const prompt=installEvent;installEvent=null;prompt.prompt();prompt.userChoice.finally(draw);}
       if(el===dlg)dlg.close();
     });
-    dlg.addEventListener("close",()=>{if(returnFocus&&returnFocus.isConnected)returnFocus.focus();});
+    dlg.addEventListener("close",()=>{if(returnFocus&&returnFocus.isConnected&&!returnFocus.hidden)returnFocus.focus();});
     document.addEventListener("click",e=>{
       const trigger=e.target instanceof Element?e.target.closest("[data-install-guide-open]"):null;
-      if(!trigger)return;
+      if(!trigger||isInstalled())return;
       e.preventDefault();returnFocus=trigger;draw();if(!dlg.open)dlg.showModal();dlg.querySelector("[data-ig-close]")?.focus();
     });
     // The other app uses client-side rendering, so no static dependency on framework markup.
