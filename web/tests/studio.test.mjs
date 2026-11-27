@@ -4,7 +4,7 @@ import { cleanState, emptyState, filterVideos, SOURCES } from '../core.mjs';
 import { cleanLabels, cleanDetails, createLabel, seedLabels, nextNumber, numberedName, mapDriveFile } from '../studio-model.mjs';
 import { DriveConnection, acknowledgedOffset } from '../drive.mjs';
 import { JSDOM } from 'jsdom';
-import { labelPicker } from '../studio-ui.mjs';
+import { labelPicker, renderLabelManager } from '../studio-ui.mjs';
 
 test('labels distinguish their type, deduplicate Unicode/case/spacing and keep deleted suggestions deleted', () => {
   const labels = seedLabels();
@@ -136,4 +136,74 @@ test('uploaded Drive videos use the actual creation timestamp, not the optional 
   assert.equal(video.dance, 'Bachata');
   assert.equal(video.filename, '0116.mp4');
   assert.equal(cleanDetails({}).recordedAt, '');
+});
+
+test('label directory uses exclusive category tabs, grouping legacy aliases without changing IDs', async () => {
+  const dom = new JSDOM('<main></main>');
+  const page = dom.window.document.querySelector('main');
+  const state = { labels: [
+    { id: 'legacy-style', name: 'Salsa On1', type: 'Style', dance: 'Salsa' },
+    { id: 'style-timing', name: 'Salsa On2', type: 'Style & timing', dance: 'Salsa' },
+    { id: 'move', name: 'Copa', type: 'Moves', dance: 'Salsa' },
+    { id: 'tech', name: 'Footwork', type: 'Technique', dance: 'Both' },
+    { id: 'position', name: 'Shadow', type: 'Position', dance: 'Both' },
+    { id: 'music', name: 'Break', type: 'Musicality', dance: 'Both' },
+    { id: 'artist', name: 'Teacher A', type: 'Artist', dance: 'Both' },
+    { id: 'teacher', name: 'Teacher B', type: 'Teacher', dance: 'Salsa' },
+    { id: 'video', name: 'Tutorial', type: 'Video type', dance: 'Both' },
+    { id: 'level', name: 'Beginner', type: 'Level', dance: 'Both' },
+  ], meta: { video: { moveIds: ['move'], labelIds: ['move','tech'] } } };
+  let saves = 0;
+  renderLabelManager(page, { state: () => state, save: () => { saves++; return true; }, toast: () => {} });
+  const tabs = [...page.querySelectorAll('[role=tab]')];
+  const rows = () => [...page.querySelectorAll('[data-edit]')].map(button => button.dataset.edit);
+  const select = title => tabs.find(tab => tab.textContent.trim().startsWith(title)).click();
+  assert.equal(tabs.length, 8);
+  assert.deepEqual(rows(), ['legacy-style', 'style-timing']);
+  select('Moves');
+  assert.deepEqual(rows(), ['move']);
+  assert.match(page.querySelector('.label-row-main').textContent, /1 videos/);
+  select('Techniques');
+  assert.deepEqual(rows(), ['tech']);
+  select('Positions');
+  assert.deepEqual(rows(), ['position']);
+  select('Musicality');
+  assert.deepEqual(rows(), ['music']);
+  select('Artists');
+  assert.deepEqual(rows(), ['artist','teacher']);
+  select('Video types');
+  assert.deepEqual(rows(), ['video']);
+  select('Legacy levels');
+  assert.deepEqual(rows(), ['level']);
+  assert.equal(page.querySelector('#label-create-panel').hidden, true);
+  tabs.at(-1).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+  assert.equal(tabs[0].getAttribute('aria-selected'), 'true');
+  assert.equal(page.querySelector('#label-create-panel').hidden, false);
+  assert.deepEqual(rows(), ['legacy-style','style-timing']);
+  const search = page.querySelector('#manage-label-search');
+  search.value = 'On2';
+  search.dispatchEvent(new dom.window.Event('input'));
+  assert.deepEqual(rows(), ['style-timing']);
+  select('Moves');
+  assert.equal(search.value, '');
+  assert.equal(page.querySelector('#label-create-heading').textContent, 'Add move');
+  page.querySelector('#new-label-name').value = 'Titanic';
+  page.querySelector('#label-form').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
+  await Promise.resolve();
+  const created = state.labels.find(label => label.name === 'Titanic');
+  assert.equal(created.type, 'Moves');
+  assert.ok(rows().includes(created.id));
+  page.querySelector('[data-edit="move"]').click();
+  page.querySelector('.inline-label-editor input').value = 'Copa turn';
+  page.querySelector('.inline-label-editor').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
+  await Promise.resolve();
+  assert.equal(state.labels.find(label => label.id === 'move').name, 'Copa turn');
+  assert.deepEqual(state.meta.video.moveIds, ['move']);
+  select('Styles');
+  page.querySelector('#new-label-name').value = 'Salsa On1';
+  page.querySelector('#new-label-dance').value = 'Salsa';
+  page.querySelector('#label-form').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
+  assert.match(page.querySelector('#label-error').textContent, /already exists/);
+  assert.equal(saves, 2);
+  dom.window.close();
 });

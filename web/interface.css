@@ -2583,3 +2583,14 @@ details > summary:hover::after { color: var(--blue); }
   }
   .library-feedback .active-filter-chips { flex-basis: 100%; justify-content: flex-start; }
 }
+
+/* Label directory: category tabs wrap on narrow screens without page overflow. */
+.label-category-tabs{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 22px;padding:5px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.label-category-tabs [role=tab]{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:8px 13px;border:1px solid transparent;border-radius:8px;background:transparent;color:var(--muted);font:inherit;font-weight:600;cursor:pointer;white-space:nowrap}
+.label-category-tabs [role=tab][aria-selected=true]{background:var(--soft);border-color:var(--line);color:var(--blue)}
+.label-category-tabs [role=tab]:focus-visible{outline:3px solid var(--blue);outline-offset:2px}
+.label-tab-count{font-size:.8em;font-variant-numeric:tabular-nums;opacity:.8}
+.label-result-count{font-size:13px;margin:0 0 4px}
+#label-create-panel[hidden]{display:none!important}
+#label-category-panel:has(#label-create-panel[hidden]){grid-template-columns:minmax(0,1fr)}
+@media(max-width:720px){.label-category-tabs{gap:4px;margin-bottom:16px}.label-category-tabs [role=tab]{flex:1 0 auto;padding-inline:9px;font-size:13px}}
