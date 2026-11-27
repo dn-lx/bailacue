@@ -154,7 +154,7 @@ test('label directory uses exclusive category tabs, grouping legacy aliases with
     { id: 'level', name: 'Beginner', type: 'Level', dance: 'Both' },
   ], meta: { video: { moveIds: ['move'], labelIds: ['move','tech'] } } };
   let saves = 0;
-  renderLabelManager(page, { state: () => state, save: () => { saves++; return true; }, toast: () => {} });
+  renderLabelManager(page, { state: () => state, videos: () => [{ id: 'video' }], save: () => { saves++; return true; }, toast: () => {} });
   const tabs = [...page.querySelectorAll('[role=tab]')];
   const rows = () => [...page.querySelectorAll('[data-edit]')].map(button => button.dataset.edit);
   const select = title => tabs.find(tab => tab.textContent.trim().startsWith(title)).click();
@@ -173,8 +173,9 @@ test('label directory uses exclusive category tabs, grouping legacy aliases with
   assert.deepEqual(rows(), ['artist','teacher']);
   select('Video types');
   assert.deepEqual(rows(), ['video']);
-  select('Legacy levels');
-  assert.deepEqual(rows(), ['level']);
+  select('Levels');
+  assert.deepEqual([...page.querySelectorAll('.label-row-main strong')].map(el => el.textContent), ['Basic','Intermediate','Advanced']);
+  assert.deepEqual(rows(), []);
   assert.equal(page.querySelector('#label-create-panel').hidden, true);
   tabs.at(-1).dispatchEvent(new dom.window.KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
   assert.equal(tabs[0].getAttribute('aria-selected'), 'true');
@@ -205,5 +206,49 @@ test('label directory uses exclusive category tabs, grouping legacy aliases with
   page.querySelector('#label-form').dispatchEvent(new dom.window.Event('submit', { cancelable: true }));
   assert.match(page.querySelector('#label-error').textContent, /already exists/);
   assert.equal(saves, 2);
+  dom.window.close();
+});
+
+test('label usage counts use current unique library videos and canonical levels, not legacy level IDs', () => {
+  const dom = new JSDOM('<main></main>');
+  const page = dom.window.document.querySelector('main');
+  const labels = [
+    { id: 's', name: 'Salsa On1', type: 'Style', dance: 'Salsa' },
+    { id: 'm', name: 'Copa', type: 'Moves', dance: 'Salsa' },
+    { id: 'p', name: 'Shadow', type: 'Position', dance: 'Both' },
+    { id: 't', name: 'Footwork', type: 'Technique', dance: 'Both' },
+    { id: 'mu', name: 'Break', type: 'Musicality', dance: 'Both' },
+    { id: 'a', name: 'Teacher', type: 'Teacher', dance: 'Both' },
+    { id: 'v', name: 'Class', type: 'Video type', dance: 'Both' },
+    { id: 'unused', name: 'Unused', type: 'Moves', dance: 'Both' },
+    { id: 'old', name: 'Beginner', type: 'Level', dance: 'Both' }
+  ];
+  const state = { labels, meta: {
+    x: { level: 'Basic', styleTimingIds: ['s'], moveIds: ['m','m'], labelIds: ['s','m','p','t','mu','v'], artistIds: ['a'] },
+    y: { level: 'Intermediate', labelIds: ['s','old'], artistIds: ['a'] },
+    z: { level: 'Advanced' },
+    orphan: { level: 'Advanced', labelIds: ['s','m','p','t','mu','v','unused'], artistIds: ['a'] },
+  }};
+  const videos = ['x','x','y','z','unset'].map(id => ({ id }));
+  const before = JSON.stringify(state);
+  renderLabelManager(page, { state: () => state, videos: () => videos, save: () => { throw new Error('Counting must not save'); }, toast: () => {} });
+  const select = title => [...page.querySelectorAll('[role=tab]')].find(tab => tab.textContent.trim().startsWith(title)).click();
+  const assertCount = (title, id, n) => {
+    select(title);
+    assert.match(page.querySelector('[data-edit="' + id + '"]').closest('article').textContent, new RegExp(' · ' + n + ' videos'));
+  };
+  assertCount('Styles','s',2);
+  assertCount('Moves','m',1);
+  assertCount('Moves','unused',0);
+  assertCount('Positions','p',1);
+  assertCount('Techniques','t',1);
+  assertCount('Musicality','mu',1);
+  assertCount('Artists','a',2);
+  assertCount('Video types','v',1);
+  select('Levels');
+  assert.deepEqual([...page.querySelectorAll('.label-row-main span')].map(el => el.textContent), ['Level · 1 videos','Level · 1 videos','Level · 1 videos']);
+  assert.match(page.querySelector('#label-result-count').textContent, /4 videos · 1 without a level/);
+  assert.equal(page.querySelectorAll('[data-edit],[data-delete]').length, 0);
+  assert.equal(JSON.stringify(state), before);
   dom.window.close();
 });

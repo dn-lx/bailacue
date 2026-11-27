@@ -46,8 +46,9 @@ export function renderLabelManager(page, ctx) {
     { type: 'Artist', title: 'Artists', singular: 'artist', types: ['Artist', 'Teacher'] },
     { type: 'Video type', title: 'Video types', singular: 'video type', types: ['Video type'] },
   ];
-  // Level is a fixed field on videos; retain access to any legacy level labels.
-  if (ctx.state().labels.some(label => label.type === 'Level')) categories.push({ type: 'Level', title: 'Legacy levels', singular: 'level', types: ['Level'] });
+  // Levels are a fixed video field, not editable vocabulary labels.
+  categories.push({ type: 'Level', title: 'Levels', singular: 'level', types: ['Level'] });
+  const fixedLevels = ['Basic', 'Intermediate', 'Advanced'];
   let active = categories[0];
   const belongs = (label, category = active) => category.types.includes(label.type);
   page.innerHTML = `<div class="page-heading"><div><span class="eyebrow">YOUR DANCE VOCABULARY</span><h1>Labels</h1><p>Manage your dance vocabulary by category. Set each video’s Level in its detail form.</p></div></div><div class="label-category-tabs" role="tablist" aria-label="Label categories">${categories.map((category, i) => `<button type="button" role="tab" id="label-tab-${i}" aria-controls="label-category-panel" aria-selected="${i === 0}" tabindex="${i === 0 ? 0 : -1}" data-label-category="${i}">${esc(category.title)} <span class="label-tab-count" aria-hidden="true"></span></button>`).join('')}</div><div id="label-category-panel" role="tabpanel" aria-labelledby="label-tab-0" class="label-workspace"><section class="editor-panel" id="label-create-panel"><h2 id="label-create-heading">Add style</h2><form id="label-form"><label class="field"><span class="field-label">Name</span><input id="new-label-name" maxlength="80" required placeholder="Enter a name"></label><label class="field"><span class="field-label">Dance</span><select id="new-label-dance"><option>Both</option><option>Salsa</option><option>Bachata</option></select></label><p class="form-error" id="label-error" role="alert"></p><button class="button primary" type="submit" id="label-create-submit">Add style</button></form></section><section class="label-directory"><div class="directory-toolbar"><label class="search-box"><input id="manage-label-search" type="search" placeholder="Search styles" aria-label="Search styles"></label></div><p class="label-result-count muted" id="label-result-count" role="status"></p><div id="label-list"></div></section></div>`;
@@ -58,7 +59,7 @@ export function renderLabelManager(page, ctx) {
     tabs.forEach((tab, i) => {
       tab.setAttribute('aria-selected', String(i === index));
       tab.tabIndex = i === index ? 0 : -1;
-      const count = ctx.state().labels.filter(label => belongs(label, categories[i])).length;
+      const count = categories[i].type === 'Level' ? fixedLevels.length : ctx.state().labels.filter(label => belongs(label, categories[i])).length;
       tab.querySelector('.label-tab-count').textContent = String(count);
     });
     page.querySelector('#label-category-panel').setAttribute('aria-labelledby', tabs[index].id);
@@ -93,14 +94,29 @@ export function renderLabelManager(page, ctx) {
   const render = () => {
     updateCategory();
     const query = normalizeName(search.value);
+    const list = page.querySelector('#label-list');
+    const videoIds = new Set(ctx.videos().map(video => video.id));
+    if (active.type === 'Level') {
+      const counts = new Map(fixedLevels.map(level => [level, 0]));
+      let unset = 0;
+      for (const id of videoIds) {
+        const level = ctx.state().meta[id]?.level;
+        if (counts.has(level)) counts.set(level, counts.get(level) + 1);
+        else unset++;
+      }
+      const levels = fixedLevels.filter(level => normalizeName(level).includes(query));
+      page.querySelector('#label-result-count').textContent = `${levels.length} of ${fixedLevels.length} levels · ${videoIds.size} videos · ${unset} without a level`;
+      list.innerHTML = levels.length ? levels.map(level => `<article class="label-row"><span class="label-symbol" aria-hidden="true">#</span><div class="label-row-main"><strong>${esc(level)}</strong><span>Level · ${counts.get(level)} videos</span></div></article>`).join('') : '<div class="empty-state"><h3>No matching levels.</h3><p>Try another search.</p></div>';
+      return;
+    }
     const categoryLabels = ctx.state().labels.filter(l => belongs(l));
     const labels = categoryLabels.filter(l => normalizeName(`${l.name} ${l.dance}`).includes(query)).sort((a, b) => a.name.localeCompare(b.name) || a.dance.localeCompare(b.dance));
     page.querySelector('#label-result-count').textContent = `${labels.length} of ${categoryLabels.length} labels`;
     const usage = new Map();
-    for (const meta of Object.values(ctx.state().meta)) {
+    for (const id of videoIds) {
+      const meta = ctx.state().meta[id] || {};
       for (const id of new Set([...(meta.moveIds || []), ...(meta.styleTimingIds || []), ...(meta.labelIds || []), ...(meta.artistIds || [])])) usage.set(id, (usage.get(id) || 0) + 1);
     }
-    const list = page.querySelector('#label-list');
     list.innerHTML = labels.length ? labels.map(l => `<article class="label-row"><span class="label-symbol" aria-hidden="true">${isArtistType(l.type) ? 'A' : '#'}</span><div class="label-row-main"><strong>${esc(l.name)}</strong><span>${esc(labelTypeName(l.type))} · ${esc(l.dance)} · ${usage.get(l.id) || 0} videos</span></div><button class="text-button" data-edit="${esc(l.id)}" aria-label="Edit ${esc(l.name)}">Edit</button><button class="icon-button" data-delete="${esc(l.id)}" aria-label="Delete ${esc(l.name)}">×</button></article>`).join('') : `<div class="empty-state"><h3>${query ? 'No matching labels.' : 'No labels in this category yet.'}</h3><p>${query ? 'Try another search.' : active.type === 'Level' ? 'Levels are set in the video detail form.' : 'Add your first label using the form.'}</p></div>`;
     list.querySelectorAll('[data-edit]').forEach(button => button.addEventListener('click', () => {
       const label = ctx.state().labels.find(l => l.id === button.dataset.edit);
